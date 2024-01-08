@@ -9,15 +9,15 @@ var valid_commands []string = []string{"look", "go", "get", "drop", "inventory",
 
 // Function to check if a slice contains a specific string
 func contains(slice []string, str string) bool {
-    // Convert the target string to lowercase
-    lowerStr := strings.ToLower(str)
-    for _, v := range slice {
-        // Compare with the lowercase version of the slice strings
-        if strings.ToLower(v) == lowerStr {
-            return true
-        }
-    }
-    return false
+	// Convert the target string to lowercase
+	lowerStr := strings.ToLower(str)
+	for _, v := range slice {
+		// Compare with the lowercase version of the slice strings
+		if strings.ToLower(v) == lowerStr {
+			return true
+		}
+	}
+	return false
 }
 
 // Function to process the command
