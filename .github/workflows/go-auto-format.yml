@@ -1,7 +1,10 @@
 name: Auto-format
 
 on:
-  pull_request:
+    push:
+      branches: [ develop ]
+    pull_request:
+      branches: [ develop ]
 
 jobs:
   auto-format:
