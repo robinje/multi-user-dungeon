@@ -3,8 +3,8 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"net"
 	"log"
+	"net"
 	"strings"
 	"sync"
 )
@@ -62,32 +62,32 @@ func (s *Server) handleConnection(conn net.Conn) {
 }
 
 func (s *Server) InputLoop(conn net.Conn) {
-    reader := bufio.NewReader(conn)
+	reader := bufio.NewReader(conn)
 
-    for {
-        _, err := conn.Write([]byte("Command> ")) // Prompt for input
-        if err != nil {
-            log.Printf("Error writing to connection: %v", err)
-            return
-        }
+	for {
+		_, err := conn.Write([]byte("Command> ")) // Prompt for input
+		if err != nil {
+			log.Printf("Error writing to connection: %v", err)
+			return
+		}
 
-        input, err := reader.ReadString('\n')
-        if err != nil {
-            log.Printf("Error reading from connection: %v", err)
-            return // Exit the loop and close the connection
-        }
+		input, err := reader.ReadString('\n')
+		if err != nil {
+			log.Printf("Error reading from connection: %v", err)
+			return // Exit the loop and close the connection
+		}
 
-        // Process the input
-        input = strings.TrimSpace(input)
+		// Process the input
+		input = strings.TrimSpace(input)
 
-        // Validate the command
-        tokens, err := validateCommand(input, valid_commands)
-        if err != nil {
-            conn.Write([]byte(err.Error() + "\n")) // Send error message back to the player
-            continue
-        }
+		// Validate the command
+		tokens, err := validateCommand(input, valid_commands)
+		if err != nil {
+			conn.Write([]byte(err.Error() + "\n")) // Send error message back to the player
+			continue
+		}
 
-        // Command is valid; process further as needed
-        log.Printf("Valid command received: %s", strings.Join(tokens, " "))
-    }
+		// Command is valid; process further as needed
+		log.Printf("Valid command received: %s", strings.Join(tokens, " "))
+	}
 }
