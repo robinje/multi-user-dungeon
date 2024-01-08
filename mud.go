@@ -1,8 +1,9 @@
 package main
 
 import (
-	"fmt"
+	"log"
 )
+
 
 func main() {
 	// Create and start the server

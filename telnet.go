@@ -3,8 +3,8 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"log"
 	"net"
+	"log"
 	"strings"
 	"sync"
 )
