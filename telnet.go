@@ -12,6 +12,7 @@ import (
 type Server struct {
 	Port        uint16       // Port to listen on
 	Listener    net.Listener // Listener for the server
+	Players     []*Player    // List of players connected to the server
 	PlayerCount int32
 	RoomCount   int32
 	Mutex       sync.Mutex
@@ -77,17 +78,20 @@ func (s *Server) InputLoop(conn net.Conn) {
 			return // Exit the loop and close the connection
 		}
 
-		// Process the input
-		input = strings.TrimSpace(input)
-
 		// Validate the command
-		tokens, err := validateCommand(input, valid_commands)
+		verb, tokens, err := validateCommand(input, valid_commands)
 		if err != nil {
-			conn.Write([]byte(err.Error() + "\n")) // Send error message back to the player
+			conn.Write([]byte(err.Error() + "\n\r")) // Send error message back to the player
 			continue
 		}
 
-		// Command is valid; process further as needed
+		// Execute the command
+		if !executeCommand(verb, tokens, conn) {
+			// If executeCommand returns false, break the loop to end the connection
+			return
+		}
+
+		// Log the valid command
 		log.Printf("Valid command received: %s", strings.Join(tokens, " "))
 	}
 }
