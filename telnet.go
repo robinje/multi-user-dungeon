@@ -78,7 +78,6 @@ func (s *Server) InputLoop(conn net.Conn) {
 			return // Exit the loop and close the connection
 		}
 
-
 		// Validate the command
 		verb, tokens, err := validateCommand(input, valid_commands)
 		if err != nil {
