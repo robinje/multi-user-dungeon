@@ -4,7 +4,6 @@ import (
 	"log"
 )
 
-
 func main() {
 	// Create and start the server
 	server := Server{Port: 9050}
