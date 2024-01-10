@@ -7,7 +7,6 @@ import (
 )
 
 func TestValidateCommand(t *testing.T) {
-	// Define a table of test cases
 	tests := []struct {
 		name           string
 		command        string
