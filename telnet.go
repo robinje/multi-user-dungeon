@@ -27,7 +27,6 @@ func (s *Server) StartTelnetServer() error {
 
 	log.Printf("Telnet server listening on port %d", s.Port)
 
-	// Set the Player and Room counts to zero
 	s.Mutex.Lock()
 	s.PlayerCount = 0
 	s.RoomCount = 0
@@ -47,51 +46,59 @@ func (s *Server) StartTelnetServer() error {
 func (s *Server) handleConnection(conn net.Conn) {
 	defer conn.Close()
 
+	// Create a new Player instance
+	player := &Player{
+		Name:        "",
+		ToPlayer:    make(chan string),
+		FromPlayer:  make(chan string),
+		PlayerError: make(chan error),
+		Prompt:      "Command> ",
+	}
+
 	s.Mutex.Lock()
+	s.Players = append(s.Players, player)
 	s.PlayerCount++
 	s.Mutex.Unlock()
 
-	// Start the player input loop
-	s.InputLoop(conn)
+	s.InputLoop(conn, player)
 
-	// Player input loop has exited, so player is no longer connected.
-	if s.PlayerCount > 0 {
-		s.Mutex.Lock()
-		s.PlayerCount--
-		s.Mutex.Unlock()
-	}
+	// Cleanup when the player disconnects
+	s.Mutex.Lock()
+	s.PlayerCount--
+	s.Mutex.Unlock()
 }
 
-func (s *Server) InputLoop(conn net.Conn) {
+func (s *Server) InputLoop(conn net.Conn, player *Player) {
 	reader := bufio.NewReader(conn)
 
+	// Goroutine for handling player messages
+	go func() {
+		for msg := range player.ToPlayer {
+			conn.Write([]byte(msg))
+			conn.Write([]byte(player.Prompt)) // Write the prompt after sending a message
+		}
+	}()
+
+	// Initially write the prompt
+	conn.Write([]byte(player.Prompt))
+
 	for {
-		_, err := conn.Write([]byte("Command> ")) // Prompt for input
+		input, err := reader.ReadString('\n')
 		if err != nil {
-			log.Printf("Error writing to connection: %v", err)
+			player.PlayerError <- err
 			return
 		}
 
-		input, err := reader.ReadString('\n')
+		verb, tokens, err := validateCommand(strings.TrimSpace(input), valid_commands)
 		if err != nil {
-			log.Printf("Error reading from connection: %v", err)
-			return // Exit the loop and close the connection
-		}
-
-		// Validate the command
-		verb, tokens, err := validateCommand(input, valid_commands)
-		if err != nil {
-			conn.Write([]byte(err.Error() + "\n\r")) // Send error message back to the player
+			player.ToPlayer <- err.Error() + "\n\r"
 			continue
 		}
 
-		// Execute the command
-		if !executeCommand(verb, tokens, conn) {
-			// If executeCommand returns false, break the loop to end the connection
+		if !executeCommand(player, verb, tokens) {
 			return
 		}
 
-		// Log the valid command
-		log.Printf("Valid command received: %s", strings.Join(tokens, " "))
+		log.Printf("Player %s issued command: %s", player.Name, strings.Join(tokens, " "))
 	}
 }

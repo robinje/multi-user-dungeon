@@ -5,10 +5,12 @@ This is an open source project for a multi-user dungeon (MUD) game. The game is 
 The current objectives are:
 
 - [x] Create the TCP server for clinet connections.
-- [ ] Create a text parser for user input.
+- [x] Create a text parser for user input.
 - [ ] Impliment a database for the game.
 - [ ] User authentication and account creation.
 
 TODO:
 
-- [ ] Fix output formatting for the client.
+- [x] Fix output formatting for the client.
+- [ ] Allow players to enter their name.
+- [ ] Display in the incoming IP address and Port on the server.
