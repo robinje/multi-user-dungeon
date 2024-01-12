@@ -53,10 +53,10 @@ func executeCommand(player *Player, verb string, tokens []string) bool {
 	case "quit":
 		log.Printf("Player %s is quitting", player.Name)
 		player.ToPlayer <- "Goodbye!\n\r"
-		return false // Indicate that the loop should be exited
+		return true // Indicate that the loop should be exited
 
 	default:
 		player.ToPlayer <- "Command not yet implemented.\n\r"
 	}
-	return true // Indicate that the loop should continue
+	return false // Indicate that the loop should continue
 }
