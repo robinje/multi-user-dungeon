@@ -7,6 +7,7 @@ import (
 	"net"
 	"strings"
 	"sync"
+	"time"
 )
 
 type Server struct {
@@ -53,52 +54,74 @@ func (s *Server) handleConnection(conn net.Conn) {
 		FromPlayer:  make(chan string),
 		PlayerError: make(chan error),
 		Prompt:      "Command> ",
+		Connection:  conn,
 	}
+
+	// Start goroutine for handling player messages immediately
+	go func() {
+		for msg := range player.ToPlayer {
+			conn.Write([]byte(msg))
+		}
+	}()
+
+	// Ask the player for their name
+	player.AskForName()
 
 	s.Mutex.Lock()
 	s.Players = append(s.Players, player)
 	s.PlayerCount++
 	s.Mutex.Unlock()
 
-	s.InputLoop(conn, player)
+	InputLoop(player)
 
 	// Cleanup when the player disconnects
 	s.Mutex.Lock()
 	s.PlayerCount--
+	// TODO: remove the player from the Players slice here
 	s.Mutex.Unlock()
 }
 
-func (s *Server) InputLoop(conn net.Conn, player *Player) {
-	reader := bufio.NewReader(conn)
+func InputLoop(player *Player) {
+	reader := bufio.NewReader(player.Connection)
 
 	// Goroutine for handling player messages
 	go func() {
 		for msg := range player.ToPlayer {
-			conn.Write([]byte(msg))
-			conn.Write([]byte(player.Prompt)) // Write the prompt after sending a message
+			player.Connection.Write([]byte(msg))
 		}
 	}()
 
+	writePrompt := func() {
+		player.Connection.Write([]byte(player.Prompt))
+	}
+
 	// Initially write the prompt
-	conn.Write([]byte(player.Prompt))
+	writePrompt()
 
 	for {
 		input, err := reader.ReadString('\n')
 		if err != nil {
-			player.PlayerError <- err
+			// Directly write error to the connection
+			player.Connection.Write([]byte(fmt.Sprintf("Error: %v\n\r", err)))
 			return
 		}
 
 		verb, tokens, err := validateCommand(strings.TrimSpace(input), valid_commands)
 		if err != nil {
-			player.ToPlayer <- err.Error() + "\n\r"
+			// Directly write error message and prompt to the connection
+			player.Connection.Write([]byte(err.Error() + "\n\r"))
+			writePrompt()
 			continue
 		}
 
-		if !executeCommand(player, verb, tokens) {
+		if executeCommand(player, verb, tokens) {
+			time.Sleep(100 * time.Millisecond)
 			return
 		}
 
 		log.Printf("Player %s issued command: %s", player.Name, strings.Join(tokens, " "))
+
+		// Write the prompt after processing the command
+		writePrompt()
 	}
 }
