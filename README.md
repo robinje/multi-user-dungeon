@@ -8,9 +8,15 @@ The current objectives are:
 - [x] Create a text parser for user input.
 - [ ] Impliment a database for the game.
 - [ ] User authentication and account creation.
+- [ ] Build a private messaging system.
+- [ ] Build game mechanics.
 
 TODO:
 
 - [x] Fix output formatting for the client.
 - [x] Allow players to enter their name.
 - [ ] Display in the incoming IP address and Port on the server.
+- [x] Add a help command.
+- [ ] Add a message of the day (MOTD) command.
+- [ ] Add a player list command.
+- [ ] Impliment Logging.
