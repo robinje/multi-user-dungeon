@@ -12,5 +12,5 @@ The current objectives are:
 TODO:
 
 - [x] Fix output formatting for the client.
-- [ ] Allow players to enter their name.
+- [x] Allow players to enter their name.
 - [ ] Display in the incoming IP address and Port on the server.

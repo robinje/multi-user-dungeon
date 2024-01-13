@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"strings"
 )
@@ -54,6 +55,25 @@ func executeCommand(player *Player, verb string, tokens []string) bool {
 		log.Printf("Player %s is quitting", player.Name)
 		player.ToPlayer <- "Goodbye!\n\r"
 		return true // Indicate that the loop should be exited
+
+	case "say":
+		if len(tokens) < 2 {
+			player.ToPlayer <- "What do you want to say?\n\r"
+			return false
+		}
+		message := strings.Join(tokens[1:], " ")
+		broadcastMessage := fmt.Sprintf("\n\r%s says: %s\n\r", player.Name, message)
+		player.Server.Mutex.Lock()
+		for _, p := range player.Server.Players {
+			if p != player {
+				// Send message and prompt to other players
+				p.ToPlayer <- broadcastMessage + p.Prompt
+			}
+		}
+		player.Server.Mutex.Unlock()
+		// Send only the broadcast message to the player who issued the command
+		player.ToPlayer <- fmt.Sprintf("You say: %s\n\r", message)
+		return false
 
 	default:
 		player.ToPlayer <- "Command not yet implemented.\n\r"

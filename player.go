@@ -14,6 +14,7 @@ type Player struct {
 	PlayerError chan error
 	Prompt      string
 	Connection  net.Conn
+	Server      *Server
 }
 
 // AskForName prompts the player for their name and sets it in the Player struct
@@ -22,4 +23,9 @@ func (p *Player) AskForName() {
 	reader := bufio.NewReader(p.Connection)
 	name, _ := reader.ReadString('\n')
 	p.Name = strings.TrimSpace(name)
+}
+
+// WritePrompt sends the command prompt to the player
+func (p *Player) WritePrompt() {
+	p.Connection.Write([]byte(p.Prompt))
 }

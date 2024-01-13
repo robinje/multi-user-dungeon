@@ -58,6 +58,7 @@ func (s *Server) handleConnection(conn net.Conn) {
 		PlayerError: make(chan error),
 		Prompt:      "Command> ",
 		Connection:  conn,
+		Server:      s,
 	}
 
 	// Start goroutine for handling player messages immediately
@@ -95,26 +96,20 @@ func InputLoop(player *Player) {
 		}
 	}()
 
-	writePrompt := func() {
-		player.Connection.Write([]byte(player.Prompt))
-	}
-
 	// Initially write the prompt
-	writePrompt()
+	player.WritePrompt()
 
 	for {
 		input, err := reader.ReadString('\n')
 		if err != nil {
-			// Directly write error to the connection
 			player.Connection.Write([]byte(fmt.Sprintf("Error: %v\n\r", err)))
 			return
 		}
 
 		verb, tokens, err := validateCommand(strings.TrimSpace(input), valid_commands)
 		if err != nil {
-			// Directly write error message and prompt to the connection
 			player.Connection.Write([]byte(err.Error() + "\n\r"))
-			writePrompt()
+			player.WritePrompt()
 			continue
 		}
 
@@ -126,6 +121,6 @@ func InputLoop(player *Player) {
 		log.Printf("Player %s issued command: %s", player.Name, strings.Join(tokens, " "))
 
 		// Write the prompt after processing the command
-		writePrompt()
+		player.WritePrompt()
 	}
 }
