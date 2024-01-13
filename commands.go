@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-var valid_commands []string = []string{"look", "go", "get", "drop", "inventory", "quit", "say"}
+var valid_commands []string = []string{"look", "go", "get", "drop", "inventory", "help", "quit", "say"}
 
 // Function to check if a slice contains a specific string
 func contains(slice []string, str string) bool {
@@ -57,6 +57,9 @@ func executeCommand(player *Player, verb string, tokens []string) bool {
 	case "say":
 		return executeSayCommand(player, tokens)
 
+	case "help":
+		return executeHelpCommand(player)
+
 	default:
 		player.ToPlayer <- "Command not yet implemented.\n\r"
 	}
@@ -91,5 +94,15 @@ func executeSayCommand(player *Player, tokens []string) bool {
 	// Send only the broadcast message to the player who issued the command
 	player.ToPlayer <- fmt.Sprintf("You say: %s\n\r", message)
 
+	return false
+}
+
+func executeHelpCommand(player *Player) bool {
+	helpMessage := "Available Commands:\n\r" +
+		"quit - Quit the game\n\r" +
+		"say <message> - Say something to all players\n\r" +
+		"help - Display available commands\n\r"
+
+	player.ToPlayer <- helpMessage
 	return false
 }
