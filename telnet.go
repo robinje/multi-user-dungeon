@@ -13,9 +13,10 @@ import (
 type Server struct {
 	Port        uint16       // Port to listen on
 	Listener    net.Listener // Listener for the server
-	Players     []*Player    // List of players connected to the server
-	PlayerCount int32
-	RoomCount   int32
+	PlayerIndex uint32
+	Players     map[uint32]*Player
+	PlayerCount uint32
+	RoomCount   uint32
 	Mutex       sync.Mutex
 }
 
@@ -31,6 +32,7 @@ func (s *Server) StartTelnetServer() error {
 	s.Mutex.Lock()
 	s.PlayerCount = 0
 	s.RoomCount = 0
+	s.PlayerIndex = 0
 	s.Mutex.Unlock()
 
 	for {
@@ -50,6 +52,7 @@ func (s *Server) handleConnection(conn net.Conn) {
 	// Create a new Player instance
 	player := &Player{
 		Name:        "",
+		Index:       s.PlayerIndex,
 		ToPlayer:    make(chan string),
 		FromPlayer:  make(chan string),
 		PlayerError: make(chan error),
@@ -64,20 +67,21 @@ func (s *Server) handleConnection(conn net.Conn) {
 		}
 	}()
 
-	// Ask the player for their name
-	player.AskForName()
-
 	s.Mutex.Lock()
-	s.Players = append(s.Players, player)
+	s.Players[s.PlayerIndex] = player
+	s.PlayerIndex++
 	s.PlayerCount++
 	s.Mutex.Unlock()
+
+	// Ask the player for their name
+	player.AskForName()
 
 	InputLoop(player)
 
 	// Cleanup when the player disconnects
 	s.Mutex.Lock()
 	s.PlayerCount--
-	// TODO: remove the player from the Players slice here
+	delete(s.Players, player.Index)
 	s.Mutex.Unlock()
 }
 
