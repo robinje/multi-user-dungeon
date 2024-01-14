@@ -1,0 +1,89 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+Parameters:
+  UserPoolName:
+    Type: String
+    Description: Name of the user pool
+    Default: my-user-pool
+  AppClientName:
+    Type: String
+    Description: Name of the app client
+    Default: my-app-client
+  CallbackURL:
+    Type: String
+    Description: URL of the callback for the app client
+    Default: https://localhost:3000/callback
+  SignOutURL:
+    Type: String
+    Description: URL of the sign-out page for the app client
+    Default: https://localhost:3000/sign-out
+Resources:
+  CognitoUserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Ref UserPoolName
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: false
+        InviteMessageTemplate:
+          EmailMessage: 'Your username is {username} and temporary password is {####}.'
+          EmailSubject: 'Your temporary password'
+          SMSMessage: 'Your username is {username} and temporary password is {####}.'
+        UnusedAccountValidityDays: 7
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: true
+          RequireUppercase: true
+      Schema:
+        - AttributeDataType: String
+          Name: email
+          Required: true
+        - AttributeDataType: String
+          Name: given_name
+          Required: false
+        - AttributeDataType: String
+          Name: family_name
+          Required: false
+  CognitoUserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      UserPoolId: !Ref CognitoUserPool
+      ClientName: !Ref AppClientName
+      GenerateSecret: false
+      ExplicitAuthFlows:
+        - USER_PASSWORD_AUTH
+      SupportedIdentityProviders:
+        - COGNITO
+      CallbackURLs:
+        - !Ref CallbackURL
+      LogoutURLs:
+        - !Ref SignOutURL
+      AllowedOAuthFlows:
+        - implicit
+      AllowedOAuthScopes:
+        - openid
+        - email
+        - profile
+  CognitoUserPoolDomain:
+    Type: AWS::Cognito::UserPoolDomain
+    Properties:
+      UserPoolId: !Ref CognitoUserPool
+      Domain: !Ref UserPoolName
+Outputs:
+  UserPoolId:
+    Description: The ID of the user pool
+    Value: !Ref CognitoUserPool
+  UserPoolArn:
+    Description: The ARN of the user pool
+    Value: !GetAtt CognitoUserPool.Arn
+  UserPoolClientId:
+    Description: The ID of the user pool client
+    Value: !Ref CognitoUserPoolClient
+  UserPoolClientSecret:
+    Description: The secret of the user pool client
+    Value: !GetAtt CognitoUserPoolClient.ClientSecret
+  UserPoolDomain:
+    Description: The domain of the user pool
+    Value: !Ref CognitoUserPoolDomain
