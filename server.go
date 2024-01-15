@@ -48,6 +48,7 @@ func (s *Server) StartSSHServer() error {
 	log.Printf("SSH server listening on port %d", s.Port)
 
 	s.Mutex.Lock()
+	s.Players = make(map[uint32]*Player) // Initialize the Players map
 	s.PlayerCount = 0
 	s.RoomCount = 0
 	s.PlayerIndex = 0
@@ -79,50 +80,40 @@ func (s *Server) handleChannels(channels <-chan ssh.NewChannel) {
 			continue
 		}
 
-		go func(in <-chan *ssh.Request) {
-			for req := range in {
-				// Process SSH requests
-			}
-		}(requests)
-
-		go s.handleSSHConnection(channel)
-	}
-}
-
-func (s *Server) handleSSHConnection(channel ssh.Channel) {
-	defer channel.Close()
-
-	player := &Player{
-		Name:        "",
-		Index:       s.PlayerIndex,
-		ToPlayer:    make(chan string),
-		FromPlayer:  make(chan string),
-		PlayerError: make(chan error),
-		Prompt:      "Command> ",
-		Connection:  channel,
-		Server:      s,
-	}
-
-	go func() {
-		for msg := range player.ToPlayer {
-			channel.Write([]byte(msg))
+		player := &Player{
+			Name:        "",
+			Index:       s.PlayerIndex,
+			ToPlayer:    make(chan string),
+			FromPlayer:  make(chan string),
+			PlayerError: make(chan error),
+			Prompt:      "Command> ",
+			Connection:  channel,
+			Server:      s,
 		}
-	}()
 
-	s.Mutex.Lock()
-	s.Players[s.PlayerIndex] = player
-	s.PlayerIndex++
-	s.PlayerCount++
-	s.Mutex.Unlock()
+		// Handle SSH requests (pty-req, shell, window-change)
+		go player.HandleSSHRequests(requests)
 
-	player.AskForName()
+		// Initialize player
+		go func(p *Player) {
+			defer p.Connection.Close()
 
-	InputLoop(player)
+			p.AskForName()
 
-	s.Mutex.Lock()
-	s.PlayerCount--
-	delete(s.Players, player.Index)
-	s.Mutex.Unlock()
+			InputLoop(p)
+
+			s.Mutex.Lock()
+			s.PlayerCount--
+			delete(s.Players, p.Index)
+			s.Mutex.Unlock()
+		}(player)
+
+		s.Mutex.Lock()
+		s.Players[s.PlayerIndex] = player
+		s.PlayerIndex++
+		s.PlayerCount++
+		s.Mutex.Unlock()
+	}
 }
 
 func InputLoop(player *Player) {
@@ -159,4 +150,11 @@ func InputLoop(player *Player) {
 
 		player.WritePrompt()
 	}
+}
+
+// Helper function to parse terminal dimensions from payload
+func parseDims(b []byte) (width, height int) {
+	width = int(b[0])<<24 | int(b[1])<<16 | int(b[2])<<8 | int(b[3])
+	height = int(b[4])<<24 | int(b[5])<<16 | int(b[6])<<8 | int(b[7])
+	return width, height
 }
