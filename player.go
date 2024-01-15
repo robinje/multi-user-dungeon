@@ -1,9 +1,6 @@
 package main
 
 import (
-	"bufio"
-	"strings"
-
 	"golang.org/x/crypto/ssh"
 )
 
@@ -14,18 +11,10 @@ type Player struct {
 	FromPlayer    chan string
 	PlayerError   chan error
 	Prompt        string
-	Connection    ssh.Channel // Changed from net.Conn to ssh.Channel
+	Connection    ssh.Channel
 	Server        *Server
 	ConsoleWidth  int
 	ConsoleHeight int
-}
-
-// AskForName prompts the player for their name and sets it in the Player struct
-func (p *Player) AskForName() {
-	p.ToPlayer <- "Enter your name: "
-	reader := bufio.NewReader(p.Connection)
-	name, _ := reader.ReadString('\n')
-	p.Name = strings.TrimSpace(name)
 }
 
 // WritePrompt sends the command prompt to the player

@@ -2,7 +2,9 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net"
@@ -68,11 +70,11 @@ func (s *Server) StartSSHServer() error {
 		}
 
 		go ssh.DiscardRequests(reqs)
-		go s.handleChannels(chans)
+		go s.handleChannels(sshConn, chans)
 	}
 }
 
-func (s *Server) handleChannels(channels <-chan ssh.NewChannel) {
+func (s *Server) handleChannels(sshConn *ssh.ServerConn, channels <-chan ssh.NewChannel) {
 	for newChannel := range channels {
 		channel, requests, err := newChannel.Accept()
 		if err != nil {
@@ -81,7 +83,7 @@ func (s *Server) handleChannels(channels <-chan ssh.NewChannel) {
 		}
 
 		player := &Player{
-			Name:        "",
+			Name:        sshConn.User(),
 			Index:       s.PlayerIndex,
 			ToPlayer:    make(chan string),
 			FromPlayer:  make(chan string),
@@ -98,8 +100,7 @@ func (s *Server) handleChannels(channels <-chan ssh.NewChannel) {
 		go func(p *Player) {
 			defer p.Connection.Close()
 
-			p.AskForName()
-
+			log.Printf("Player %s connected", p.Name)
 			InputLoop(p)
 
 			s.Mutex.Lock()
@@ -127,28 +128,48 @@ func InputLoop(player *Player) {
 
 	player.WritePrompt()
 
+	var inputBuffer bytes.Buffer
 	for {
-		input, err := reader.ReadString('\n')
+		char, _, err := reader.ReadRune()
 		if err != nil {
-			player.Connection.Write([]byte(fmt.Sprintf("Error: %v\n\r", err)))
+			if err != io.EOF {
+				player.Connection.Write([]byte(fmt.Sprintf("Error: %v\n\r", err)))
+			}
 			return
 		}
 
-		verb, tokens, err := validateCommand(strings.TrimSpace(input), valid_commands)
-		if err != nil {
-			player.Connection.Write([]byte(err.Error() + "\n\r"))
+		// Echo the character back to the player
+		player.Connection.Write([]byte(string(char)))
+
+		// Add character to buffer
+		inputBuffer.WriteRune(char)
+
+		// Check if the character is a newline
+		if char == '\n' {
+			inputLine := inputBuffer.String()
+
+			// Normalize line ending to \n\r
+			inputLine = strings.Replace(inputLine, "\n", "\n\r", -1)
+
+			// Process the command
+			verb, tokens, err := validateCommand(strings.TrimSpace(inputLine), valid_commands)
+			if err != nil {
+				player.Connection.Write([]byte(err.Error() + "\n\r"))
+				player.WritePrompt()
+				inputBuffer.Reset()
+				continue
+			}
+
+			if executeCommand(player, verb, tokens) {
+				time.Sleep(100 * time.Millisecond)
+				inputBuffer.Reset()
+				return
+			}
+
+			log.Printf("Player %s issued command: %s", player.Name, strings.Join(tokens, " "))
 			player.WritePrompt()
-			continue
+			inputBuffer.Reset()
 		}
-
-		if executeCommand(player, verb, tokens) {
-			time.Sleep(100 * time.Millisecond)
-			return
-		}
-
-		log.Printf("Player %s issued command: %s", player.Name, strings.Join(tokens, " "))
-
-		player.WritePrompt()
 	}
 }
 
