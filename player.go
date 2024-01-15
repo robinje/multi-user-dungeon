@@ -2,8 +2,9 @@ package main
 
 import (
 	"bufio"
-	"net"
 	"strings"
+
+	"golang.org/x/crypto/ssh"
 )
 
 type Player struct {
@@ -13,7 +14,7 @@ type Player struct {
 	FromPlayer  chan string
 	PlayerError chan error
 	Prompt      string
-	Connection  net.Conn
+	Connection  ssh.Channel // Changed from net.Conn to ssh.Channel
 	Server      *Server
 }
 

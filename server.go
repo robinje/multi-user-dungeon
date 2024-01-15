@@ -3,16 +3,20 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net"
 	"strings"
 	"sync"
 	"time"
+
+	"golang.org/x/crypto/ssh"
 )
 
 type Server struct {
-	Port        uint16       // Port to listen on
-	Listener    net.Listener // Listener for the server
+	Port        uint16
+	Listener    net.Listener
+	SSHConfig   *ssh.ServerConfig
 	PlayerIndex uint32
 	Players     map[uint32]*Player
 	PlayerCount uint32
@@ -20,14 +24,28 @@ type Server struct {
 	Mutex       sync.Mutex
 }
 
-func (s *Server) StartTelnetServer() error {
+func (s *Server) StartSSHServer() error {
+	privateBytes, err := ioutil.ReadFile("./server.key")
+	if err != nil {
+		return err
+	}
+	private, err := ssh.ParsePrivateKey(privateBytes)
+	if err != nil {
+		return err
+	}
+
+	s.SSHConfig = &ssh.ServerConfig{
+		NoClientAuth: true,
+	}
+	s.SSHConfig.AddHostKey(private)
+
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", s.Port))
 	if err != nil {
 		return err
 	}
 	s.Listener = listener
 
-	log.Printf("Telnet server listening on port %d", s.Port)
+	log.Printf("SSH server listening on port %d", s.Port)
 
 	s.Mutex.Lock()
 	s.PlayerCount = 0
@@ -42,14 +60,38 @@ func (s *Server) StartTelnetServer() error {
 			continue
 		}
 
-		go s.handleConnection(conn)
+		sshConn, chans, reqs, err := ssh.NewServerConn(conn, s.SSHConfig)
+		if err != nil {
+			log.Printf("Failed to handshake: %v", err)
+			continue
+		}
+
+		go ssh.DiscardRequests(reqs)
+		go s.handleChannels(chans)
 	}
 }
 
-func (s *Server) handleConnection(conn net.Conn) {
-	defer conn.Close()
+func (s *Server) handleChannels(channels <-chan ssh.NewChannel) {
+	for newChannel := range channels {
+		channel, requests, err := newChannel.Accept()
+		if err != nil {
+			log.Printf("Could not accept channel: %v", err)
+			continue
+		}
 
-	// Create a new Player instance
+		go func(in <-chan *ssh.Request) {
+			for req := range in {
+				// Process SSH requests
+			}
+		}(requests)
+
+		go s.handleSSHConnection(channel)
+	}
+}
+
+func (s *Server) handleSSHConnection(channel ssh.Channel) {
+	defer channel.Close()
+
 	player := &Player{
 		Name:        "",
 		Index:       s.PlayerIndex,
@@ -57,14 +99,13 @@ func (s *Server) handleConnection(conn net.Conn) {
 		FromPlayer:  make(chan string),
 		PlayerError: make(chan error),
 		Prompt:      "Command> ",
-		Connection:  conn,
+		Connection:  channel,
 		Server:      s,
 	}
 
-	// Start goroutine for handling player messages immediately
 	go func() {
 		for msg := range player.ToPlayer {
-			conn.Write([]byte(msg))
+			channel.Write([]byte(msg))
 		}
 	}()
 
@@ -74,12 +115,10 @@ func (s *Server) handleConnection(conn net.Conn) {
 	s.PlayerCount++
 	s.Mutex.Unlock()
 
-	// Ask the player for their name
 	player.AskForName()
 
 	InputLoop(player)
 
-	// Cleanup when the player disconnects
 	s.Mutex.Lock()
 	s.PlayerCount--
 	delete(s.Players, player.Index)
@@ -89,14 +128,12 @@ func (s *Server) handleConnection(conn net.Conn) {
 func InputLoop(player *Player) {
 	reader := bufio.NewReader(player.Connection)
 
-	// Goroutine for handling player messages
 	go func() {
 		for msg := range player.ToPlayer {
 			player.Connection.Write([]byte(msg))
 		}
 	}()
 
-	// Initially write the prompt
 	player.WritePrompt()
 
 	for {
@@ -120,7 +157,6 @@ func InputLoop(player *Player) {
 
 		log.Printf("Player %s issued command: %s", player.Name, strings.Join(tokens, " "))
 
-		// Write the prompt after processing the command
 		player.WritePrompt()
 	}
 }
