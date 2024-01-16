@@ -51,7 +51,6 @@ func validateCommand(command string, validCommands []string) (string, []string, 
 	return verb, tokens, nil
 }
 
-
 func executeCommand(player *Player, verb string, tokens []string) bool {
 	command := strings.ToLower(verb)
 
