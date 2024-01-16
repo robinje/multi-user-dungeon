@@ -14,11 +14,11 @@ func TestValidateCommand(t *testing.T) {
 		expectedTokens []string
 		expectedErr    string
 	}{
-		{"empty command", "", "", nil, "No command entered."},
-		{"invalid command", "fly me to the moon", "", []string{"fly", "me", "to", "the", "moon"}, "I don't understand your command."},
+		{"empty command", "", "", nil, "\n\rNo command entered.\n\r"},
+		{"invalid command", "fly me to the moon", "", []string{"fly", "me", "to", "the", "moon"}, "\n\rI don't understand your command."},
 		{"valid command", "go north", "go", []string{"go", "north"}, ""},
 		{"extra spaces", "  look  ", "look", []string{"look"}, ""},
-		{"mixed case", "GeT item", "GeT", []string{"GeT", "item"}, ""},
+		{ "mixed case", "GeT item", "get", []string{"get", "item"}, "",},
 	}
 
 	for _, tt := range tests {

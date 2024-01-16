@@ -23,7 +23,6 @@ func contains(slice []string, str string) bool {
 // Function to process the command
 func validateCommand(command string, validCommands []string) (string, []string, error) {
 	trimmedCommand := strings.TrimSpace(command)
-
 	tokens := strings.Fields(trimmedCommand)
 
 	if len(tokens) == 0 {
@@ -31,6 +30,11 @@ func validateCommand(command string, validCommands []string) (string, []string, 
 	}
 
 	verb := ""
+
+	// Convert all tokens to lowercase
+	for i, token := range tokens {
+		tokens[i] = strings.ToLower(token)
+	}
 
 	// Iterate through the tokens to find the first valid verb
 	for _, token := range tokens {
@@ -46,6 +50,7 @@ func validateCommand(command string, validCommands []string) (string, []string, 
 
 	return verb, tokens, nil
 }
+
 
 func executeCommand(player *Player, verb string, tokens []string) bool {
 	command := strings.ToLower(verb)
