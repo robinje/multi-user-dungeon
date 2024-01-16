@@ -145,7 +145,7 @@ func InputLoop(player *Player) {
 		inputBuffer.WriteRune(char)
 
 		// Check if the character is a newline
-		if char == '\n' {
+		if char == '\n' || char == '\r' {
 			inputLine := inputBuffer.String()
 
 			// Normalize line ending to \n\r

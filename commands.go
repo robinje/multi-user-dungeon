@@ -27,7 +27,7 @@ func validateCommand(command string, validCommands []string) (string, []string, 
 	tokens := strings.Fields(trimmedCommand)
 
 	if len(tokens) == 0 {
-		return "", nil, errors.New("No command entered.")
+		return "", nil, errors.New("\n\rNo command entered.\n\r")
 	}
 
 	verb := ""
@@ -41,7 +41,7 @@ func validateCommand(command string, validCommands []string) (string, []string, 
 	}
 
 	if verb == "" {
-		return verb, tokens, errors.New("I don't understand your command.")
+		return verb, tokens, errors.New("\n\rI don't understand your command.")
 	}
 
 	return verb, tokens, nil
@@ -61,7 +61,7 @@ func executeCommand(player *Player, verb string, tokens []string) bool {
 		return executeHelpCommand(player)
 
 	default:
-		player.ToPlayer <- "Command not yet implemented.\n\r"
+		player.ToPlayer <- "\n\rCommand not yet implemented.\n\r"
 	}
 
 	return false // Indicate that the loop should continue
@@ -69,13 +69,13 @@ func executeCommand(player *Player, verb string, tokens []string) bool {
 
 func executeQuitCommand(player *Player) bool {
 	log.Printf("Player %s is quitting", player.Name)
-	player.ToPlayer <- "Goodbye!\n\r"
+	player.ToPlayer <- "\n\rGoodbye!"
 	return true // Indicate that the loop should be exited
 }
 
 func executeSayCommand(player *Player, tokens []string) bool {
 	if len(tokens) < 2 {
-		player.ToPlayer <- "What do you want to say?\n\r"
+		player.ToPlayer <- "\n\rWhat do you want to say?\n\r"
 		return false
 	}
 
@@ -92,16 +92,16 @@ func executeSayCommand(player *Player, tokens []string) bool {
 	player.Server.Mutex.Unlock()
 
 	// Send only the broadcast message to the player who issued the command
-	player.ToPlayer <- fmt.Sprintf("You say: %s\n\r", message)
+	player.ToPlayer <- fmt.Sprintf("\n\rYou say: %s\n\r", message)
 
 	return false
 }
 
 func executeHelpCommand(player *Player) bool {
-	helpMessage := "Available Commands:\n\r" +
-		"quit - Quit the game\n\r" +
-		"say <message> - Say something to all players\n\r" +
-		"help - Display available commands\n\r"
+	helpMessage := "\n\rAvailable Commands:" +
+		"\n\rquit - Quit the game" +
+		"\n\rsay <message> - Say something to all players" +
+		"\n\rhelp - Display available commands\n\r"
 
 	player.ToPlayer <- helpMessage
 	return false
