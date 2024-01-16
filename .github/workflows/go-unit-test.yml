@@ -19,4 +19,6 @@ jobs:
             go-version: 1.21
 
         - name: Run tests
-          run: go test -v ./...
+          run: |
+            go get github.com/robinje/multi-user-dungeon
+            go test -v ./...
