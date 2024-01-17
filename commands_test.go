@@ -18,7 +18,7 @@ func TestValidateCommand(t *testing.T) {
 		{"invalid command", "fly me to the moon", "", []string{"fly", "me", "to", "the", "moon"}, "\n\rI don't understand your command."},
 		{"valid command", "go north", "go", []string{"go", "north"}, ""},
 		{"extra spaces", "  look  ", "look", []string{"look"}, ""},
-		{ "mixed case", "GeT item", "get", []string{"get", "item"}, "",},
+		{"mixed case", "GeT item", "get", []string{"get", "item"}, ""},
 	}
 
 	for _, tt := range tests {
