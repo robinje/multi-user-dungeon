@@ -21,7 +21,27 @@ var poolData = {
 var userPool = new AmazonCognitoIdentity.CognitoUserPool(poolData);
 
 function registerUser() {
-    // ... existing registration code ...
+    var email = document.getElementById('email').value;
+    var password = document.getElementById('password').value;
+
+    var attributeList = [];
+
+    var dataEmail = {
+        Name: 'email',
+        Value: email
+    };
+
+    var attributeEmail = new AmazonCognitoIdentity.CognitoUserAttribute(dataEmail);
+    attributeList.push(attributeEmail);
+
+    userPool.signUp(email, password, attributeList, null, function(err, result) {
+        if (err) {
+            alert(err.message || JSON.stringify(err));
+            return;
+        }
+        var cognitoUser = result.user;
+        console.log('User registration successful: ' + cognitoUser.getUsername());
+    });
 }
 
 function requestPasswordReset() {
@@ -47,7 +67,7 @@ function resetPassword() {
     var email = document.getElementById('resetEmail').value;
     var verificationCode = document.getElementById('verificationCode').value;
     var newPassword = document.getElementById('newPassword').value;
-    
+
     var userData = {
         Username: email,
         Pool: userPool
