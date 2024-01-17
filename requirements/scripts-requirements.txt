@@ -1,0 +1,4 @@
+boto3==1.34.21
+
+botocore==1.34.21
+s3transfer==0.10.0
