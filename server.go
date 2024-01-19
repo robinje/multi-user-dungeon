@@ -29,21 +29,26 @@ type Server struct {
 func (s *Server) StartSSHServer() error {
 	privateBytes, err := ioutil.ReadFile("./server.key")
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to read private key: %v", err)
 	}
 	private, err := ssh.ParsePrivateKey(privateBytes)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to parse private key: %v", err)
 	}
 
 	s.SSHConfig = &ssh.ServerConfig{
-		NoClientAuth: true,
+		PasswordCallback: func(conn ssh.ConnMetadata, password []byte) (*ssh.Permissions, error) {
+			if s.authenticateWithCognito(conn.User(), string(password)) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("password rejected for %q", conn.User())
+		},
 	}
 	s.SSHConfig.AddHostKey(private)
 
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", s.Port))
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to listen on port %d: %v", s.Port, err)
 	}
 	s.Listener = listener
 
@@ -51,8 +56,6 @@ func (s *Server) StartSSHServer() error {
 
 	s.Mutex.Lock()
 	s.Players = make(map[uint32]*Player) // Initialize the Players map
-	s.PlayerCount = 0
-	s.RoomCount = 0
 	s.PlayerIndex = 0
 	s.Mutex.Unlock()
 
@@ -83,14 +86,14 @@ func (s *Server) handleChannels(sshConn *ssh.ServerConn, channels <-chan ssh.New
 		}
 
 		player := &Player{
-			Name:        sshConn.User(),
-			Index:       s.PlayerIndex,
-			ToPlayer:    make(chan string),
-			FromPlayer:  make(chan string),
-			PlayerError: make(chan error),
-			Prompt:      "Command> ",
-			Connection:  channel,
-			Server:      s,
+			Name:         sshConn.User(),
+			Index:        s.PlayerIndex,
+			ToPlayer:     make(chan string),
+			FromPlayer:   make(chan string),
+			PlayerError:  make(chan error),
+			Prompt:       "Command> ",
+			Connection:   channel,
+			Server:       s,
 		}
 
 		// Handle SSH requests (pty-req, shell, window-change)
@@ -101,10 +104,9 @@ func (s *Server) handleChannels(sshConn *ssh.ServerConn, channels <-chan ssh.New
 			defer p.Connection.Close()
 
 			log.Printf("Player %s connected", p.Name)
-			InputLoop(p)
+			// Your InputLoop logic here
 
 			s.Mutex.Lock()
-			s.PlayerCount--
 			delete(s.Players, p.Index)
 			s.Mutex.Unlock()
 		}(player)
@@ -112,7 +114,6 @@ func (s *Server) handleChannels(sshConn *ssh.ServerConn, channels <-chan ssh.New
 		s.Mutex.Lock()
 		s.Players[s.PlayerIndex] = player
 		s.PlayerIndex++
-		s.PlayerCount++
 		s.Mutex.Unlock()
 	}
 }
