@@ -86,14 +86,14 @@ func (s *Server) handleChannels(sshConn *ssh.ServerConn, channels <-chan ssh.New
 		}
 
 		player := &Player{
-			Name:         sshConn.User(),
-			Index:        s.PlayerIndex,
-			ToPlayer:     make(chan string),
-			FromPlayer:   make(chan string),
-			PlayerError:  make(chan error),
-			Prompt:       "Command> ",
-			Connection:   channel,
-			Server:       s,
+			Name:        sshConn.User(),
+			Index:       s.PlayerIndex,
+			ToPlayer:    make(chan string),
+			FromPlayer:  make(chan string),
+			PlayerError: make(chan error),
+			Prompt:      "Command> ",
+			Connection:  channel,
+			Server:      s,
 		}
 
 		// Handle SSH requests (pty-req, shell, window-change)

@@ -7,7 +7,7 @@ import (
 type Player struct {
 	Index         uint32
 	Name          string
-	UUID		  string
+	UUID          string
 	ToPlayer      chan string
 	FromPlayer    chan string
 	PlayerError   chan error
