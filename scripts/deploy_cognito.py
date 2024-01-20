@@ -119,3 +119,5 @@ def main():
 
     # Update configuration file with stack outputs
     update_configuration_file(outputs)
+
+main()
