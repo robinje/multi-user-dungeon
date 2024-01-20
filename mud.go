@@ -9,10 +9,10 @@ import (
 
 type Configuration struct {
 	Port           uint16 `json:"Port"`
-	userPool       string `json:"userPool"`
-	clientSecret   string `json:"clientSecret"`
-	userPoolRegion string `json:"userPoolRegion"`
-	AppClientID    string `json:"AppClientID"`
+	UserPoolID     string `json:"UserPoolId"`
+	ClientSecret   string `json:"UserPoolClientSecret"`
+	UserPoolRegion string `json:"UserPoolRegion"`
+	ClientID       string `json:"UserPoolClientId"`
 }
 
 func main() {

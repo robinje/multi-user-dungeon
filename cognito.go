@@ -11,19 +11,19 @@ import (
 	"github.com/aws/aws-sdk-go/service/cognitoidentityprovider"
 )
 
-func SignUpUser(email string, password string) (*cognitoidentityprovider.SignUpOutput, error) {
+func SignUpUser(email string, password string, config Configuration) (*cognitoidentityprovider.SignUpOutput, error) {
 	sess, err := session.NewSession(&aws.Config{
-		Region: aws.String(config.userPoolRegion),
+		Region: aws.String(config.UserPoolRegion),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create AWS session: %v", err)
 	}
 	cognitoClient := cognitoidentityprovider.New(sess)
 
-	secretHash := calculateSecretHash(config.cognitoAppClientID, config.clientSecret, email)
+	secretHash := calculateSecretHash(config.ClientID, config.ClientSecret, email)
 
 	input := &cognitoidentityprovider.SignUpInput{
-		ClientId:   aws.String(config.cognitoAppClientID),
+		ClientId:   aws.String(config.ClientID),
 		Username:   aws.String(email),
 		Password:   aws.String(password),
 		SecretHash: aws.String(secretHash),
@@ -51,19 +51,19 @@ func calculateSecretHash(cognitoAppClientID, clientSecret, email string) string 
 	return encodedMessage
 }
 
-func ConfirmUser(email string, userSub string, confirmationCode string) (*cognitoidentityprovider.ConfirmSignUpOutput, error) {
+func ConfirmUser(email string, userSub string, confirmationCode string, config Configuration) (*cognitoidentityprovider.ConfirmSignUpOutput, error) {
 	sess, err := session.NewSession(&aws.Config{
-		Region: aws.String(config.userPoolRegion),
+		Region: aws.String(config.UserPoolRegion),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create AWS session: %v", err)
 	}
 	cognitoClient := cognitoidentityprovider.New(sess)
 
-	secretHash := calculateSecretHash(config.cognitoAppClientID, config.clientSecret, email)
+	secretHash := calculateSecretHash(config.ClientID, config.ClientSecret, email)
 
 	input := &cognitoidentityprovider.ConfirmSignUpInput{
-		ClientId:         aws.String(config.cognitoAppClientID),
+		ClientId:         aws.String(config.ClientID),
 		Username:         aws.String(email),
 		ConfirmationCode: aws.String(confirmationCode),
 		SecretHash:       aws.String(secretHash),
@@ -76,16 +76,16 @@ func ConfirmUser(email string, userSub string, confirmationCode string) (*cognit
 }
 
 // SignInUser authenticates a user with the given email and password using Cognito User Pool.
-func SignInUser(email string, password string) (*cognitoidentityprovider.InitiateAuthOutput, error) {
+func SignInUser(email string, password string, config Configuration) (*cognitoidentityprovider.InitiateAuthOutput, error) {
 	sess, err := session.NewSession(&aws.Config{
-		Region: aws.String(config.userPoolRegion),
+		Region: aws.String(config.UserPoolRegion),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create AWS session: %v", err)
 	}
 	cognitoClient := cognitoidentityprovider.New(sess)
 
-	secretHash := calculateSecretHash(config.cognitoAppClientID, config.clientSecret, email)
+	secretHash := calculateSecretHash(config.ClientID, config.ClientSecret, email)
 
 	params := map[string]*string{
 		"USERNAME":    aws.String(email),
@@ -96,7 +96,7 @@ func SignInUser(email string, password string) (*cognitoidentityprovider.Initiat
 	authInput := &cognitoidentityprovider.InitiateAuthInput{
 		AuthFlow:       aws.String(cognitoidentityprovider.AuthFlowTypeUserPasswordAuth),
 		AuthParameters: params,
-		ClientId:       aws.String(config.cognitoAppClientID),
+		ClientId:       aws.String(config.ClientID),
 	}
 
 	authOutput, err := cognitoClient.InitiateAuth(authInput)

@@ -9,7 +9,7 @@ import boto3
 
 STACK_NAME = "MUD-Cognito-Stack"
 
-CONFIG_PATH = "../configuration.json"
+CONFIG_PATH = "../config.json"
 
 CLOUDFORMATION_PATH = "../cloudformation/cognito.yml"
 
@@ -31,7 +31,7 @@ def prompt_for_parameters():
 
 def update_configuration_file(config_updates):
     """
-    Updates the configuration.json file based on the provided parameters.
+    Updates the config.json file based on the provided parameters.
     """
 
     try:
