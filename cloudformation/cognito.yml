@@ -1,5 +1,6 @@
 ---
 AWSTemplateFormatVersion: "2010-09-09"
+
 Parameters:
   UserPoolName:
     Type: String
@@ -17,11 +18,18 @@ Parameters:
     Type: String
     Description: URL of the sign-out page for the app client
     Default: https://localhost:3000/sign-out
+  ReplyEmailAddress:
+    Type: String
+    Description: Email address to send from
+
 Resources:
   CognitoUserPool:
     Type: AWS::Cognito::UserPool
     Properties:
       UserPoolName: !Ref UserPoolName
+      EmailConfiguration:
+        EmailSendingAccount: COGNITO_DEFAULT
+        ReplyToEmailAddress: !Ref ReplyEmailAddress
       AdminCreateUserConfig:
         AllowAdminCreateUserOnly: false
         InviteMessageTemplate:
@@ -46,6 +54,11 @@ Resources:
         - AttributeDataType: String
           Name: family_name
           Required: false
+      UsernameAttributes:
+        - email
+      UsernameConfiguration:
+        CaseSensitive: false
+
   CognitoUserPoolClient:
     Type: AWS::Cognito::UserPoolClient
     Properties:
@@ -71,6 +84,7 @@ Resources:
     Properties:
       UserPoolId: !Ref CognitoUserPool
       Domain: !Ref UserPoolName
+
 Outputs:
   UserPoolId:
     Description: The ID of the user pool

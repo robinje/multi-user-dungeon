@@ -25,6 +25,7 @@ def prompt_for_parameters():
         or "https://localhost:3000/callback",
         "SignOutURL": input("Enter the URL of the sign-out page for the app client [default: https://localhost:3000/sign-out]: ")
         or "https://localhost:3000/sign-out",
+        "ReplyEmailAddress": input("Enter the email address for reply emails: "),
     }
     return parameters
 
@@ -119,5 +120,6 @@ def main():
 
     # Update configuration file with stack outputs
     update_configuration_file(outputs)
+
 
 main()

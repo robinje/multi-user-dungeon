@@ -8,6 +8,7 @@ require (
 )
 
 require (
+	github.com/google/uuid v1.5.0 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	golang.org/x/sys v0.16.0 // indirect
 )

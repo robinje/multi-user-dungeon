@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -24,6 +25,16 @@ type Server struct {
 	PlayerCount uint32
 	RoomCount   uint32
 	Mutex       sync.Mutex
+	Config      Configuration
+}
+
+func (s *Server) authenticateWithCognito(username string, password string) bool {
+	_, err := SignInUser(username, password, s.Config)
+	if err != nil {
+		log.Printf("Authentication failed for user %s: %v", username, err)
+		return false
+	}
+	return true
 }
 
 func (s *Server) StartSSHServer() error {
@@ -38,9 +49,12 @@ func (s *Server) StartSSHServer() error {
 
 	s.SSHConfig = &ssh.ServerConfig{
 		PasswordCallback: func(conn ssh.ConnMetadata, password []byte) (*ssh.Permissions, error) {
-			if s.authenticateWithCognito(conn.User(), string(password)) {
+			authenticated := s.authenticateWithCognito(conn.User(), string(password))
+			if authenticated {
+				log.Printf("Player %s authenticated", conn.User())
 				return nil, nil
 			}
+			log.Printf("Player %s failed authentication", conn.User())
 			return nil, fmt.Errorf("password rejected for %q", conn.User())
 		},
 	}
@@ -78,6 +92,9 @@ func (s *Server) StartSSHServer() error {
 }
 
 func (s *Server) handleChannels(sshConn *ssh.ServerConn, channels <-chan ssh.NewChannel) {
+
+	log.Printf("New connection from %s (%s)", sshConn.User(), sshConn.RemoteAddr())
+
 	for newChannel := range channels {
 		channel, requests, err := newChannel.Accept()
 		if err != nil {
@@ -85,8 +102,11 @@ func (s *Server) handleChannels(sshConn *ssh.ServerConn, channels <-chan ssh.New
 			continue
 		}
 
+		uuid, _ := uuid.NewRandom()
+
 		player := &Player{
 			Name:        sshConn.User(),
+			UUID:        uuid.String(),
 			Index:       s.PlayerIndex,
 			ToPlayer:    make(chan string),
 			FromPlayer:  make(chan string),
@@ -104,7 +124,8 @@ func (s *Server) handleChannels(sshConn *ssh.ServerConn, channels <-chan ssh.New
 			defer p.Connection.Close()
 
 			log.Printf("Player %s connected", p.Name)
-			// Your InputLoop logic here
+
+			InputLoop(p)
 
 			s.Mutex.Lock()
 			delete(s.Players, p.Index)
