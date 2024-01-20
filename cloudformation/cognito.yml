@@ -51,7 +51,7 @@ Resources:
     Properties:
       UserPoolId: !Ref CognitoUserPool
       ClientName: !Ref AppClientName
-      GenerateSecret: false
+      GenerateSecret: true
       ExplicitAuthFlows:
         - USER_PASSWORD_AUTH
       SupportedIdentityProviders:
