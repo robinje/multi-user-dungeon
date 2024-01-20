@@ -30,4 +30,4 @@ go.work
 
 # Ignore the config file.
 
-config.json
+/config.json

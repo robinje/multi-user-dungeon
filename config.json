@@ -1,7 +1,0 @@
-{
-    "Port": 9050,
-    "userPool": "us-east-1_xxxxxxxx",
-    "clientSecret": "xxxxxxxxxxxxxx",
-    "userPoolRegion": "us-east-1",
-    "AppClientID": "xxxxxxxxxxxxxx"
-}

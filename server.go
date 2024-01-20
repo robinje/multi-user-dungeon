@@ -5,9 +5,9 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -27,7 +27,7 @@ type Server struct {
 }
 
 func (s *Server) StartSSHServer() error {
-	privateBytes, err := ioutil.ReadFile("./server.key")
+	privateBytes, err := os.ReadFile("./server.key")
 	if err != nil {
 		return fmt.Errorf("failed to read private key: %v", err)
 	}
