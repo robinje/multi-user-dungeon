@@ -5,13 +5,14 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net"
+	"os"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -24,26 +25,44 @@ type Server struct {
 	PlayerCount uint32
 	RoomCount   uint32
 	Mutex       sync.Mutex
+	Config      Configuration
+}
+
+func (s *Server) authenticateWithCognito(username string, password string) bool {
+	_, err := SignInUser(username, password, s.Config)
+	if err != nil {
+		log.Printf("Authentication failed for user %s: %v", username, err)
+		return false
+	}
+	return true
 }
 
 func (s *Server) StartSSHServer() error {
-	privateBytes, err := ioutil.ReadFile("./server.key")
+	privateBytes, err := os.ReadFile("./server.key")
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to read private key: %v", err)
 	}
 	private, err := ssh.ParsePrivateKey(privateBytes)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to parse private key: %v", err)
 	}
 
 	s.SSHConfig = &ssh.ServerConfig{
-		NoClientAuth: true,
+		PasswordCallback: func(conn ssh.ConnMetadata, password []byte) (*ssh.Permissions, error) {
+			authenticated := s.authenticateWithCognito(conn.User(), string(password))
+			if authenticated {
+				log.Printf("Player %s authenticated", conn.User())
+				return nil, nil
+			}
+			log.Printf("Player %s failed authentication", conn.User())
+			return nil, fmt.Errorf("password rejected for %q", conn.User())
+		},
 	}
 	s.SSHConfig.AddHostKey(private)
 
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", s.Port))
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to listen on port %d: %v", s.Port, err)
 	}
 	s.Listener = listener
 
@@ -51,8 +70,6 @@ func (s *Server) StartSSHServer() error {
 
 	s.Mutex.Lock()
 	s.Players = make(map[uint32]*Player) // Initialize the Players map
-	s.PlayerCount = 0
-	s.RoomCount = 0
 	s.PlayerIndex = 0
 	s.Mutex.Unlock()
 
@@ -75,6 +92,9 @@ func (s *Server) StartSSHServer() error {
 }
 
 func (s *Server) handleChannels(sshConn *ssh.ServerConn, channels <-chan ssh.NewChannel) {
+
+	log.Printf("New connection from %s (%s)", sshConn.User(), sshConn.RemoteAddr())
+
 	for newChannel := range channels {
 		channel, requests, err := newChannel.Accept()
 		if err != nil {
@@ -82,8 +102,11 @@ func (s *Server) handleChannels(sshConn *ssh.ServerConn, channels <-chan ssh.New
 			continue
 		}
 
+		uuid, _ := uuid.NewRandom()
+
 		player := &Player{
 			Name:        sshConn.User(),
+			UUID:        uuid.String(),
 			Index:       s.PlayerIndex,
 			ToPlayer:    make(chan string),
 			FromPlayer:  make(chan string),
@@ -101,10 +124,10 @@ func (s *Server) handleChannels(sshConn *ssh.ServerConn, channels <-chan ssh.New
 			defer p.Connection.Close()
 
 			log.Printf("Player %s connected", p.Name)
+
 			InputLoop(p)
 
 			s.Mutex.Lock()
-			s.PlayerCount--
 			delete(s.Players, p.Index)
 			s.Mutex.Unlock()
 		}(player)
@@ -112,7 +135,6 @@ func (s *Server) handleChannels(sshConn *ssh.ServerConn, channels <-chan ssh.New
 		s.Mutex.Lock()
 		s.Players[s.PlayerIndex] = player
 		s.PlayerIndex++
-		s.PlayerCount++
 		s.Mutex.Unlock()
 	}
 }

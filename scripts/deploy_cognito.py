@@ -9,7 +9,7 @@ import boto3
 
 STACK_NAME = "MUD-Cognito-Stack"
 
-CONFIG_PATH = "../configuration.json"
+CONFIG_PATH = "../config.json"
 
 CLOUDFORMATION_PATH = "../cloudformation/cognito.yml"
 
@@ -25,13 +25,14 @@ def prompt_for_parameters():
         or "https://localhost:3000/callback",
         "SignOutURL": input("Enter the URL of the sign-out page for the app client [default: https://localhost:3000/sign-out]: ")
         or "https://localhost:3000/sign-out",
+        "ReplyEmailAddress": input("Enter the email address for reply emails: "),
     }
     return parameters
 
 
 def update_configuration_file(config_updates):
     """
-    Updates the configuration.json file based on the provided parameters.
+    Updates the config.json file based on the provided parameters.
     """
 
     try:
@@ -119,3 +120,6 @@ def main():
 
     # Update configuration file with stack outputs
     update_configuration_file(outputs)
+
+
+main()

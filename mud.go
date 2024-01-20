@@ -8,11 +8,14 @@ import (
 )
 
 type Configuration struct {
-	Port uint16 `json:"Port"`
+	Port           uint16 `json:"Port"`
+	UserPoolID     string `json:"UserPoolId"`
+	ClientSecret   string `json:"UserPoolClientSecret"`
+	UserPoolRegion string `json:"UserPoolRegion"`
+	ClientID       string `json:"UserPoolClientId"`
 }
 
 func main() {
-
 	// Read configuration file
 	configFile := flag.String("config", "config.json", "Configuration file")
 	flag.Parse()
@@ -30,7 +33,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	server := Server{Port: config.Port}
+	// Log the configuration
+	log.Printf("Configuration loaded: %+v", config)
+
+	server := Server{Port: config.Port, Config: config} // Assuming you have a Config field in the Server struct
 	server.Players = make(map[uint32]*Player)
 	if err := server.StartSSHServer(); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
