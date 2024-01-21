@@ -5,9 +5,9 @@ import (
 )
 
 type Player struct {
+	PlayerID      int32
 	Index         uint32
 	Name          string
-	UUID          string
 	ToPlayer      chan string
 	FromPlayer    chan string
 	PlayerError   chan error

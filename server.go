@@ -12,7 +12,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/google/uuid"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -102,11 +101,8 @@ func (s *Server) handleChannels(sshConn *ssh.ServerConn, channels <-chan ssh.New
 			continue
 		}
 
-		uuid, _ := uuid.NewRandom()
-
 		player := &Player{
 			Name:        sshConn.User(),
-			UUID:        uuid.String(),
 			Index:       s.PlayerIndex,
 			ToPlayer:    make(chan string),
 			FromPlayer:  make(chan string),
