@@ -1,6 +1,8 @@
 package main
 
 import (
+	"time"
+
 	"golang.org/x/crypto/ssh"
 )
 
@@ -16,6 +18,8 @@ type Player struct {
 	Server        *Server
 	ConsoleWidth  int
 	ConsoleHeight int
+	Character     *Character
+	LoginTime     time.Time
 }
 
 // WritePrompt sends the command prompt to the player
