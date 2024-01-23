@@ -16,6 +16,7 @@ type Player struct {
 	Server        *Server
 	ConsoleWidth  int
 	ConsoleHeight int
+	Character     *Character
 }
 
 // WritePrompt sends the command prompt to the player
