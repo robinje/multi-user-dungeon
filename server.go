@@ -25,6 +25,7 @@ type Server struct {
 	RoomCount   uint32
 	Mutex       sync.Mutex
 	Config      Configuration
+	StartTime   time.Time
 }
 
 func (s *Server) authenticateWithCognito(username string, password string) bool {

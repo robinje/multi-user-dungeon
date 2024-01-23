@@ -17,6 +17,7 @@ type Player struct {
 	ConsoleWidth  int
 	ConsoleHeight int
 	Character     *Character
+	LoginTime	  time.Time
 }
 
 // WritePrompt sends the command prompt to the player
