@@ -21,6 +21,7 @@ type Exit struct {
 	Name         string
 	TargetRoomID int
 	Visible      bool
+	Direction    string
 }
 
 func main() {
@@ -52,7 +53,7 @@ func main() {
 	}
 	json.Unmarshal(byteValue, &data)
 
-	g := graph.New(graph.IntHash)
+	g := graph.New(graph.IntHash, graph.Directed())
 	rooms := make(map[int]*Room)
 
 	for id, roomData := range data.Rooms {
@@ -71,9 +72,10 @@ func main() {
 				Name:         exitData.ExitName,
 				TargetRoomID: exitData.TargetRoomID,
 				Visible:      exitData.Visible,
+				Direction:    exitData.ExitName,
 			}
 			room.Exits = append(room.Exits, exit)
-			_ = g.AddEdge(roomID, exit.TargetRoomID)
+			_ = g.AddEdge(roomID, exit.TargetRoomID, graph.EdgeData(exit.Direction))
 		}
 	}
 
