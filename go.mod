@@ -10,7 +10,7 @@ require (
 )
 
 require (
-	github.com/dominikbraun/graph v0.23.0 // indirect
+	github.com/dominikbraun/graph v0.23.0
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	golang.org/x/sys v0.16.0 // indirect
 )
