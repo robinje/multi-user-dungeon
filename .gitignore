@@ -31,3 +31,7 @@ go.work
 # Ignore the config file.
 
 /config.json
+
+# Ignore bolt files.
+
+*.bolt
