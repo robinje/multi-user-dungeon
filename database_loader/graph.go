@@ -9,19 +9,33 @@ import (
 	"github.com/dominikbraun/graph"
 )
 
-type Room struct {
-	ID        int
-	Area      string
-	Title     string
-	Narrative string
-	Exits     []Exit
+type Index struct {
+	IndexID int64
+}
+
+func (i *Index) GetID() int64 {
+	i.IndexID++
+	return i.IndexID
+}
+
+func (i *Index) SetID(id int64) {
+	if id > i.IndexID {
+		i.IndexID = id
+	}
 }
 
 type Exit struct {
-	Name         string
-	TargetRoomID int
-	Visible      bool
-	Direction    string
+	ExitID     int64
+	TargetRoom int64
+	Visible    bool
+	Direction  string
+}
+type Room struct {
+	RoomID      int64
+	Area        string
+	Title       string
+	Description string
+	Exits       map[string]*Exit
 }
 
 func main() {
@@ -39,6 +53,10 @@ func main() {
 		return
 	}
 
+	index := &Index{
+		IndexID: 0,
+	}
+
 	var data struct {
 		Rooms map[string]struct {
 			Area      string `json:"area"`
@@ -47,43 +65,46 @@ func main() {
 			Exits     []struct {
 				ExitName     string `json:"exit_name"`
 				Visible      bool   `json:"visible"`
-				TargetRoomID int    `json:"target_room_id"`
+				TargetRoomID int64  `json:"target_room_id"`
 			} `json:"exits"`
 		} `json:"rooms"`
 	}
 	json.Unmarshal(byteValue, &data)
 
 	g := graph.New(graph.IntHash, graph.Directed())
-	rooms := make(map[int]*Room)
+	rooms := make(map[int64]*Room)
+
+	index.SetID(int64(len(data.Rooms)))
 
 	for id, roomData := range data.Rooms {
 		roomID, _ := strconv.Atoi(id)
 		room := &Room{
-			ID:        roomID,
-			Area:      roomData.Area,
-			Title:     roomData.Title,
-			Narrative: roomData.Narrative,
+			RoomID:      int64(roomID),
+			Area:        roomData.Area,
+			Title:       roomData.Title,
+			Description: roomData.Narrative,
+			Exits:       make(map[string]*Exit),
 		}
-		rooms[roomID] = room
-		_ = g.AddVertex(roomID)
+		rooms[int64(roomID)] = room
+		_ = g.AddVertex(int(roomID))
 
 		for _, exitData := range roomData.Exits {
 			exit := Exit{
-				Name:         exitData.ExitName,
-				TargetRoomID: exitData.TargetRoomID,
-				Visible:      exitData.Visible,
-				Direction:    exitData.ExitName,
+				ExitID:     index.GetID(),
+				TargetRoom: exitData.TargetRoomID,
+				Visible:    exitData.Visible,
+				Direction:  exitData.ExitName,
 			}
-			room.Exits = append(room.Exits, exit)
-			_ = g.AddEdge(roomID, exit.TargetRoomID, graph.EdgeData(exit.Direction))
+			room.Exits[exit.Direction] = &exit
+			_ = g.AddEdge(roomID, int(exit.TargetRoom), graph.EdgeData(exit.Direction))
 		}
 	}
 
 	fmt.Println("\nGraph:")
 	for _, room := range rooms {
-		fmt.Printf("Room %d: %s\n", room.ID, room.Title)
+		fmt.Printf("Room %d: %s\n", room.RoomID, room.Title)
 		for _, exit := range room.Exits {
-			fmt.Printf("  Exit to %d (%s)\n", exit.TargetRoomID, exit.Name)
+			fmt.Printf("  Exit %s to room %d (%s)\n", exit.Direction, exit.TargetRoom, rooms[exit.TargetRoom].Title)
 		}
 	}
 }
