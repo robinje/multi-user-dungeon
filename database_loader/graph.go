@@ -9,6 +9,8 @@ import (
 	"github.com/dominikbraun/graph"
 )
 
+const DATA_FILE = "test_data.json"
+
 type Index struct {
 	IndexID int64
 }
@@ -39,15 +41,8 @@ type Room struct {
 }
 
 func main() {
-	jsonFile, err := os.Open("test_data.json")
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	defer jsonFile.Close()
-
 	// Read the entire file
-	byteValue, err := os.ReadFile("test_data.json")
+	byteValue, err := os.ReadFile(DATA_FILE)
 	if err != nil {
 		fmt.Println("Error reading file:", err)
 		return
