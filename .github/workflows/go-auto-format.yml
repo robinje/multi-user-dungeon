@@ -29,6 +29,7 @@ jobs:
         git config --global user.name 'Dark Relics Automatic'
         git config --global user.email 'contact@darkrelics.net'
         git pull
+        go mod tidy
         go fmt ./...
         git add . -v
         if ! git diff-index --quiet HEAD; then
