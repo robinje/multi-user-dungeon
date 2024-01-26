@@ -61,11 +61,11 @@ func main() {
 		Rooms map[string]struct {
 			Area      string `json:"area"`
 			Title     string `json:"title"`
-			Narrative string `json:"narrative"`
+			Narrative string `json:"description"`
 			Exits     []struct {
-				ExitName     string `json:"exit_name"`
+				ExitName     string `json:"direction"`
 				Visible      bool   `json:"visible"`
-				TargetRoomID int64  `json:"target_room_id"`
+				TargetRoomID int64  `json:"target_room"`
 			} `json:"exits"`
 		} `json:"rooms"`
 	}
