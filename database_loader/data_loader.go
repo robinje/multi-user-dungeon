@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
 	"os"
 	"strconv"
@@ -9,11 +10,6 @@ import (
 	"sync"
 
 	bolt "go.etcd.io/bbolt"
-)
-
-const (
-	JSON_FILE = "test_data_base.json"
-	BOLT_FILE = "test_data.bolt"
 )
 
 type Index struct {
@@ -116,10 +112,6 @@ func LoadJSON(rooms map[int64]*Room, fileName string) (map[int64]*Room, error) {
 			Exits:       make(map[string]*Exit),
 		}
 
-		if room.RoomID > maxID {
-			maxID = room.RoomID
-		}
-
 		rooms[roomID] = room
 
 		for _, exitData := range roomData.Exits {
@@ -129,9 +121,7 @@ func LoadJSON(rooms map[int64]*Room, fileName string) (map[int64]*Room, error) {
 				Visible:    exitData.Visible,
 				Direction:  exitData.ExitName,
 			}
-			if exit.ExitID > maxID {
-				maxID = exit.ExitID
-			}
+
 			room.Exits[exit.Direction] = &exit
 		}
 	}
@@ -271,13 +261,37 @@ func WriteBolt(rooms map[int64]*Room, dbPath string) (map[int64]*Room, error) {
 }
 
 func main() {
+	jsonFilePath := flag.String("j", "test_data.json", "Path to the JSON file.")
+	boltFilePath := flag.String("b", "test_data.bolt", "Path to the Bolt DB file.")
+	help := flag.Bool("h", false, "Display help.")
+
+	flag.Parse()
+
+	if *help {
+		fmt.Println("Usage of program:")
+		fmt.Println("  -j string")
+		fmt.Println("        Path to the JSON file. (default \"test_data.json\")")
+		fmt.Println("  -b string")
+		fmt.Println("        Path to the Bolt DB file. (default \"test_data.bolt\")")
+		fmt.Println("  -h")
+		fmt.Println("        Display help.")
+		return
+	}
 
 	// Initialize the rooms map
 
 	rooms := make(map[int64]*Room)
 
+	// Load data from BoltDB
+	rooms, err := LoadBolt(rooms, *boltFilePath)
+	if err != nil {
+		fmt.Println("Data load from BoltDB failed:", err)
+	} else {
+		fmt.Println("Data loaded from BoltDB successfully")
+	}
+
 	// Load the JSON data
-	rooms, err := LoadJSON(rooms, JSON_FILE)
+	rooms, err = LoadJSON(rooms, *jsonFilePath)
 	if err != nil {
 		fmt.Println("Data load failed:", err)
 	} else {
@@ -285,15 +299,16 @@ func main() {
 	}
 
 	// Write data to BoltDB
-	rooms, err = WriteBolt(rooms, BOLT_FILE)
+	rooms, err = WriteBolt(rooms, *boltFilePath)
 	if err != nil {
 		fmt.Println("Data write failed:", err)
 		return // Ensure to exit if writing fails
 	} else {
 		fmt.Println("Data written successfully")
 	}
+
 	// Load data from BoltDB
-	rooms, err = LoadBolt(rooms, BOLT_FILE)
+	rooms, err = LoadBolt(rooms, *boltFilePath)
 	if err != nil {
 		fmt.Println("Data load from BoltDB failed:", err)
 	} else {
