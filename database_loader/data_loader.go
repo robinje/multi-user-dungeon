@@ -8,7 +8,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/dominikbraun/graph"
 	bolt "go.etcd.io/bbolt"
 )
 
@@ -37,6 +36,23 @@ func (i *Index) SetID(id int64) {
 	}
 }
 
+func (i *Index) Initialize(rooms map[int64]*Room) {
+
+	var maxExitID int64
+
+	for _, room := range rooms {
+		for _, exit := range room.Exits {
+			if exit.ExitID > maxExitID {
+				maxExitID = exit.ExitID
+			}
+		}
+	}
+
+	i.mu.Lock()
+	defer i.mu.Unlock()
+	i.IndexID = maxExitID + 1
+}
+
 type Exit struct {
 	ExitID     int64
 	TargetRoom int64
@@ -62,16 +78,9 @@ func Display(rooms map[int64]*Room) {
 }
 
 func LoadJSON(rooms map[int64]*Room, fileName string) (map[int64]*Room, error) {
-
-	// Read the entire file
 	byteValue, err := os.ReadFile(fileName)
 	if err != nil {
-		fmt.Println("Error reading file:", err)
-		return rooms, err
-	}
-
-	index := &Index{
-		IndexID: 0,
+		return rooms, fmt.Errorf("error reading file: %w", err)
 	}
 
 	var data struct {
@@ -86,27 +95,32 @@ func LoadJSON(rooms map[int64]*Room, fileName string) (map[int64]*Room, error) {
 			} `json:"exits"`
 		} `json:"rooms"`
 	}
-	err = json.Unmarshal(byteValue, &data)
-	if err != nil {
-		fmt.Println("Error unmarshalling JSON:", err)
-		return rooms, err
+
+	if err := json.Unmarshal(byteValue, &data); err != nil {
+		return rooms, fmt.Errorf("error unmarshalling JSON: %w", err)
 	}
 
-	g := graph.New(graph.IntHash, graph.Directed())
-
-	index.SetID(int64(len(data.Rooms)))
+	index := &Index{}
+	index.Initialize(rooms)
 
 	for id, roomData := range data.Rooms {
-		roomID, _ := strconv.Atoi(id)
+		roomID, err := strconv.ParseInt(id, 10, 64)
+		if err != nil {
+			return rooms, fmt.Errorf("error parsing room ID '%s': %w", id, err)
+		}
 		room := &Room{
-			RoomID:      int64(roomID),
+			RoomID:      roomID,
 			Area:        roomData.Area,
 			Title:       roomData.Title,
 			Description: roomData.Narrative,
 			Exits:       make(map[string]*Exit),
 		}
-		rooms[int64(roomID)] = room
-		_ = g.AddVertex(int(roomID))
+
+		if room.RoomID > maxID {
+			maxID = room.RoomID
+		}
+
+		rooms[roomID] = room
 
 		for _, exitData := range roomData.Exits {
 			exit := Exit{
@@ -115,12 +129,12 @@ func LoadJSON(rooms map[int64]*Room, fileName string) (map[int64]*Room, error) {
 				Visible:    exitData.Visible,
 				Direction:  exitData.ExitName,
 			}
+			if exit.ExitID > maxID {
+				maxID = exit.ExitID
+			}
 			room.Exits[exit.Direction] = &exit
-			_ = g.AddEdge(roomID, int(exit.TargetRoom), graph.EdgeData(exit.Direction))
 		}
 	}
-
-	Display(rooms)
 
 	return rooms, nil
 }
@@ -132,8 +146,6 @@ func LoadBolt(rooms map[int64]*Room, fileName string) (map[int64]*Room, error) {
 		return rooms, fmt.Errorf("error opening BoltDB file: %w", err)
 	}
 	defer db.Close()
-
-	g := graph.New(graph.IntHash, graph.Directed())
 
 	err = db.View(func(tx *bolt.Tx) error {
 		roomsBucket := tx.Bucket([]byte("Rooms"))
@@ -155,7 +167,6 @@ func LoadBolt(rooms map[int64]*Room, fileName string) (map[int64]*Room, error) {
 				return fmt.Errorf("error unmarshalling room data: %w", err)
 			}
 			rooms[room.RoomID] = &room
-			g.AddVertex(int(room.RoomID))
 			// fmt.Printf("Loaded Room %d: %+v\n", room.RoomID, room)
 			return nil
 		})
@@ -183,7 +194,6 @@ func LoadBolt(rooms map[int64]*Room, fileName string) (map[int64]*Room, error) {
 
 			if room, exists := rooms[roomID]; exists {
 				room.Exits[exit.Direction] = &exit
-				g.AddEdge(int(room.RoomID), int(exit.TargetRoom), graph.EdgeData(exit.Direction))
 				// fmt.Printf("Loaded Exit %s for Room %d: %+v\n", exit.Direction, room.RoomID, exit)
 			} else {
 				fmt.Printf("Room not found for exit key %s\n", k)
@@ -198,7 +208,7 @@ func LoadBolt(rooms map[int64]*Room, fileName string) (map[int64]*Room, error) {
 		return rooms, fmt.Errorf("error reading from BoltDB: %w", err)
 	}
 
-	Display(rooms)
+	// Display(rooms)
 
 	return rooms, nil
 }
@@ -289,4 +299,5 @@ func main() {
 	} else {
 		fmt.Println("Data loaded from BoltDB successfully")
 	}
+
 }
