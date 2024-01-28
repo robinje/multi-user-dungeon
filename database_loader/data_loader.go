@@ -51,13 +51,23 @@ type Room struct {
 	Exits       map[string]*Exit
 }
 
-func LoadJSON(fileName string) (map[int64]*Room, []*Exit, error) {
+func Display(rooms map[int64]*Room) {
+	fmt.Println("Rooms:")
+	for _, room := range rooms {
+		fmt.Printf("Room %d: %s\n", room.RoomID, room.Title)
+		for _, exit := range room.Exits {
+			fmt.Printf("  Exit %s to room %d (%s)\n", exit.Direction, exit.TargetRoom, rooms[exit.TargetRoom].Title)
+		}
+	}
+}
+
+func LoadJSON(rooms map[int64]*Room, fileName string) (map[int64]*Room, error) {
 
 	// Read the entire file
 	byteValue, err := os.ReadFile(fileName)
 	if err != nil {
 		fmt.Println("Error reading file:", err)
-		return nil, nil, err
+		return rooms, err
 	}
 
 	index := &Index{
@@ -79,11 +89,10 @@ func LoadJSON(fileName string) (map[int64]*Room, []*Exit, error) {
 	err = json.Unmarshal(byteValue, &data)
 	if err != nil {
 		fmt.Println("Error unmarshalling JSON:", err)
-		return nil, nil, err
+		return rooms, err
 	}
 
 	g := graph.New(graph.IntHash, graph.Directed())
-	rooms := make(map[int64]*Room)
 
 	index.SetID(int64(len(data.Rooms)))
 
@@ -111,34 +120,19 @@ func LoadJSON(fileName string) (map[int64]*Room, []*Exit, error) {
 		}
 	}
 
-	var allExits []*Exit
-	for _, room := range rooms {
-		for _, exit := range room.Exits {
-			allExits = append(allExits, exit)
-		}
-	}
+	Display(rooms)
 
-	fmt.Println("\nGraph:")
-	for _, room := range rooms {
-		fmt.Printf("Room %d: %s\n", room.RoomID, room.Title)
-		for _, exit := range room.Exits {
-			fmt.Printf("  Exit %s to room %d (%s)\n", exit.Direction, exit.TargetRoom, rooms[exit.TargetRoom].Title)
-		}
-	}
-
-	return rooms, allExits, nil
+	return rooms, nil
 }
 
-func LoadBolt(fileName string) (map[int64]*Room, []*Exit, error) {
+func LoadBolt(rooms map[int64]*Room, fileName string) (map[int64]*Room, error) {
 	db, err := bolt.Open(fileName, 0600, nil)
 	if err != nil {
 		fmt.Printf("Error opening BoltDB file: %v\n", err)
-		return nil, nil, fmt.Errorf("error opening BoltDB file: %w", err)
+		return rooms, fmt.Errorf("error opening BoltDB file: %w", err)
 	}
 	defer db.Close()
 
-	rooms := make(map[int64]*Room)
-	var allExits []*Exit
 	g := graph.New(graph.IntHash, graph.Directed())
 
 	err = db.View(func(tx *bolt.Tx) error {
@@ -195,36 +189,29 @@ func LoadBolt(fileName string) (map[int64]*Room, []*Exit, error) {
 				fmt.Printf("Room not found for exit key %s\n", k)
 				return fmt.Errorf("room not found for exit: %s", string(k))
 			}
-			allExits = append(allExits, &exit)
 			return nil
 		})
 	})
 
 	if err != nil {
 		fmt.Printf("Error reading from BoltDB: %v\n", err)
-		return nil, nil, fmt.Errorf("error reading from BoltDB: %w", err)
+		return rooms, fmt.Errorf("error reading from BoltDB: %w", err)
 	}
 
-	fmt.Println("\nGraph:")
-	for _, room := range rooms {
-		fmt.Printf("Room %d: %s\n", room.RoomID, room.Title)
-		for _, exit := range room.Exits {
-			fmt.Printf("  Exit %s to room %d\n", exit.Direction, exit.TargetRoom)
-		}
-	}
+	Display(rooms)
 
-	return rooms, allExits, nil
+	return rooms, nil
 }
 
-func WriteBolt(rooms map[int64]*Room, dbPath string) error {
+func WriteBolt(rooms map[int64]*Room, dbPath string) (map[int64]*Room, error) {
 	db, err := bolt.Open(dbPath, 0600, nil)
 	if err != nil {
 		fmt.Printf("Error opening database: %v\n", err)
-		return err
+		return rooms, err
 	}
 	defer db.Close()
 
-	return db.Update(func(tx *bolt.Tx) error {
+	err = db.Update(func(tx *bolt.Tx) error {
 		roomsBucket, err := tx.CreateBucketIfNotExists([]byte("Rooms"))
 		if err != nil {
 			fmt.Printf("Error creating 'Rooms' bucket: %v\n", err)
@@ -243,7 +230,6 @@ func WriteBolt(rooms map[int64]*Room, dbPath string) error {
 				return err
 			}
 			roomKey := strconv.FormatInt(room.RoomID, 10)
-			// fmt.Printf("Writing Room %s: %s\n", roomKey, roomData)
 			err = roomsBucket.Put([]byte(roomKey), roomData)
 			if err != nil {
 				fmt.Printf("Error writing room data to 'Rooms' bucket: %v\n", err)
@@ -257,7 +243,6 @@ func WriteBolt(rooms map[int64]*Room, dbPath string) error {
 					return err
 				}
 				exitKey := fmt.Sprintf("%d_%s", room.RoomID, exit.Direction)
-				// fmt.Printf("Writing Exit %s: %s\n", exitKey, exitData)
 				err = exitsBucket.Put([]byte(exitKey), exitData)
 				if err != nil {
 					fmt.Printf("Error writing exit data to 'Exits' bucket: %v\n", err)
@@ -267,29 +252,41 @@ func WriteBolt(rooms map[int64]*Room, dbPath string) error {
 		}
 		return nil
 	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return rooms, nil
 }
 
 func main() {
+
+	// Initialize the rooms map
+
+	rooms := make(map[int64]*Room)
+
 	// Load the JSON data
-	rooms, _, err := LoadJSON(JSON_FILE)
+	rooms, err := LoadJSON(rooms, JSON_FILE)
 	if err != nil {
 		fmt.Println("Data load failed:", err)
-		return // Ensure to exit if loading fails
+	} else {
+		fmt.Println("Data loaded successfully")
 	}
-	fmt.Println("Data loaded successfully")
 
 	// Write data to BoltDB
-	if err := WriteBolt(rooms, BOLT_FILE); err != nil {
+	rooms, err = WriteBolt(rooms, BOLT_FILE)
+	if err != nil {
 		fmt.Println("Data write failed:", err)
 		return // Ensure to exit if writing fails
+	} else {
+		fmt.Println("Data written successfully")
 	}
-	fmt.Println("Data written successfully")
-
 	// Load data from BoltDB
-	_, _, err = LoadBolt(BOLT_FILE)
+	rooms, err = LoadBolt(rooms, BOLT_FILE)
 	if err != nil {
 		fmt.Println("Data load from BoltDB failed:", err)
-		return // Ensure to exit if loading fails
+	} else {
+		fmt.Println("Data loaded from BoltDB successfully")
 	}
-	fmt.Println("Data loaded from BoltDB successfully")
 }
