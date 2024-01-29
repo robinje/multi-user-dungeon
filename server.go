@@ -19,13 +19,13 @@ type Server struct {
 	Port        uint16
 	Listener    net.Listener
 	SSHConfig   *ssh.ServerConfig
-	PlayerIndex uint32
-	Players     map[uint32]*Player
-	PlayerCount uint32
-	RoomCount   uint32
+	PlayerIndex uint64
+	Players     map[uint64]*Player
+	PlayerCount uint64
 	Mutex       sync.Mutex
 	Config      Configuration
 	StartTime   time.Time
+	Rooms       map[int64]*Room
 }
 
 func (s *Server) authenticateWithCognito(username string, password string) bool {
@@ -69,7 +69,7 @@ func (s *Server) StartSSHServer() error {
 	log.Printf("SSH server listening on port %d", s.Port)
 
 	s.Mutex.Lock()
-	s.Players = make(map[uint32]*Player) // Initialize the Players map
+	s.Players = make(map[uint64]*Player) // Initialize the Players map
 	s.PlayerIndex = 0
 	s.Mutex.Unlock()
 

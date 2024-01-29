@@ -8,7 +8,7 @@ import (
 
 type Player struct {
 	PlayerID      int32
-	Index         uint32
+	Index         uint64
 	Name          string
 	ToPlayer      chan string
 	FromPlayer    chan string

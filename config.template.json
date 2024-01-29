@@ -5,5 +5,6 @@
     "UserPoolDomain": "mud-user-pool",
     "UserPoolId": "us-east-1_xxxxxxxxx",
     "UserPoolArn": "arn:aws:cognito-idp:us-east-1:999999999999:userpool/us-east-1_xxxxxxxxx",
-    "UserPoolClientSecret": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    "UserPoolClientSecret": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "DataFile": "data.bolt"
 }
