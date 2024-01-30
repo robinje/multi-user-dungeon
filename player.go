@@ -7,7 +7,7 @@ import (
 )
 
 type Player struct {
-	PlayerID      int32
+	PlayerID      uint64
 	Index         uint64
 	Name          string
 	ToPlayer      chan string
@@ -43,4 +43,9 @@ func (p *Player) HandleSSHRequests(requests <-chan *ssh.Request) {
 			p.ConsoleWidth, p.ConsoleHeight = w, h
 		}
 	}
+}
+
+// SendMessage sends a message to the player
+func (p *Player) SendMessage(message string) {
+	p.ToPlayer <- message
 }

@@ -4,11 +4,9 @@ go 1.21
 
 require (
 	github.com/aws/aws-sdk-go v1.50.5
-	github.com/etcd-io/bbolt v1.3.3
+	go.etcd.io/bbolt v1.3.8
 	golang.org/x/crypto v0.18.0
 )
-
-require go.etcd.io/bbolt v1.3.8
 
 require (
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
