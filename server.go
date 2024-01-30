@@ -1,14 +1,10 @@
 package main
 
 import (
-	"bufio"
-	"bytes"
 	"fmt"
-	"io"
 	"log"
 	"net"
 	"os"
-	"strings"
 	"sync"
 	"time"
 
@@ -16,17 +12,21 @@ import (
 )
 
 type Server struct {
-	Port        uint16
-	Listener    net.Listener
-	SSHConfig   *ssh.ServerConfig
-	PlayerIndex uint64
-	Players     map[uint64]*Player
-	PlayerCount uint64
-	Mutex       sync.Mutex
-	Config      Configuration
-	StartTime   time.Time
-	Rooms       map[int64]*Room
-	Database    *DataBase
+	Port           uint16
+	Listener       net.Listener
+	SSHConfig      *ssh.ServerConfig
+	Players        map[uint64]*Player
+	PlayerCount    uint64
+	Mutex          sync.Mutex
+	Config         Configuration
+	StartTime      time.Time
+	Rooms          map[int64]*Room
+	Database       *DataBase
+	PlayerIndex    *Index
+	CharacterIndex *Index
+	ExitIndex      *Index
+	RoomIndex      *Index
+	ObjectIndex    *Index
 }
 
 func (s *Server) authenticateWithCognito(username string, password string) bool {
@@ -71,7 +71,6 @@ func (s *Server) StartSSHServer() error {
 
 	s.Mutex.Lock()
 	s.Players = make(map[uint64]*Player) // Initialize the Players map
-	s.PlayerIndex = 0
 	s.Mutex.Unlock()
 
 	for {
@@ -105,7 +104,7 @@ func (s *Server) handleChannels(sshConn *ssh.ServerConn, channels <-chan ssh.New
 
 		player := &Player{
 			Name:        sshConn.User(),
-			Index:       s.PlayerIndex,
+			Index:       s.PlayerIndex.GetID(),
 			ToPlayer:    make(chan string),
 			FromPlayer:  make(chan string),
 			PlayerError: make(chan error),
@@ -123,7 +122,13 @@ func (s *Server) handleChannels(sshConn *ssh.ServerConn, channels <-chan ssh.New
 
 			log.Printf("Player %s connected", p.Name)
 
-			InputLoop(p)
+			// Send welcome message
+
+			p.Connection.Write([]byte(fmt.Sprintf("Welcome to the game, %s!\n\r", p.Name)))
+
+			// Charater Selection Dialog
+
+			// InputLoop(p)
 
 			s.Mutex.Lock()
 			delete(s.Players, p.Index)
@@ -131,65 +136,8 @@ func (s *Server) handleChannels(sshConn *ssh.ServerConn, channels <-chan ssh.New
 		}(player)
 
 		s.Mutex.Lock()
-		s.Players[s.PlayerIndex] = player
-		s.PlayerIndex++
+		s.Players[player.Index] = player
 		s.Mutex.Unlock()
-	}
-}
-
-func InputLoop(player *Player) {
-	reader := bufio.NewReader(player.Connection)
-
-	go func() {
-		for msg := range player.ToPlayer {
-			player.Connection.Write([]byte(msg))
-		}
-	}()
-
-	player.WritePrompt()
-
-	var inputBuffer bytes.Buffer
-	for {
-		char, _, err := reader.ReadRune()
-		if err != nil {
-			if err != io.EOF {
-				player.Connection.Write([]byte(fmt.Sprintf("Error: %v\n\r", err)))
-			}
-			return
-		}
-
-		// Echo the character back to the player
-		player.Connection.Write([]byte(string(char)))
-
-		// Add character to buffer
-		inputBuffer.WriteRune(char)
-
-		// Check if the character is a newline
-		if char == '\n' || char == '\r' {
-			inputLine := inputBuffer.String()
-
-			// Normalize line ending to \n\r
-			inputLine = strings.Replace(inputLine, "\n", "\n\r", -1)
-
-			// Process the command
-			verb, tokens, err := validateCommand(strings.TrimSpace(inputLine), valid_commands)
-			if err != nil {
-				player.Connection.Write([]byte(err.Error() + "\n\r"))
-				player.WritePrompt()
-				inputBuffer.Reset()
-				continue
-			}
-
-			if executeCommand(player, verb, tokens) {
-				time.Sleep(100 * time.Millisecond)
-				inputBuffer.Reset()
-				return
-			}
-
-			log.Printf("Player %s issued command: %s", player.Name, strings.Join(tokens, " "))
-			player.WritePrompt()
-			inputBuffer.Reset()
-		}
 	}
 }
 

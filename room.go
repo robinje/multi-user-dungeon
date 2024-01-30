@@ -1,5 +1,14 @@
 package main
 
+import (
+	"encoding/json"
+	"fmt"
+	"strconv"
+	"strings"
+
+	bolt "go.etcd.io/bbolt"
+)
+
 type Room struct {
 	RoomID      int64
 	Area        string
@@ -20,7 +29,7 @@ func (d *DataBase) LoadRooms() (map[int64]*Room, error) {
 	rooms := make(map[int64]*Room)
 
 	// Open the BoltDB connection
-	db, err := bolt.Open(d.DataFile, 0600, nil)
+	db, err := bolt.Open(d.File, 0600, nil)
 	if err != nil {
 		return nil, fmt.Errorf("error opening BoltDB file: %w", err)
 	}

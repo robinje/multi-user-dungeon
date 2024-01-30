@@ -51,63 +51,63 @@ func validateCommand(command string, validCommands []string) (string, []string, 
 	return verb, tokens, nil
 }
 
-func executeCommand(player *Player, verb string, tokens []string) bool {
+func executeCommand(character *Character, verb string, tokens []string) bool {
 
 	command := strings.ToLower(verb)
 
 	switch command {
 	case "quit":
-		return executeQuitCommand(player)
+		return executeQuitCommand(character)
 
 	case "say":
-		return executeSayCommand(player, tokens)
+		return executeSayCommand(character, tokens)
 
 	case "help":
-		return executeHelpCommand(player)
+		return executeHelpCommand(character)
 
 	default:
-		player.ToPlayer <- "\n\rCommand not yet implemented.\n\r"
+		character.Player.ToPlayer <- "\n\rCommand not yet implemented.\n\r"
 	}
 
 	return false // Indicate that the loop should continue
 }
 
-func executeQuitCommand(player *Player) bool {
-	log.Printf("Player %s is quitting", player.Name)
-	player.ToPlayer <- "\n\rGoodbye!"
+func executeQuitCommand(character *Character) bool {
+	log.Printf("Player %s is quitting", character.Player.Name)
+	character.Player.ToPlayer <- "\n\rGoodbye!"
 	return true // Indicate that the loop should be exited
 }
 
-func executeSayCommand(player *Player, tokens []string) bool {
+func executeSayCommand(character *Character, tokens []string) bool {
 	if len(tokens) < 2 {
-		player.ToPlayer <- "\n\rWhat do you want to say?\n\r"
+		character.Player.ToPlayer <- "\n\rWhat do you want to say?\n\r"
 		return false
 	}
 
 	message := strings.Join(tokens[1:], " ")
-	broadcastMessage := fmt.Sprintf("\n\r%s says: %s\n\r", player.Name, message)
+	broadcastMessage := fmt.Sprintf("\n\r%s says: %s\n\r", character.Name, message)
 
-	player.Server.Mutex.Lock()
-	for _, p := range player.Server.Players {
-		if p != player {
+	character.Player.Server.Mutex.Lock()
+	for _, p := range character.Player.Server.Players {
+		if p != character.Player {
 			// Send message and prompt to other players
 			p.ToPlayer <- broadcastMessage + p.Prompt
 		}
 	}
-	player.Server.Mutex.Unlock()
+	character.Player.Server.Mutex.Unlock()
 
 	// Send only the broadcast message to the player who issued the command
-	player.ToPlayer <- fmt.Sprintf("\n\rYou say: %s\n\r", message)
+	character.Player.ToPlayer <- fmt.Sprintf("\n\rYou say: %s\n\r", message)
 
 	return false
 }
 
-func executeHelpCommand(player *Player) bool {
+func executeHelpCommand(character *Character) bool {
 	helpMessage := "\n\rAvailable Commands:" +
 		"\n\rquit - Quit the game" +
 		"\n\rsay <message> - Say something to all players" +
 		"\n\rhelp - Display available commands\n\r"
 
-	player.ToPlayer <- helpMessage
+	character.Player.ToPlayer <- helpMessage
 	return false
 }

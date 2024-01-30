@@ -3,13 +3,8 @@ package main
 import (
 	"encoding/json"
 	"flag"
-	"fmt"
 	"log"
 	"os"
-	"strconv"
-	"strings"
-
-	bolt "go.etcd.io/bbolt"
 )
 
 type Configuration struct {
@@ -43,7 +38,7 @@ func main() {
 
 	server := Server{Port: config.Port, Config: config}
 	server.Players = make(map[uint64]*Player)
-	server.DataBase.File = config.DataFile
+	server.Database.File = config.DataFile
 	server.Rooms, err = server.Database.LoadRooms()
 	if err != nil {
 		log.Fatalf("Failed to load rooms: %v", err)
