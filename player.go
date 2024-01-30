@@ -44,3 +44,8 @@ func (p *Player) HandleSSHRequests(requests <-chan *ssh.Request) {
 		}
 	}
 }
+
+// SendMessage sends a message to the player
+func (p *Player) SendMessage(message string) {
+	p.ToPlayer <- message
+}

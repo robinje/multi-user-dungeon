@@ -1,7 +1,7 @@
 package main
 
 type Object struct {
-	ObjectID    int32
+	ObjectID    uint64
 	Name        string
 	Description string
 }

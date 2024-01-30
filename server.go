@@ -26,6 +26,7 @@ type Server struct {
 	Config      Configuration
 	StartTime   time.Time
 	Rooms       map[int64]*Room
+	Database    *DataBase
 }
 
 func (s *Server) authenticateWithCognito(username string, password string) bool {
@@ -108,7 +109,7 @@ func (s *Server) handleChannels(sshConn *ssh.ServerConn, channels <-chan ssh.New
 			ToPlayer:    make(chan string),
 			FromPlayer:  make(chan string),
 			PlayerError: make(chan error),
-			Prompt:      "Command> ",
+			Prompt:      "> ",
 			Connection:  channel,
 			Server:      s,
 		}
