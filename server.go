@@ -60,6 +60,7 @@ func NewServer(config Configuration) (*Server, error) {
 	server.ExitIndex.IndexID = 100
 
 	// Load rooms into the server
+	var err error
 	server.Rooms, err = server.Database.LoadRooms()
 	if err != nil {
 		return nil, fmt.Errorf("failed to load rooms: %v", err)
