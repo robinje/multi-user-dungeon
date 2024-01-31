@@ -128,7 +128,9 @@ func (s *Server) handleChannels(sshConn *ssh.ServerConn, channels <-chan ssh.New
 
 			// Charater Selection Dialog
 
-			// InputLoop(p)
+			character, _ := s.CreateCharacter(p)
+
+			character.InputLoop()
 
 			s.Mutex.Lock()
 			delete(s.Players, p.Index)

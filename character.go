@@ -11,18 +11,42 @@ import (
 )
 
 type Character struct {
-	CharacterID uint64
-	Room        *Room
-	Name        string
-	Player      *Player
+	Index  uint64
+	Room   *Room
+	Name   string
+	Player *Player
 }
 
-func NewCharacter(CharacterID uint64, Name string, Player *Player, Room *Room) *Character {
+func (s *Server) CreateCharacter(player *Player) (*Character, error) {
+	// Send a prompt to the player asking for the character name
+	player.SendMessage("Enter your character name: ")
+	player.WritePrompt()
+
+	// Read the character name from the player
+
+	charName := <-player.FromPlayer
+
+	// Retrieve room 1, or handle the case where it does not exist
+	room, ok := s.Rooms[1]
+	if !ok {
+		return nil, fmt.Errorf("Starting room does not exist")
+	}
+
+	// Create and initialize the new character
+	character := s.NewCharacter(charName, player, room)
+
+	// Optionally, add the character to the room's Characters map
+	room.Characters[character.Index] = character
+
+	return character, nil
+}
+
+func (s *Server) NewCharacter(Name string, Player *Player, Room *Room) *Character {
 	return &Character{
-		CharacterID: CharacterID,
-		Room:        Room,
-		Name:        Name,
-		Player:      Player,
+		Index:  s.CharacterIndex.GetID(),
+		Room:   Room,
+		Name:   Name,
+		Player: Player,
 	}
 }
 
