@@ -29,6 +29,46 @@ type Server struct {
 	ObjectIndex    *Index
 }
 
+func NewServer(config Configuration) (*Server, error) {
+	// Initialize the server with the configuration
+	server := &Server{
+		Port:           config.Port,
+		Players:        make(map[uint64]*Player),
+		Config:         config,
+		StartTime:      time.Now(),
+		Rooms:          make(map[int64]*Room),
+		PlayerIndex:    &Index{},
+		CharacterIndex: &Index{},
+		ExitIndex:      &Index{},
+		RoomIndex:      &Index{},
+		ObjectIndex:    &Index{},
+	}
+
+	// Initialize the database
+	database := &DataBase{
+		File: config.DataFile,
+	}
+	if err := database.Open(); err != nil {
+		return nil, fmt.Errorf("failed to open database: %v", err)
+	}
+	server.Database = database
+
+	server.PlayerIndex.IndexID = 1
+	server.CharacterIndex.IndexID = 1
+	server.ObjectIndex.IndexID = 1
+	server.RoomIndex.IndexID = 100
+	server.ExitIndex.IndexID = 100
+
+	// Load rooms into the server
+	var err error
+	server.Rooms, err = server.Database.LoadRooms()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load rooms: %v", err)
+	}
+
+	return server, nil
+}
+
 func (s *Server) authenticateWithCognito(username string, password string) bool {
 	_, err := SignInUser(username, password, s.Config)
 	if err != nil {
@@ -128,7 +168,9 @@ func (s *Server) handleChannels(sshConn *ssh.ServerConn, channels <-chan ssh.New
 
 			// Charater Selection Dialog
 
-			// InputLoop(p)
+			character, _ := s.CreateCharacter(p)
+
+			character.InputLoop()
 
 			s.Mutex.Lock()
 			delete(s.Players, p.Index)
