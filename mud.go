@@ -34,14 +34,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	// log.Printf("Configuration loaded: %+v", config)
+	log.Printf("Configuration loaded: %+v", config)
 
-	server := Server{Port: config.Port, Config: config}
-	server.Players = make(map[uint64]*Player)
-	server.Database.File = config.DataFile
-	server.Rooms, err = server.Database.LoadRooms()
+	// Initialize the Database
+
+	server, err := NewServer(config)
 	if err != nil {
-		log.Fatalf("Failed to load rooms: %v", err)
+		log.Fatalf("Failed to create server: %v", err)
 	}
 
 	// Start the server
