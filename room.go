@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"strconv"
 	"strings"
 
@@ -25,32 +26,32 @@ type Exit struct {
 	Direction  string
 }
 
-func (d *DataBase) LoadRooms() (map[int64]*Room, error) {
+func (kp *KeyPair) LoadRooms() (map[int64]*Room, error) {
 	rooms := make(map[int64]*Room)
 
-	// Open the BoltDB connection
-	db, err := bolt.Open(d.File, 0600, nil)
-	if err != nil {
-		return nil, fmt.Errorf("error opening BoltDB file: %w", err)
-	}
-	defer db.Close() // Ensure the database is closed when the function returns
-
-	err = db.View(func(tx *bolt.Tx) error {
+	err := kp.db.View(func(tx *bolt.Tx) error {
 		roomsBucket := tx.Bucket([]byte("Rooms"))
 		if roomsBucket == nil {
 			return fmt.Errorf("Rooms bucket not found")
 		}
+
+		log.Printf("Using Rooms bucket: %v", roomsBucket)
 
 		exitsBucket := tx.Bucket([]byte("Exits"))
 		if exitsBucket == nil {
 			return fmt.Errorf("Exits bucket not found")
 		}
 
+		log.Printf("Using Exits bucket: %v", exitsBucket)
+
 		err := roomsBucket.ForEach(func(k, v []byte) error {
 			var room Room
 			if err := json.Unmarshal(v, &room); err != nil {
 				return fmt.Errorf("error unmarshalling room data for key %s: %w", k, err)
 			}
+
+			log.Printf("Loaded room %d: %s", room.RoomID, room.Title)
+
 			rooms[room.RoomID] = &room
 			return nil
 		})

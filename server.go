@@ -21,7 +21,7 @@ type Server struct {
 	Config         Configuration
 	StartTime      time.Time
 	Rooms          map[int64]*Room
-	Database       *DataBase
+	Database       *KeyPair
 	PlayerIndex    *Index
 	CharacterIndex *Index
 	ExitIndex      *Index
@@ -44,15 +44,13 @@ func NewServer(config Configuration) (*Server, error) {
 		ObjectIndex:    &Index{},
 	}
 
-	// Initialize the database
-	database := &DataBase{
-		File: config.DataFile,
-	}
-	if err := database.Open(); err != nil {
-		return nil, fmt.Errorf("failed to open database: %v", err)
-	}
-	server.Database = database
+	log.Printf("Initializing database...")
 
+	// Initialize the database
+	var err error
+	server.Database, err = NewKeyPair(config.DataFile)
+
+	// TODO: Load the index values from the database
 	server.PlayerIndex.IndexID = 1
 	server.CharacterIndex.IndexID = 1
 	server.ObjectIndex.IndexID = 1
@@ -60,7 +58,9 @@ func NewServer(config Configuration) (*Server, error) {
 	server.ExitIndex.IndexID = 100
 
 	// Load rooms into the server
-	var err error
+
+	log.Printf("Loading rooms from database...")
+
 	server.Rooms, err = server.Database.LoadRooms()
 	if err != nil {
 		return nil, fmt.Errorf("failed to load rooms: %v", err)

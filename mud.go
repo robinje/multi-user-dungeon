@@ -34,7 +34,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	log.Printf("Configuration loaded: %+v", config)
+	//log.Printf("Configuration loaded: %+v", config)
 
 	// Initialize the Database
 
