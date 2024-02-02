@@ -18,36 +18,78 @@ type Character struct {
 }
 
 func (s *Server) CreateCharacter(player *Player) (*Character, error) {
-	// Send a prompt to the player asking for the character name
+	reader := bufio.NewReader(player.Connection)
+
+	go func() {
+		for msg := range player.ToPlayer {
+			player.Connection.Write([]byte(msg))
+		}
+	}()
+
+	// Prompt the player for the character name
 	player.SendMessage("Enter your character name: ")
-	player.WritePrompt()
 
-	// Read the character name from the player
+	var inputBuffer bytes.Buffer
+	for {
+		char, _, err := reader.ReadRune()
+		if err != nil {
+			if err != io.EOF {
+				player.Connection.Write([]byte(fmt.Sprintf("Error: %v\n\r", err)))
+			}
+			return nil, err
+		}
 
-	charName := <-player.FromPlayer
+		// Echo the character back to the player
+		player.Connection.Write([]byte(string(char)))
+
+		// Check if the character is a newline, indicating the end of input
+		if char == '\n' || char == '\r' {
+			break // Exit the loop once the newline character is encountered
+		}
+
+		// Add character to buffer
+		inputBuffer.WriteRune(char)
+	}
+
+	// Trim space to remove the newline character at the end
+	charName := strings.TrimSpace(inputBuffer.String())
+
+	player.SendMessage(fmt.Sprintf("\n\r"))
 
 	// Retrieve room 1, or handle the case where it does not exist
+
 	room, ok := s.Rooms[1]
 	if !ok {
 		return nil, fmt.Errorf("Starting room does not exist")
 	}
 
+	log.Printf("Starting room: %v", room)
+
 	// Create and initialize the new character
 	character := s.NewCharacter(charName, player, room)
 
-	// Optionally, add the character to the room's Characters map
+	// Ensure the Characters map is initialized <- Do not like.
+	if room.Characters == nil {
+		room.Characters = make(map[uint64]*Character)
+	}
+
+	// Add the character to the room's Characters map
 	room.Characters[character.Index] = character
 
 	return character, nil
 }
 
 func (s *Server) NewCharacter(Name string, Player *Player, Room *Room) *Character {
-	return &Character{
+	character := &Character{
 		Index:  s.CharacterIndex.GetID(),
 		Room:   Room,
 		Name:   Name,
 		Player: Player,
 	}
+
+	log.Printf("Created character %s with Index %d", character.Name, character.Index)
+
+	return character
 }
 
 func (c *Character) SendMessage(message string) {

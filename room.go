@@ -91,7 +91,7 @@ func (kp *KeyPair) LoadRooms() (map[int64]*Room, error) {
 }
 
 func NewRoom(RoomID int64, Area string, Title string, Description string) *Room {
-	return &Room{
+	room := &Room{
 		RoomID:      RoomID,
 		Area:        Area,
 		Title:       Title,
@@ -99,6 +99,10 @@ func NewRoom(RoomID int64, Area string, Title string, Description string) *Room 
 		Exits:       make(map[string]*Exit),
 		Characters:  make(map[uint64]*Character),
 	}
+
+	log.Printf("Created room %s with ID %d", room.Title, room.RoomID)
+
+	return room
 }
 
 func (r *Room) AddExit(exit *Exit) {
