@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -15,6 +16,8 @@ type Character struct {
 	Room   *Room
 	Name   string
 	Player *Player
+	Mutex  sync.Mutex
+	Server *Server
 }
 
 func (s *Server) CreateCharacter(player *Player) (*Character, error) {
@@ -85,6 +88,7 @@ func (s *Server) NewCharacter(Name string, Player *Player, Room *Room) *Characte
 		Room:   Room,
 		Name:   Name,
 		Player: Player,
+		Server: s,
 	}
 
 	log.Printf("Created character %s with Index %d", character.Name, character.Index)
@@ -150,4 +154,47 @@ func (c *Character) InputLoop() {
 			inputBuffer.Reset()
 		}
 	}
+}
+
+func (c *Character) Move(direction string) {
+	if c.Room == nil {
+		c.SendMessage("You must be in a room to move.\n\r")
+		return
+	}
+
+	oldRoom := c.Room
+
+	selectedExit := c.Room.Exits[direction]
+	if selectedExit == nil {
+		c.SendMessage("There is no exit in that direction.\n\r")
+		return
+	}
+
+	newRoom := c.Server.Rooms[selectedExit.TargetRoom]
+	if newRoom == nil {
+		c.SendMessage("There is no exit in that direction.\n\r")
+		return
+	}
+
+	// Remove the character from the old room
+	oldRoom.Mutex.Lock()
+	delete(oldRoom.Characters, c.Index)
+	oldRoom.Mutex.Unlock()
+
+	// Send a message to the old room
+	oldRoom.SendRoomMessage(c.Name + " has left the room.\n\r")
+
+	c.SendMessage("You move " + direction + ".\n\r")
+
+	// Send a message to the new room
+	newRoom.SendRoomMessage(c.Name + " has entered the room.\n\r")
+
+	// Add the character to the new room
+	newRoom.Mutex.Lock()
+	newRoom.Characters[c.Index] = c
+	newRoom.Mutex.Unlock()
+
+	c.Room = newRoom
+	executeLookCommand(c)
+
 }

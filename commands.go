@@ -90,7 +90,6 @@ func executeSayCommand(character *Character, tokens []string) bool {
 	message := strings.Join(tokens[1:], " ")
 	broadcastMessage := fmt.Sprintf("\n\r%s says %s\n\r", character.Name, message)
 
-
 	character.Room.Mutex.Lock()
 	for _, c := range character.Room.Characters {
 		if c != character {
@@ -112,11 +111,23 @@ func executeLookCommand(character *Character) bool {
 	return false
 }
 
+func executeGoCommand(character *Character, tokens []string) bool {
+	if len(tokens) < 2 {
+		character.Player.ToPlayer <- "\n\rWhich direction do you want to go?\n\r"
+		return false
+	}
+
+	direction := tokens[1]
+	character.Move(direction)
+	return false
+}
+
 func executeHelpCommand(character *Character) bool {
 	helpMessage := "\n\rAvailable Commands:" +
 		"\n\rquit - Quit the game" +
 		"\n\rsay <message> - Say something to all players" +
 		"\n\rlook - Look around the room" +
+		"\n\rgo <direction> - Move in a direction" +
 		"\n\rhelp - Display available commands\n\r"
 
 	character.Player.ToPlayer <- helpMessage
