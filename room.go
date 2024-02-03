@@ -115,3 +115,62 @@ func (r *Room) SendRoomMessage(message string) {
 		character.SendMessage(message)
 	}
 }
+
+func (r *Room) RoomInfo(character *Character) string {
+	roomInfo := fmt.Sprintf("\n\r[%s]\n\r%s\n\r", r.Title, r.Description)
+
+	var displayExits strings.Builder
+
+	exits := make([]string, 0, len(r.Exits))
+	for _, exit := range r.Exits {
+		exits = append(exits, exit.Direction)
+	}
+
+	switch len(exits) {
+	case 0:
+		displayExits.WriteString("There are no exits.\n\r")
+	case 1:
+		displayExits.WriteString(fmt.Sprintf("Obvious exit: %s\n\r", exits[0]))
+	case 2:
+		displayExits.WriteString(fmt.Sprintf("Obvious exits: %s and %s\n\r", exits[0], exits[1]))
+	default:
+		displayExits.WriteString("Obvious exits: ")
+		for i, exit := range exits[:len(exits)-1] {
+			if i > 0 {
+				displayExits.WriteString(", ")
+			}
+			displayExits.WriteString(exit)
+		}
+		displayExits.WriteString(", and " + exits[len(exits)-1] + "\n\r")
+	}
+
+	var charactersInRoom strings.Builder
+	otherCharacters := make([]string, 0, len(r.Characters)-1)
+	for _, c := range r.Characters {
+		if c != character {
+			otherCharacters = append(otherCharacters, c.Name)
+		}
+	}
+
+	switch len(otherCharacters) {
+	case 0:
+		charactersInRoom.WriteString("You are alone.\n\r")
+	case 1:
+		charactersInRoom.WriteString(fmt.Sprintf("Also here: %s\n\r", otherCharacters[0]))
+	case 2:
+		charactersInRoom.WriteString(fmt.Sprintf("Also here: %s and %s\n\r", otherCharacters[0], otherCharacters[1]))
+	default:
+		charactersInRoom.WriteString("Also here: ")
+		for i, name := range otherCharacters[:len(otherCharacters)-1] {
+			if i > 0 {
+				charactersInRoom.WriteString(", ")
+			}
+			charactersInRoom.WriteString(name)
+		}
+		charactersInRoom.WriteString(", and " + otherCharacters[len(otherCharacters)-1])
+	}
+
+	roomDescription := fmt.Sprintf("%s%s%s", roomInfo, displayExits.String(), charactersInRoom.String())
+
+	return roomDescription
+}

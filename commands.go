@@ -62,6 +62,9 @@ func executeCommand(character *Character, verb string, tokens []string) bool {
 	case "say":
 		return executeSayCommand(character, tokens)
 
+	case "look":
+		return executeLookCommand(character)
+
 	case "help":
 		return executeHelpCommand(character)
 
@@ -102,10 +105,17 @@ func executeSayCommand(character *Character, tokens []string) bool {
 	return false
 }
 
+func executeLookCommand(character *Character) bool {
+	room := character.Room
+	character.Player.ToPlayer <- room.RoomInfo(character)
+	return false
+}
+
 func executeHelpCommand(character *Character) bool {
 	helpMessage := "\n\rAvailable Commands:" +
 		"\n\rquit - Quit the game" +
 		"\n\rsay <message> - Say something to all players" +
+		"\n\rlook - Look around the room" +
 		"\n\rhelp - Display available commands\n\r"
 
 	character.Player.ToPlayer <- helpMessage
