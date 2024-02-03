@@ -62,6 +62,9 @@ func executeCommand(character *Character, verb string, tokens []string) bool {
 	case "say":
 		return executeSayCommand(character, tokens)
 
+	case "look":
+		return executeLookCommand(character)
+
 	case "help":
 		return executeHelpCommand(character)
 
@@ -99,6 +102,12 @@ func executeSayCommand(character *Character, tokens []string) bool {
 	// Send only the broadcast message to the player who issued the command
 	character.Player.ToPlayer <- fmt.Sprintf("\n\rYou say: %s\n\r", message)
 
+	return false
+}
+
+func executeLookCommand(character *Character) bool {
+	room := character.Room
+	character.Player.ToPlayer <- room.RoomInfo(character)
 	return false
 }
 
