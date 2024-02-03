@@ -115,6 +115,7 @@ func executeHelpCommand(character *Character) bool {
 	helpMessage := "\n\rAvailable Commands:" +
 		"\n\rquit - Quit the game" +
 		"\n\rsay <message> - Say something to all players" +
+		"\n\rlook - Look around the room" +
 		"\n\rhelp - Display available commands\n\r"
 
 	character.Player.ToPlayer <- helpMessage
