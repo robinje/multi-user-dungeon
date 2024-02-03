@@ -88,19 +88,20 @@ func executeSayCommand(character *Character, tokens []string) bool {
 	}
 
 	message := strings.Join(tokens[1:], " ")
-	broadcastMessage := fmt.Sprintf("\n\r%s says: %s\n\r", character.Name, message)
+	broadcastMessage := fmt.Sprintf("\n\r%s says %s\n\r", character.Name, message)
 
-	character.Player.Server.Mutex.Lock()
-	for _, p := range character.Player.Server.Players {
-		if p != character.Player {
-			// Send message and prompt to other players
-			p.ToPlayer <- broadcastMessage + p.Prompt
+
+	character.Room.Mutex.Lock()
+	for _, c := range character.Room.Characters {
+		if c != character {
+			// Send message to other characters in the room
+			c.Player.ToPlayer <- broadcastMessage
 		}
 	}
-	character.Player.Server.Mutex.Unlock()
+	character.Room.Mutex.Unlock()
 
 	// Send only the broadcast message to the player who issued the command
-	character.Player.ToPlayer <- fmt.Sprintf("\n\rYou say: %s\n\r", message)
+	character.Player.ToPlayer <- fmt.Sprintf("\n\rYou say %s\n\r", message)
 
 	return false
 }
