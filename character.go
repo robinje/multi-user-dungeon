@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -15,6 +16,8 @@ type Character struct {
 	Room   *Room
 	Name   string
 	Player *Player
+	Mutex  sync.Mutex
+	Server *Server
 }
 
 func (s *Server) CreateCharacter(player *Player) (*Character, error) {
@@ -85,6 +88,7 @@ func (s *Server) NewCharacter(Name string, Player *Player, Room *Room) *Characte
 		Room:   Room,
 		Name:   Name,
 		Player: Player,
+		Server: s,
 	}
 
 	log.Printf("Created character %s with Index %d", character.Name, character.Index)
@@ -104,6 +108,10 @@ func (c *Character) InputLoop() {
 			c.Player.Connection.Write([]byte(msg))
 		}
 	}()
+
+	executeLookCommand(c)
+
+	time.Sleep(100 * time.Millisecond)
 
 	c.Player.WritePrompt()
 
@@ -150,4 +158,50 @@ func (c *Character) InputLoop() {
 			inputBuffer.Reset()
 		}
 	}
+}
+
+func (c *Character) Move(direction string) {
+	c.Mutex.Lock()
+	defer c.Mutex.Unlock()
+
+	if c.Room == nil {
+		c.SendMessage("You are not in any room to move from.\n\r")
+		return
+	}
+
+	log.Printf("Player %s is moving %s", c.Name, direction)
+
+	selectedExit, exists := c.Room.Exits[direction]
+	if !exists {
+		c.SendMessage("You cannot go that way.\n\r")
+		return
+	}
+
+	newRoom, exists := c.Server.Rooms[selectedExit.TargetRoom]
+	if !exists {
+		c.SendMessage("The path leads nowhere.\n\r")
+		return
+	}
+
+	// Safely remove the character from the old room
+	oldRoom := c.Room
+	oldRoom.Mutex.Lock()
+	delete(oldRoom.Characters, c.Index)
+	oldRoom.Mutex.Unlock()
+	oldRoom.SendRoomMessage(fmt.Sprintf("%s has left towards %s.\n\r", c.Name, direction))
+
+	// Update character's room
+	c.Room = newRoom
+
+	newRoom.SendRoomMessage(fmt.Sprintf("%s has arrived.\n\r", c.Name))
+
+	// Ensure the Characters map in the new room is initialized
+	newRoom.Mutex.Lock()
+	if newRoom.Characters == nil {
+		newRoom.Characters = make(map[uint64]*Character)
+	}
+	newRoom.Characters[c.Index] = c
+	newRoom.Mutex.Unlock()
+
+	executeLookCommand(c)
 }

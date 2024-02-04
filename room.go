@@ -6,6 +6,7 @@ import (
 	"log"
 	"strconv"
 	"strings"
+	"sync"
 
 	bolt "go.etcd.io/bbolt"
 )
@@ -17,6 +18,7 @@ type Room struct {
 	Description string
 	Exits       map[string]*Exit
 	Characters  map[uint64]*Character
+	Mutex       sync.Mutex
 }
 
 type Exit struct {
