@@ -109,6 +109,10 @@ func (c *Character) InputLoop() {
 		}
 	}()
 
+	executeLookCommand(c)
+
+	time.Sleep(100 * time.Millisecond)
+
 	c.Player.WritePrompt()
 
 	var inputBuffer bytes.Buffer
@@ -157,44 +161,47 @@ func (c *Character) InputLoop() {
 }
 
 func (c *Character) Move(direction string) {
+	c.Mutex.Lock()
+	defer c.Mutex.Unlock()
+
 	if c.Room == nil {
-		c.SendMessage("You must be in a room to move.\n\r")
+		c.SendMessage("You are not in any room to move from.\n\r")
 		return
 	}
 
+	log.Printf("Player %s is moving %s", c.Name, direction)
+
+	selectedExit, exists := c.Room.Exits[direction]
+	if !exists {
+		c.SendMessage("You cannot go that way.\n\r")
+		return
+	}
+
+	newRoom, exists := c.Server.Rooms[selectedExit.TargetRoom]
+	if !exists {
+		c.SendMessage("The path leads nowhere.\n\r")
+		return
+	}
+
+	// Safely remove the character from the old room
 	oldRoom := c.Room
-
-	selectedExit := c.Room.Exits[direction]
-	if selectedExit == nil {
-		c.SendMessage("There is no exit in that direction.\n\r")
-		return
-	}
-
-	newRoom := c.Server.Rooms[selectedExit.TargetRoom]
-	if newRoom == nil {
-		c.SendMessage("There is no exit in that direction.\n\r")
-		return
-	}
-
-	// Remove the character from the old room
 	oldRoom.Mutex.Lock()
 	delete(oldRoom.Characters, c.Index)
 	oldRoom.Mutex.Unlock()
+	oldRoom.SendRoomMessage(fmt.Sprintf("%s has left towards %s.\n\r", c.Name, direction))
 
-	// Send a message to the old room
-	oldRoom.SendRoomMessage(c.Name + " has left the room.\n\r")
+	// Update character's room
+	c.Room = newRoom
 
-	c.SendMessage("You move " + direction + ".\n\r")
+	newRoom.SendRoomMessage(fmt.Sprintf("%s has arrived.\n\r", c.Name))
 
-	// Send a message to the new room
-	newRoom.SendRoomMessage(c.Name + " has entered the room.\n\r")
-
-	// Add the character to the new room
+	// Ensure the Characters map in the new room is initialized
 	newRoom.Mutex.Lock()
+	if newRoom.Characters == nil {
+		newRoom.Characters = make(map[uint64]*Character)
+	}
 	newRoom.Characters[c.Index] = c
 	newRoom.Mutex.Unlock()
 
-	c.Room = newRoom
 	executeLookCommand(c)
-
 }

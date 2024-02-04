@@ -59,11 +59,14 @@ func executeCommand(character *Character, verb string, tokens []string) bool {
 	case "quit":
 		return executeQuitCommand(character)
 
+	case "look":
+		return executeLookCommand(character)
+
 	case "say":
 		return executeSayCommand(character, tokens)
 
-	case "look":
-		return executeLookCommand(character)
+	case "go":
+		return executeGoCommand(character, tokens)
 
 	case "help":
 		return executeHelpCommand(character)
