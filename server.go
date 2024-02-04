@@ -59,6 +59,10 @@ func NewServer(config Configuration) (*Server, error) {
 
 	// Load rooms into the server
 
+	// Add a default room
+
+	server.Rooms[0] = NewRoom(0, "The Void", "The Void", "You are in a void of nothingness. If you are here, something has gone terribly wrong.")
+
 	log.Printf("Loading rooms from database...")
 
 	server.Rooms, err = server.Database.LoadRooms()
