@@ -35,7 +35,7 @@ To deploy the server, you will need to have Go installed on your system. You can
 
 You will need to have an AWS account to deploy the server. You can sign up for an account [here](https://aws.amazon.com/).
 
-You will neen AWS credentials for that account which have sufficient permissions to create the Cognito user pool, and the IAM policies and roles.
+You will need AWS credentials for that account which have sufficient permissions to create the Cognito user pool, and the IAM policies and roles.
 
 Run the `./scripts/deploy_cognito.py` script to create the Cognito instace and the IAM policies and roles, it will also generate the `config.json` file that is needed to run the server.
 
