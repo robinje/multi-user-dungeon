@@ -28,3 +28,18 @@ TODO:
 - [ ] Add a player list command.
 - [ ] Impliment Persistant Logging.
 - [ ] Allow users to change their passwords.
+
+## Demployment
+
+To deploy the server, you will need to have Go installed on your system. You can download it from the [Go website](https://golang.org/).
+
+You will need to have an AWS account to deploy the server. You can sign up for an account [here](https://aws.amazon.com/).
+
+You will neen AWS credentials for that account which have sufficient permissions to create the Cognito user pool, and the IAM policies and roles.
+
+Run the `./scripts/deploy_cognito.py` script to create the Cognito instace and the IAM policies and roles, it will also generate the `config.json` file that is needed to run the server.
+
+Install the Go dependencies by running `go mod download`.
+
+Start the server by running `go run .` in the root directory of the project.
+
