@@ -11,7 +11,7 @@ The current objectives are:
 - [x] Create the TCP server for clinet connections.
 - [x] Create a text parser for user input.
 - [x] Player authentication system
-- [ ] Impliment a database for the game.
+- [x] Impliment a database for the game.
 - [ ] Player creation system.
 - [ ] Character creation system.
 - [ ] Build a private messaging system.
