@@ -136,7 +136,6 @@ func (s *Server) StartSSHServer() error {
 }
 
 func (s *Server) handleChannels(sshConn *ssh.ServerConn, channels <-chan ssh.NewChannel) {
-
 	log.Printf("New connection from %s (%s)", sshConn.User(), sshConn.RemoteAddr())
 
 	for newChannel := range channels {
@@ -146,15 +145,41 @@ func (s *Server) handleChannels(sshConn *ssh.ServerConn, channels <-chan ssh.New
 			continue
 		}
 
+		playerName := sshConn.User()
+		playerIndex := s.PlayerIndex.GetID()
+
+		// Attempt to read the player from the database
+		_, characterList, err := s.Database.ReadPlayer(playerName)
+		if err != nil {
+			// If the player does not exist, create a new record
+			if err.Error() == "player not found" {
+				log.Printf("Creating new player record for %s", playerName)
+				characterList = make(map[string]uint64) // Initialize an empty character list for new players
+				err = s.Database.WritePlayer(&Player{
+					Name:          playerName,
+					CharacterList: characterList,
+				})
+				if err != nil {
+					log.Printf("Error creating player record: %v", err)
+					continue
+				}
+			} else {
+				log.Printf("Error reading player from database: %v", err)
+				continue
+			}
+		}
+
+		// Create the Player struct with data from the database or as a new player
 		player := &Player{
-			Name:        sshConn.User(),
-			Index:       s.PlayerIndex.GetID(),
-			ToPlayer:    make(chan string),
-			FromPlayer:  make(chan string),
-			PlayerError: make(chan error),
-			Prompt:      "> ",
-			Connection:  channel,
-			Server:      s,
+			Name:          playerName,
+			Index:         playerIndex,
+			ToPlayer:      make(chan string),
+			FromPlayer:    make(chan string),
+			PlayerError:   make(chan error),
+			Prompt:        "> ",
+			Connection:    channel,
+			Server:        s,
+			CharacterList: characterList,
 		}
 
 		// Handle SSH requests (pty-req, shell, window-change)
@@ -167,13 +192,10 @@ func (s *Server) handleChannels(sshConn *ssh.ServerConn, channels <-chan ssh.New
 			log.Printf("Player %s connected", p.Name)
 
 			// Send welcome message
-
 			p.Connection.Write([]byte(fmt.Sprintf("Welcome to the game, %s!\n\r", p.Name)))
 
-			// Charater Selection Dialog
-
+			// Character Selection Dialog
 			character, _ := s.CreateCharacter(p)
-
 			character.InputLoop()
 
 			s.Mutex.Lock()
