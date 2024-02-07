@@ -115,6 +115,7 @@ func (r *Room) SendRoomMessage(message string) {
 
 	for _, character := range r.Characters {
 		character.SendMessage(message)
+		character.Player.WritePrompt()
 	}
 }
 

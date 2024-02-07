@@ -188,12 +188,12 @@ func (c *Character) Move(direction string) {
 	oldRoom.Mutex.Lock()
 	delete(oldRoom.Characters, c.Index)
 	oldRoom.Mutex.Unlock()
-	oldRoom.SendRoomMessage(fmt.Sprintf("%s has left towards %s.\n\r", c.Name, direction))
+	oldRoom.SendRoomMessage(fmt.Sprintf("\n\r%s has left going %s.\n\r", c.Name, direction))
 
 	// Update character's room
 	c.Room = newRoom
 
-	newRoom.SendRoomMessage(fmt.Sprintf("%s has arrived.\n\r", c.Name))
+	newRoom.SendRoomMessage(fmt.Sprintf("\n\r%s has arrived.\n\r", c.Name))
 
 	// Ensure the Characters map in the new room is initialized
 	newRoom.Mutex.Lock()

@@ -81,6 +81,7 @@ func executeCommand(character *Character, verb string, tokens []string) bool {
 func executeQuitCommand(character *Character) bool {
 	log.Printf("Player %s is quitting", character.Player.Name)
 	character.Player.ToPlayer <- "\n\rGoodbye!"
+	character.Room.SendRoomMessage(fmt.Sprintf("\n\r%s has left the game.\n\r", character.Name))
 	return true // Indicate that the loop should be exited
 }
 
@@ -98,6 +99,7 @@ func executeSayCommand(character *Character, tokens []string) bool {
 		if c != character {
 			// Send message to other characters in the room
 			c.Player.ToPlayer <- broadcastMessage
+			c.Player.WritePrompt()
 		}
 	}
 	character.Room.Mutex.Unlock()
