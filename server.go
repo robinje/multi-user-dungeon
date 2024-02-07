@@ -24,24 +24,37 @@ type Server struct {
 	Database       *KeyPair
 	PlayerIndex    *Index
 	CharacterIndex *Index
-	ExitIndex      *Index
-	RoomIndex      *Index
-	ObjectIndex    *Index
+}
+
+type Index struct {
+	IndexID uint64
+	mu      sync.Mutex
+}
+
+func (i *Index) GetID() uint64 {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+	i.IndexID++
+	return i.IndexID
+}
+
+func (i *Index) SetID(id uint64) {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+	if id > i.IndexID {
+		i.IndexID = id
+	}
 }
 
 func NewServer(config Configuration) (*Server, error) {
 	// Initialize the server with the configuration
 	server := &Server{
-		Port:           config.Port,
-		Players:        make(map[uint64]*Player),
-		Config:         config,
-		StartTime:      time.Now(),
-		Rooms:          make(map[int64]*Room),
-		PlayerIndex:    &Index{},
-		CharacterIndex: &Index{},
-		ExitIndex:      &Index{},
-		RoomIndex:      &Index{},
-		ObjectIndex:    &Index{},
+		Port:        config.Port,
+		Players:     make(map[uint64]*Player),
+		Config:      config,
+		StartTime:   time.Now(),
+		Rooms:       make(map[int64]*Room),
+		PlayerIndex: &Index{},
 	}
 
 	log.Printf("Initializing database...")
@@ -50,18 +63,15 @@ func NewServer(config Configuration) (*Server, error) {
 	var err error
 	server.Database, err = NewKeyPair(config.DataFile)
 
-	// TODO: Load the index values from the database
+	// Establish the player index
 	server.PlayerIndex.IndexID = 1
 	server.CharacterIndex.IndexID = 1
-	server.ObjectIndex.IndexID = 1
-	server.RoomIndex.IndexID = 100
-	server.ExitIndex.IndexID = 100
-
-	// Load rooms into the server
 
 	// Add a default room
 
 	server.Rooms[0] = NewRoom(0, "The Void", "The Void", "You are in a void of nothingness. If you are here, something has gone terribly wrong.")
+
+	// Load rooms into the server
 
 	log.Printf("Loading rooms from database...")
 
@@ -196,6 +206,7 @@ func (s *Server) handleChannels(sshConn *ssh.ServerConn, channels <-chan ssh.New
 
 			// Character Selection Dialog
 			character, _ := s.CreateCharacter(p)
+
 			character.InputLoop()
 
 			s.Mutex.Lock()
