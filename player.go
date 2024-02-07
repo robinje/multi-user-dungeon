@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	bolt "go.etcd.io/bbolt"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -77,6 +78,11 @@ func (k *KeyPair) WritePlayer(player *Player) error {
 
 func (k *KeyPair) ReadPlayer(playerName string) (string, map[string]uint64, error) {
 	playerData, err := k.Get("Players", []byte(playerName))
+
+	if err == bolt.ErrBucketNotFound {
+		return "", nil, fmt.Errorf("player not found")
+	}
+
 	if err != nil {
 		return "", nil, err
 	}
