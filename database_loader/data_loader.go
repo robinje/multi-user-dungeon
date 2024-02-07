@@ -55,6 +55,7 @@ type Exit struct {
 	Visible    bool
 	Direction  string
 }
+
 type Room struct {
 	RoomID      int64
 	Area        string
@@ -130,6 +131,11 @@ func LoadJSON(rooms map[int64]*Room, fileName string) (map[int64]*Room, error) {
 }
 
 func LoadBolt(rooms map[int64]*Room, fileName string) (map[int64]*Room, error) {
+
+	if rooms == nil {
+		rooms = make(map[int64]*Room)
+	}
+
 	db, err := bolt.Open(fileName, 0600, nil)
 	if err != nil {
 		fmt.Printf("Error opening BoltDB file: %v\n", err)
@@ -152,6 +158,7 @@ func LoadBolt(rooms map[int64]*Room, fileName string) (map[int64]*Room, error) {
 
 		err := roomsBucket.ForEach(func(k, v []byte) error {
 			var room Room
+			room.Exits = make(map[string]*Exit)
 			if err := json.Unmarshal(v, &room); err != nil {
 				fmt.Printf("Error unmarshalling room data for key %s: %v\n", k, err)
 				return fmt.Errorf("error unmarshalling room data: %w", err)
@@ -206,46 +213,40 @@ func LoadBolt(rooms map[int64]*Room, fileName string) (map[int64]*Room, error) {
 func WriteBolt(rooms map[int64]*Room, dbPath string) (map[int64]*Room, error) {
 	db, err := bolt.Open(dbPath, 0600, nil)
 	if err != nil {
-		fmt.Printf("Error opening database: %v\n", err)
-		return rooms, err
+		return nil, fmt.Errorf("error opening database: %v", err)
 	}
 	defer db.Close()
 
-	err = db.Update(func(tx *bolt.Tx) error {
+	return nil, db.Update(func(tx *bolt.Tx) error {
 		roomsBucket, err := tx.CreateBucketIfNotExists([]byte("Rooms"))
 		if err != nil {
-			fmt.Printf("Error creating 'Rooms' bucket: %v\n", err)
 			return err
 		}
+
 		exitsBucket, err := tx.CreateBucketIfNotExists([]byte("Exits"))
 		if err != nil {
-			fmt.Printf("Error creating 'Exits' bucket: %v\n", err)
 			return err
 		}
 
 		for _, room := range rooms {
 			roomData, err := json.Marshal(room)
 			if err != nil {
-				fmt.Printf("Error marshalling room data (RoomID %d): %v\n", room.RoomID, err)
 				return err
 			}
 			roomKey := strconv.FormatInt(room.RoomID, 10)
-			err = roomsBucket.Put([]byte(roomKey), roomData)
-			if err != nil {
-				fmt.Printf("Error writing room data to 'Rooms' bucket: %v\n", err)
+			if err := roomsBucket.Put([]byte(roomKey), roomData); err != nil {
 				return err
 			}
 
-			for _, exit := range room.Exits {
+			for dir, exit := range room.Exits {
+				exitID, _ := exitsBucket.NextSequence()
+				exit.ExitID = int64(exitID) // Assign the next sequence number as ExitID
 				exitData, err := json.Marshal(exit)
 				if err != nil {
-					fmt.Printf("Error marshalling exit data (ExitID %d): %v\n", exit.ExitID, err)
 					return err
 				}
-				exitKey := fmt.Sprintf("%d_%s", room.RoomID, exit.Direction)
-				err = exitsBucket.Put([]byte(exitKey), exitData)
-				if err != nil {
-					fmt.Printf("Error writing exit data to 'Exits' bucket: %v\n", err)
+				exitKey := fmt.Sprintf("%d_%s", room.RoomID, dir)
+				if err := exitsBucket.Put([]byte(exitKey), exitData); err != nil {
 					return err
 				}
 			}
@@ -314,5 +315,4 @@ func main() {
 	} else {
 		fmt.Println("Data loaded from BoltDB successfully")
 	}
-
 }
