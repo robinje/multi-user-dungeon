@@ -1,8 +1,8 @@
 package main
 
 import (
+	"fmt"
 	"log"
-	"sync"
 
 	bolt "go.etcd.io/bbolt"
 )

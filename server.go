@@ -12,17 +12,18 @@ import (
 )
 
 type Server struct {
-	Port        uint16
-	Listener    net.Listener
-	SSHConfig   *ssh.ServerConfig
-	Players     map[uint64]*Player
-	PlayerCount uint64
-	Mutex       sync.Mutex
-	Config      Configuration
-	StartTime   time.Time
-	Rooms       map[int64]*Room
-	Database    *KeyPair
-	PlayerIndex *Index
+	Port           uint16
+	Listener       net.Listener
+	SSHConfig      *ssh.ServerConfig
+	Players        map[uint64]*Player
+	PlayerCount    uint64
+	Mutex          sync.Mutex
+	Config         Configuration
+	StartTime      time.Time
+	Rooms          map[int64]*Room
+	Database       *KeyPair
+	PlayerIndex    *Index
+	CharacterIndex *Index
 }
 
 type Index struct {
@@ -64,6 +65,7 @@ func NewServer(config Configuration) (*Server, error) {
 
 	// Establish the player index
 	server.PlayerIndex.IndexID = 1
+	server.CharacterIndex.IndexID = 1
 
 	// Add a default room
 
