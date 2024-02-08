@@ -3,12 +3,15 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"strings"
 	"sync"
 	"time"
+
+	bolt "go.etcd.io/bbolt"
 )
 
 type Character struct {
@@ -18,6 +21,13 @@ type Character struct {
 	Player *Player
 	Mutex  sync.Mutex
 	Server *Server
+}
+
+// CharacterData for unmarshalling character.
+type CharacterData struct {
+	Index  uint64 `json:"index"`
+	Name   string `json:"name"`
+	RoomID int64  `json:"roomID"`
 }
 
 func (s *Server) CreateCharacter(player *Player) (*Character, error) {
@@ -94,6 +104,49 @@ func (s *Server) NewCharacter(Name string, Player *Player, Room *Room) *Characte
 	log.Printf("Created character %s with Index %d", character.Name, character.Index)
 
 	return character
+}
+
+func (s *Server) LoadCharacter(player *Player, characterName string) (*Character, error) {
+	var characterData []byte
+	err := s.Database.db.View(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket([]byte("Characters"))
+		if bucket == nil {
+			return fmt.Errorf("characters bucket not found")
+		}
+		characterData = bucket.Get([]byte(characterName))
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	if characterData == nil {
+		return nil, fmt.Errorf("character not found")
+	}
+
+	var cd CharacterData
+	if err := json.Unmarshal(characterData, &cd); err != nil {
+		return nil, fmt.Errorf("error unmarshalling character data: %w", err)
+	}
+
+	// Retrieve the Room object based on RoomID
+	room, exists := s.Rooms[cd.RoomID]
+	if !exists {
+		return nil, fmt.Errorf("room with ID %d not found", cd.RoomID)
+	}
+
+	character := &Character{
+		Index:  cd.Index,
+		Room:   room,
+		Name:   cd.Name,
+		Player: player,
+		Server: s,
+	}
+
+	log.Printf("Loaded and created character %s with Index %d in Room %d", character.Name, character.Index, room.RoomID)
+
+	return character, nil
 }
 
 func (c *Character) SendMessage(message string) {
