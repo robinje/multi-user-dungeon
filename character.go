@@ -93,15 +93,53 @@ func (s *Server) CreateCharacter(player *Player) (*Character, error) {
 }
 
 func (s *Server) NewCharacter(Name string, Player *Player, Room *Room) *Character {
+	// Generate a new unique index for the character
+	characterIndex := s.CharacterIndex.GetID()
+
 	character := &Character{
-		Index:  s.CharacterIndex.GetID(),
+		Index:  characterIndex,
 		Room:   Room,
 		Name:   Name,
 		Player: Player,
 		Server: s,
 	}
 
-	log.Printf("Created character %s with Index %d", character.Name, character.Index)
+	// Serialize the character data for storage
+	characterData, err := json.Marshal(character)
+	if err != nil {
+		log.Printf("Error marshalling character data: %v", err)
+		return character
+	}
+
+	// Store the character data in the database
+	err = s.Database.db.Update(func(tx *bolt.Tx) error {
+		// Ensure the Characters bucket exists
+		bucket, err := tx.CreateBucketIfNotExists([]byte("Characters"))
+		if err != nil {
+			return fmt.Errorf("create bucket: %s", err)
+		}
+
+		// Use the character's Index as the key for storage to ensure uniqueness
+		indexKey := fmt.Sprintf("%d", characterIndex)
+
+		// Store the serialized character data
+		err = bucket.Put([]byte(indexKey), characterData)
+		if err != nil {
+			return fmt.Errorf("failed to put character data: %v", err)
+		}
+		return nil
+	})
+
+	if err != nil {
+		log.Printf("Failed to add character to database: %v", err)
+		return nil
+	}
+
+	log.Printf("Created character %s with Index %d and added to database", character.Name, character.Index)
+
+	Player.CharacterList[Name] = characterIndex
+
+	_ := s.Database.WritePlayer(Player)
 
 	return character
 }
