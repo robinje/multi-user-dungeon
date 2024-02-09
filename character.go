@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -73,7 +74,7 @@ func (s *Server) CreateCharacter(player *Player) (*Character, error) {
 
 	room, ok := s.Rooms[1] //TODO: This should be a function to get the starting room
 	if !ok {
-		room, ok := s.Rooms[0]
+		room, ok = s.Rooms[0]
 		if !ok {
 			return nil, fmt.Errorf("no room found")
 		}
@@ -98,7 +99,11 @@ func (s *Server) CreateCharacter(player *Player) (*Character, error) {
 func (s *Server) NewCharacter(Name string, Player *Player, Room *Room) *Character {
 
 	// Generate a new unique index for the character
-	characterIndex := s.Database.NextIndex("Characters")
+	characterIndex, err := s.Database.NextIndex("Characters")
+	if err != nil {
+		log.Printf("Error generating character index: %v", err)
+		return nil
+	}
 
 	character := &Character{
 		Index:  characterIndex,
@@ -108,19 +113,24 @@ func (s *Server) NewCharacter(Name string, Player *Player, Room *Room) *Characte
 		Server: s,
 	}
 
-	err := s.WriteCharacter(character)
+	err = s.WriteCharacter(character)
 	if err != nil {
 		log.Printf("Error writing character to database: %v", err)
 		return nil
-
-		log.Printf("Created character %s with Index %d", character.Name, character.Index)
-
-		Player.CharacterList[Name] = characterIndex
-
-		_ := s.Database.WritePlayer(Player)
-
-		return character
 	}
+
+	log.Printf("Created character %s with Index %d", character.Name, character.Index)
+
+	Player.CharacterList[Name] = characterIndex
+
+	err = s.Database.WritePlayer(Player)
+	if err != nil {
+		log.Printf("Error writing player to database: %v", err)
+		return nil
+
+	}
+
+	return character
 }
 
 func (s *Server) WriteCharacter(character *Character) error {
@@ -150,7 +160,6 @@ func (s *Server) WriteCharacter(character *Character) error {
 	}
 
 	log.Printf("Successfully added character %s with Index %d to database", character.Name, character.Index)
-
 	return nil
 }
 
@@ -334,7 +343,7 @@ func (s *Server) SelectCharacter(player *Player) (*Character, error) {
 	choice, err := strconv.Atoi(input)
 	if err != nil || choice < 0 || choice > len(options) {
 		player.SendMessage("Invalid choice. Please select a valid option.\n")
-		return s.ListOrCreateCharacter(player) // Recursive call to handle incorrect input
+		return s.SelectCharacter(player) // Recursive call to handle incorrect input
 	}
 
 	if choice == 0 {
