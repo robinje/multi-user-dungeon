@@ -71,9 +71,12 @@ func (s *Server) CreateCharacter(player *Player) (*Character, error) {
 
 	// Retrieve room 1, or handle the case where it does not exist
 
-	room, ok := s.Rooms[1]
+	room, ok := s.Rooms[1] //TODO: This should be a function to get the starting room
 	if !ok {
-		return nil, fmt.Errorf("Starting room does not exist")
+		room, ok := s.Rooms[0]
+		if !ok {
+			return nil, fmt.Errorf("no room found")
+		}
 	}
 
 	log.Printf("Starting room: %v", room)
@@ -93,8 +96,9 @@ func (s *Server) CreateCharacter(player *Player) (*Character, error) {
 }
 
 func (s *Server) NewCharacter(Name string, Player *Player, Room *Room) *Character {
+
 	// Generate a new unique index for the character
-	characterIndex := s.CharacterIndex.GetID()
+	characterIndex := s.Database.NextIndex("Characters")
 
 	character := &Character{
 		Index:  characterIndex,
@@ -104,25 +108,35 @@ func (s *Server) NewCharacter(Name string, Player *Player, Room *Room) *Characte
 		Server: s,
 	}
 
-	// Serialize the character data for storage
+	err := s.WriteCharacter(character)
+	if err != nil {
+		log.Printf("Error writing character to database: %v", err)
+		return nil
+
+		log.Printf("Created character %s with Index %d", character.Name, character.Index)
+
+		Player.CharacterList[Name] = characterIndex
+
+		_ := s.Database.WritePlayer(Player)
+
+		return character
+	}
+}
+
+func (s *Server) WriteCharacter(character *Character) error {
 	characterData, err := json.Marshal(character)
 	if err != nil {
 		log.Printf("Error marshalling character data: %v", err)
-		return character
+		return err
 	}
 
-	// Store the character data in the database
 	err = s.Database.db.Update(func(tx *bolt.Tx) error {
-		// Ensure the Characters bucket exists
 		bucket, err := tx.CreateBucketIfNotExists([]byte("Characters"))
 		if err != nil {
 			return fmt.Errorf("create bucket: %s", err)
 		}
 
-		// Use the character's Index as the key for storage to ensure uniqueness
-		indexKey := fmt.Sprintf("%d", characterIndex)
-
-		// Store the serialized character data
+		indexKey := fmt.Sprintf("%d", character.Index)
 		err = bucket.Put([]byte(indexKey), characterData)
 		if err != nil {
 			return fmt.Errorf("failed to put character data: %v", err)
@@ -132,16 +146,12 @@ func (s *Server) NewCharacter(Name string, Player *Player, Room *Room) *Characte
 
 	if err != nil {
 		log.Printf("Failed to add character to database: %v", err)
-		return nil
+		return err
 	}
 
-	log.Printf("Created character %s with Index %d and added to database", character.Name, character.Index)
+	log.Printf("Successfully added character %s with Index %d to database", character.Name, character.Index)
 
-	Player.CharacterList[Name] = characterIndex
-
-	_ := s.Database.WritePlayer(Player)
-
-	return character
+	return nil
 }
 
 func (s *Server) LoadCharacter(player *Player, characterName string) (*Character, error) {
