@@ -205,7 +205,7 @@ func (s *Server) handleChannels(sshConn *ssh.ServerConn, channels <-chan ssh.New
 			p.Connection.Write([]byte(fmt.Sprintf("Welcome to the game, %s!\n\r", p.Name)))
 
 			// Character Selection Dialog
-			character, _ := s.CreateCharacter(p)
+			character, _ := s.SelectCharacter(p)
 
 			character.InputLoop()
 

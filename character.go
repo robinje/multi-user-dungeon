@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -71,9 +72,12 @@ func (s *Server) CreateCharacter(player *Player) (*Character, error) {
 
 	// Retrieve room 1, or handle the case where it does not exist
 
-	room, ok := s.Rooms[1]
+	room, ok := s.Rooms[1] //TODO: This should be a function to get the starting room
 	if !ok {
-		return nil, fmt.Errorf("Starting room does not exist")
+		room, ok = s.Rooms[0]
+		if !ok {
+			return nil, fmt.Errorf("no room found")
+		}
 	}
 
 	log.Printf("Starting room: %v", room)
@@ -93,17 +97,70 @@ func (s *Server) CreateCharacter(player *Player) (*Character, error) {
 }
 
 func (s *Server) NewCharacter(Name string, Player *Player, Room *Room) *Character {
+
+	// Generate a new unique index for the character
+	characterIndex, err := s.Database.NextIndex("Characters")
+	if err != nil {
+		log.Printf("Error generating character index: %v", err)
+		return nil
+	}
+
 	character := &Character{
-		Index:  s.CharacterIndex.GetID(),
+		Index:  characterIndex,
 		Room:   Room,
 		Name:   Name,
 		Player: Player,
 		Server: s,
 	}
 
+	err = s.WriteCharacter(character)
+	if err != nil {
+		log.Printf("Error writing character to database: %v", err)
+		return nil
+	}
+
 	log.Printf("Created character %s with Index %d", character.Name, character.Index)
 
+	Player.CharacterList[Name] = characterIndex
+
+	err = s.Database.WritePlayer(Player)
+	if err != nil {
+		log.Printf("Error writing player to database: %v", err)
+		return nil
+
+	}
+
 	return character
+}
+
+func (s *Server) WriteCharacter(character *Character) error {
+	characterData, err := json.Marshal(character)
+	if err != nil {
+		log.Printf("Error marshalling character data: %v", err)
+		return err
+	}
+
+	err = s.Database.db.Update(func(tx *bolt.Tx) error {
+		bucket, err := tx.CreateBucketIfNotExists([]byte("Characters"))
+		if err != nil {
+			return fmt.Errorf("create bucket: %s", err)
+		}
+
+		indexKey := fmt.Sprintf("%d", character.Index)
+		err = bucket.Put([]byte(indexKey), characterData)
+		if err != nil {
+			return fmt.Errorf("failed to put character data: %v", err)
+		}
+		return nil
+	})
+
+	if err != nil {
+		log.Printf("Failed to add character to database: %v", err)
+		return err
+	}
+
+	log.Printf("Successfully added character %s with Index %d to database", character.Name, character.Index)
+	return nil
 }
 
 func (s *Server) LoadCharacter(player *Player, characterName string) (*Character, error) {
@@ -257,4 +314,44 @@ func (c *Character) Move(direction string) {
 	newRoom.Mutex.Unlock()
 
 	executeLookCommand(c)
+}
+
+func (s *Server) SelectCharacter(player *Player) (*Character, error) {
+	var options []string // To store character names for easy reference by index
+
+	player.SendMessage("Select a character:\n")
+
+	if len(player.CharacterList) > 0 {
+		i := 1
+		for name := range player.CharacterList {
+			player.SendMessage(fmt.Sprintf("%d: %s\n", i, name))
+			options = append(options, name) // Append character name to options
+			i++
+		}
+	}
+	player.SendMessage("0: Create a new character\n")
+
+	reader := bufio.NewReader(player.Connection)
+	input, err := reader.ReadString('\n')
+	if err != nil {
+		player.Connection.Write([]byte(fmt.Sprintf("Error reading input: %v\n\r", err)))
+		return nil, err
+	}
+	input = strings.TrimSpace(input)
+
+	// Convert input to integer
+	choice, err := strconv.Atoi(input)
+	if err != nil || choice < 0 || choice > len(options) {
+		player.SendMessage("Invalid choice. Please select a valid option.\n")
+		return s.SelectCharacter(player) // Recursive call to handle incorrect input
+	}
+
+	if choice == 0 {
+		// Create a new character
+		return s.CreateCharacter(player)
+	} else {
+		// Load an existing character
+		characterName := options[choice-1] // Adjust for 0-index; choice-1 maps to the correct character name
+		return s.LoadCharacter(player, characterName)
+	}
 }
