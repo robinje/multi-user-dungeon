@@ -49,30 +49,30 @@ func TestLoadConfigurationSuccess(t *testing.T) {
 
 // TestLoadConfigurationFileNotFound tests the behavior when the configuration file does not exist.
 func TestLoadConfigurationFileNotFound(t *testing.T) {
-    _, err := loadConfiguration("nonExistentFile.json")
-    if err == nil {
-        t.Fatal("Expected an error for non-existent file, got nil")
-    }
+	_, err := loadConfiguration("nonExistentFile.json")
+	if err == nil {
+		t.Fatal("Expected an error for non-existent file, got nil")
+	}
 }
 
 // TestLoadConfigurationInvalidJSON tests loading a configuration file with invalid JSON.
 func TestLoadConfigurationInvalidJSON(t *testing.T) {
-    tempFile, err := ioutil.TempFile("", "invalidConfig-*.json")
-    if err != nil {
-        t.Fatalf("Unable to create temporary file: %v", err)
-    }
-    defer os.Remove(tempFile.Name()) // Clean up after the test.
+	tempFile, err := ioutil.TempFile("", "invalidConfig-*.json")
+	if err != nil {
+		t.Fatalf("Unable to create temporary file: %v", err)
+	}
+	defer os.Remove(tempFile.Name()) // Clean up after the test.
 
-    invalidContent := []byte(`{Port:9050}`) // Incorrectly formatted JSON.
-    if _, err := tempFile.Write(invalidContent); err != nil {
-        t.Fatalf("Unable to write to temporary file: %v", err)
-    }
-    if err := tempFile.Close(); err != nil {
-        t.Fatalf("Unable to close temporary file: %v", err)
-    }
+	invalidContent := []byte(`{Port:9050}`) // Incorrectly formatted JSON.
+	if _, err := tempFile.Write(invalidContent); err != nil {
+		t.Fatalf("Unable to write to temporary file: %v", err)
+	}
+	if err := tempFile.Close(); err != nil {
+		t.Fatalf("Unable to close temporary file: %v", err)
+	}
 
-    _, err = loadConfiguration(tempFile.Name())
-    if err == nil {
-        t.Fatal("Expected an error for invalid JSON, got nil")
-    }
+	_, err = loadConfiguration(tempFile.Name())
+	if err == nil {
+		t.Fatal("Expected an error for invalid JSON, got nil")
+	}
 }

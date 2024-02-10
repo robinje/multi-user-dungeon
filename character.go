@@ -219,7 +219,8 @@ func (c *Character) InputLoop() {
 		}
 	}()
 
-	executeLookCommand(c)
+	// Initially execute the look command with no additional tokens
+	executeLookCommand(c, []string{}) // Adjusted to include the tokens parameter
 
 	time.Sleep(100 * time.Millisecond)
 
@@ -249,7 +250,7 @@ func (c *Character) InputLoop() {
 			inputLine = strings.Replace(inputLine, "\n", "\n\r", -1)
 
 			// Process the command
-			verb, tokens, err := validateCommand(strings.TrimSpace(inputLine), valid_commands)
+			verb, tokens, err := validateCommand(strings.TrimSpace(inputLine), validCommands) // Corrected to validCommands
 			if err != nil {
 				c.Player.Connection.Write([]byte(err.Error() + "\n\r"))
 				c.Player.WritePrompt()
@@ -313,7 +314,7 @@ func (c *Character) Move(direction string) {
 	newRoom.Characters[c.Index] = c
 	newRoom.Mutex.Unlock()
 
-	executeLookCommand(c)
+	executeLookCommand(c, []string{})
 }
 
 func (s *Server) SelectCharacter(player *Player) (*Character, error) {
