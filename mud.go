@@ -21,30 +21,37 @@ func main() {
 	configFile := flag.String("config", "config.json", "Configuration file")
 	flag.Parse()
 
-	config := Configuration{}
-	data, err := os.ReadFile(*configFile)
+	config, err := loadConfiguration(*configFile)
 	if err != nil {
-		log.Printf("Failed to read configuration file: %v", err)
-		os.Exit(1)
+		log.Printf("Error loading configuration: %v", err)
+		return
 	}
-
-	err = json.Unmarshal(data, &config)
-	if err != nil {
-		log.Printf("Failed to parse configuration file: %v", err)
-		os.Exit(1)
-	}
-
-	//log.Printf("Configuration loaded: %+v", config)
-
-	// Initialize the Database
 
 	server, err := NewServer(config)
 	if err != nil {
-		log.Fatalf("Failed to create server: %v", err)
+		log.Printf("Failed to create server: %v", err)
+		return
 	}
 
 	// Start the server
 	if err := server.StartSSHServer(); err != nil {
-		log.Fatalf("Failed to start server: %v", err)
+		log.Printf("Failed to start server: %v", err)
+		return
 	}
+}
+
+func loadConfiguration(configFile string) (Configuration, error) {
+	var config Configuration
+
+	data, err := os.ReadFile(configFile)
+	if err != nil {
+		return config, err
+	}
+
+	err = json.Unmarshal(data, &config)
+	if err != nil {
+		return config, err
+	}
+
+	return config, nil
 }
