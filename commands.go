@@ -82,6 +82,9 @@ func executeQuitCommand(character *Character) bool {
 	log.Printf("Player %s is quitting", character.Player.Name)
 	character.Player.ToPlayer <- "\n\rGoodbye!"
 	character.Room.SendRoomMessage(fmt.Sprintf("\n\r%s has left the game.\n\r", character.Name))
+
+	character.Player.Server.WriteCharacter(character)
+
 	return true // Indicate that the loop should be exited
 }
 
