@@ -209,6 +209,8 @@ func (s *Server) handleChannels(sshConn *ssh.ServerConn, channels <-chan ssh.New
 
 			character.InputLoop()
 
+			s.WriteCharacter(character)
+
 			s.Mutex.Lock()
 			delete(s.Players, p.Index)
 			s.Mutex.Unlock()
