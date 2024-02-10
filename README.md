@@ -12,11 +12,11 @@ The current objectives are:
 - [x] Create a text parser for user input.
 - [x] Player authentication system
 - [x] Impliment a database for the game.
-- [ ] Player creation system.
-- [ ] Character creation system.
+- [x] Character creation system.
 - [ ] Build a private messaging system.
 - [ ] Build game mechanics.
 - [ ] Build a combat system.
+- [ ] Player creation system.
 
 TODO:
 
