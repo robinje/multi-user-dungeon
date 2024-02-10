@@ -3,12 +3,16 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	bolt "go.etcd.io/bbolt"
 )
 
 type Character struct {
@@ -18,6 +22,13 @@ type Character struct {
 	Player *Player
 	Mutex  sync.Mutex
 	Server *Server
+}
+
+// CharacterData for unmarshalling character.
+type CharacterData struct {
+	Index  uint64 `json:"index"`
+	Name   string `json:"name"`
+	RoomID int64  `json:"roomID"`
 }
 
 func (s *Server) CreateCharacter(player *Player) (*Character, error) {
@@ -61,9 +72,12 @@ func (s *Server) CreateCharacter(player *Player) (*Character, error) {
 
 	// Retrieve room 1, or handle the case where it does not exist
 
-	room, ok := s.Rooms[1]
+	room, ok := s.Rooms[1] //TODO: This should be a function to get the starting room
 	if !ok {
-		return nil, fmt.Errorf("Starting room does not exist")
+		room, ok = s.Rooms[0]
+		if !ok {
+			return nil, fmt.Errorf("no room found")
+		}
 	}
 
 	log.Printf("Starting room: %v", room)
@@ -83,17 +97,113 @@ func (s *Server) CreateCharacter(player *Player) (*Character, error) {
 }
 
 func (s *Server) NewCharacter(Name string, Player *Player, Room *Room) *Character {
+
+	// Generate a new unique index for the character
+	characterIndex, err := s.Database.NextIndex("Characters")
+	if err != nil {
+		log.Printf("Error generating character index: %v", err)
+		return nil
+	}
+
 	character := &Character{
-		Index:  s.CharacterIndex.GetID(),
+		Index:  characterIndex,
 		Room:   Room,
 		Name:   Name,
 		Player: Player,
 		Server: s,
 	}
 
+	err = s.WriteCharacter(character)
+	if err != nil {
+		log.Printf("Error writing character to database: %v", err)
+		return nil
+	}
+
 	log.Printf("Created character %s with Index %d", character.Name, character.Index)
 
+	Player.CharacterList[Name] = characterIndex
+
+	err = s.Database.WritePlayer(Player)
+	if err != nil {
+		log.Printf("Error writing player to database: %v", err)
+		return nil
+
+	}
+
 	return character
+}
+
+func (s *Server) WriteCharacter(character *Character) error {
+	characterData, err := json.Marshal(character)
+	if err != nil {
+		log.Printf("Error marshalling character data: %v", err)
+		return err
+	}
+
+	err = s.Database.db.Update(func(tx *bolt.Tx) error {
+		bucket, err := tx.CreateBucketIfNotExists([]byte("Characters"))
+		if err != nil {
+			return fmt.Errorf("create bucket: %s", err)
+		}
+
+		indexKey := fmt.Sprintf("%d", character.Index)
+		err = bucket.Put([]byte(indexKey), characterData)
+		if err != nil {
+			return fmt.Errorf("failed to put character data: %v", err)
+		}
+		return nil
+	})
+
+	if err != nil {
+		log.Printf("Failed to add character to database: %v", err)
+		return err
+	}
+
+	log.Printf("Successfully added character %s with Index %d to database", character.Name, character.Index)
+	return nil
+}
+
+func (s *Server) LoadCharacter(player *Player, characterName string) (*Character, error) {
+	var characterData []byte
+	err := s.Database.db.View(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket([]byte("Characters"))
+		if bucket == nil {
+			return fmt.Errorf("characters bucket not found")
+		}
+		characterData = bucket.Get([]byte(characterName))
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	if characterData == nil {
+		return nil, fmt.Errorf("character not found")
+	}
+
+	var cd CharacterData
+	if err := json.Unmarshal(characterData, &cd); err != nil {
+		return nil, fmt.Errorf("error unmarshalling character data: %w", err)
+	}
+
+	// Retrieve the Room object based on RoomID
+	room, exists := s.Rooms[cd.RoomID]
+	if !exists {
+		return nil, fmt.Errorf("room with ID %d not found", cd.RoomID)
+	}
+
+	character := &Character{
+		Index:  cd.Index,
+		Room:   room,
+		Name:   cd.Name,
+		Player: player,
+		Server: s,
+	}
+
+	log.Printf("Loaded and created character %s with Index %d in Room %d", character.Name, character.Index, room.RoomID)
+
+	return character, nil
 }
 
 func (c *Character) SendMessage(message string) {
@@ -109,7 +219,8 @@ func (c *Character) InputLoop() {
 		}
 	}()
 
-	executeLookCommand(c)
+	// Initially execute the look command with no additional tokens
+	executeLookCommand(c, []string{}) // Adjusted to include the tokens parameter
 
 	time.Sleep(100 * time.Millisecond)
 
@@ -139,7 +250,7 @@ func (c *Character) InputLoop() {
 			inputLine = strings.Replace(inputLine, "\n", "\n\r", -1)
 
 			// Process the command
-			verb, tokens, err := validateCommand(strings.TrimSpace(inputLine), valid_commands)
+			verb, tokens, err := validateCommand(strings.TrimSpace(inputLine), validCommands) // Corrected to validCommands
 			if err != nil {
 				c.Player.Connection.Write([]byte(err.Error() + "\n\r"))
 				c.Player.WritePrompt()
@@ -188,12 +299,12 @@ func (c *Character) Move(direction string) {
 	oldRoom.Mutex.Lock()
 	delete(oldRoom.Characters, c.Index)
 	oldRoom.Mutex.Unlock()
-	oldRoom.SendRoomMessage(fmt.Sprintf("%s has left towards %s.\n\r", c.Name, direction))
+	oldRoom.SendRoomMessage(fmt.Sprintf("\n\r%s has left going %s.\n\r", c.Name, direction))
 
 	// Update character's room
 	c.Room = newRoom
 
-	newRoom.SendRoomMessage(fmt.Sprintf("%s has arrived.\n\r", c.Name))
+	newRoom.SendRoomMessage(fmt.Sprintf("\n\r%s has arrived.\n\r", c.Name))
 
 	// Ensure the Characters map in the new room is initialized
 	newRoom.Mutex.Lock()
@@ -203,5 +314,45 @@ func (c *Character) Move(direction string) {
 	newRoom.Characters[c.Index] = c
 	newRoom.Mutex.Unlock()
 
-	executeLookCommand(c)
+	executeLookCommand(c, []string{})
+}
+
+func (s *Server) SelectCharacter(player *Player) (*Character, error) {
+	var options []string // To store character names for easy reference by index
+
+	player.SendMessage("Select a character:\n")
+
+	if len(player.CharacterList) > 0 {
+		i := 1
+		for name := range player.CharacterList {
+			player.SendMessage(fmt.Sprintf("%d: %s\n", i, name))
+			options = append(options, name) // Append character name to options
+			i++
+		}
+	}
+	player.SendMessage("0: Create a new character\n")
+
+	reader := bufio.NewReader(player.Connection)
+	input, err := reader.ReadString('\n')
+	if err != nil {
+		player.Connection.Write([]byte(fmt.Sprintf("Error reading input: %v\n\r", err)))
+		return nil, err
+	}
+	input = strings.TrimSpace(input)
+
+	// Convert input to integer
+	choice, err := strconv.Atoi(input)
+	if err != nil || choice < 0 || choice > len(options) {
+		player.SendMessage("Invalid choice. Please select a valid option.\n")
+		return s.SelectCharacter(player) // Recursive call to handle incorrect input
+	}
+
+	if choice == 0 {
+		// Create a new character
+		return s.CreateCharacter(player)
+	} else {
+		// Load an existing character
+		characterName := options[choice-1] // Adjust for 0-index; choice-1 maps to the correct character name
+		return s.LoadCharacter(player, characterName)
+	}
 }

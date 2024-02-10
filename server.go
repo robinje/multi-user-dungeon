@@ -24,24 +24,37 @@ type Server struct {
 	Database       *KeyPair
 	PlayerIndex    *Index
 	CharacterIndex *Index
-	ExitIndex      *Index
-	RoomIndex      *Index
-	ObjectIndex    *Index
+}
+
+type Index struct {
+	IndexID uint64
+	mu      sync.Mutex
+}
+
+func (i *Index) GetID() uint64 {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+	i.IndexID++
+	return i.IndexID
+}
+
+func (i *Index) SetID(id uint64) {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+	if id > i.IndexID {
+		i.IndexID = id
+	}
 }
 
 func NewServer(config Configuration) (*Server, error) {
 	// Initialize the server with the configuration
 	server := &Server{
-		Port:           config.Port,
-		Players:        make(map[uint64]*Player),
-		Config:         config,
-		StartTime:      time.Now(),
-		Rooms:          make(map[int64]*Room),
-		PlayerIndex:    &Index{},
-		CharacterIndex: &Index{},
-		ExitIndex:      &Index{},
-		RoomIndex:      &Index{},
-		ObjectIndex:    &Index{},
+		Port:        config.Port,
+		Players:     make(map[uint64]*Player),
+		Config:      config,
+		StartTime:   time.Now(),
+		Rooms:       make(map[int64]*Room),
+		PlayerIndex: &Index{},
 	}
 
 	log.Printf("Initializing database...")
@@ -50,18 +63,15 @@ func NewServer(config Configuration) (*Server, error) {
 	var err error
 	server.Database, err = NewKeyPair(config.DataFile)
 
-	// TODO: Load the index values from the database
+	// Establish the player index
 	server.PlayerIndex.IndexID = 1
 	server.CharacterIndex.IndexID = 1
-	server.ObjectIndex.IndexID = 1
-	server.RoomIndex.IndexID = 100
-	server.ExitIndex.IndexID = 100
-
-	// Load rooms into the server
 
 	// Add a default room
 
 	server.Rooms[0] = NewRoom(0, "The Void", "The Void", "You are in a void of nothingness. If you are here, something has gone terribly wrong.")
+
+	// Load rooms into the server
 
 	log.Printf("Loading rooms from database...")
 
@@ -136,7 +146,6 @@ func (s *Server) StartSSHServer() error {
 }
 
 func (s *Server) handleChannels(sshConn *ssh.ServerConn, channels <-chan ssh.NewChannel) {
-
 	log.Printf("New connection from %s (%s)", sshConn.User(), sshConn.RemoteAddr())
 
 	for newChannel := range channels {
@@ -146,15 +155,41 @@ func (s *Server) handleChannels(sshConn *ssh.ServerConn, channels <-chan ssh.New
 			continue
 		}
 
+		playerName := sshConn.User()
+		playerIndex := s.PlayerIndex.GetID()
+
+		// Attempt to read the player from the database
+		_, characterList, err := s.Database.ReadPlayer(playerName)
+		if err != nil {
+			// If the player does not exist, create a new record
+			if err.Error() == "player not found" {
+				log.Printf("Creating new player record for %s", playerName)
+				characterList = make(map[string]uint64) // Initialize an empty character list for new players
+				err = s.Database.WritePlayer(&Player{
+					Name:          playerName,
+					CharacterList: characterList,
+				})
+				if err != nil {
+					log.Printf("Error creating player record: %v", err)
+					continue
+				}
+			} else {
+				log.Printf("Error reading player from database: %v", err)
+				continue
+			}
+		}
+
+		// Create the Player struct with data from the database or as a new player
 		player := &Player{
-			Name:        sshConn.User(),
-			Index:       s.PlayerIndex.GetID(),
-			ToPlayer:    make(chan string),
-			FromPlayer:  make(chan string),
-			PlayerError: make(chan error),
-			Prompt:      "> ",
-			Connection:  channel,
-			Server:      s,
+			Name:          playerName,
+			Index:         playerIndex,
+			ToPlayer:      make(chan string),
+			FromPlayer:    make(chan string),
+			PlayerError:   make(chan error),
+			Prompt:        "> ",
+			Connection:    channel,
+			Server:        s,
+			CharacterList: characterList,
 		}
 
 		// Handle SSH requests (pty-req, shell, window-change)
@@ -167,14 +202,14 @@ func (s *Server) handleChannels(sshConn *ssh.ServerConn, channels <-chan ssh.New
 			log.Printf("Player %s connected", p.Name)
 
 			// Send welcome message
-
 			p.Connection.Write([]byte(fmt.Sprintf("Welcome to the game, %s!\n\r", p.Name)))
 
-			// Charater Selection Dialog
-
-			character, _ := s.CreateCharacter(p)
+			// Character Selection Dialog
+			character, _ := s.SelectCharacter(p)
 
 			character.InputLoop()
+
+			s.WriteCharacter(character)
 
 			s.Mutex.Lock()
 			delete(s.Players, p.Index)

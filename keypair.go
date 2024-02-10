@@ -1,8 +1,8 @@
 package main
 
 import (
+	"fmt"
 	"log"
-	"sync"
 
 	bolt "go.etcd.io/bbolt"
 )
@@ -15,8 +15,7 @@ type KeyPair struct {
 func NewKeyPair(file string) (*KeyPair, error) {
 	db, err := bolt.Open(file, 0600, nil)
 	if err != nil {
-		log.Fatal("Error opening database: ", err)
-		return nil, err
+		return nil, fmt.Errorf("error opening database: %w", err)
 	}
 
 	return &KeyPair{db: db, file: file}, nil
@@ -64,22 +63,25 @@ func (k *KeyPair) Delete(bucketName string, key []byte) error {
 	})
 }
 
-type Index struct {
-	IndexID uint64
-	mu      sync.Mutex
-}
+// NextIndex returns the next index value for the given bucket name.
+func (k *KeyPair) NextIndex(bucketName string) (uint64, error) {
+	var nextIndex uint64
+	err := k.db.Update(func(tx *bolt.Tx) error {
+		bucket, err := tx.CreateBucketIfNotExists([]byte(bucketName))
+		if err != nil {
+			return fmt.Errorf("error creating or retrieving bucket: %w", err)
+		}
 
-func (i *Index) GetID() uint64 {
-	i.mu.Lock()
-	defer i.mu.Unlock()
-	i.IndexID++
-	return i.IndexID
-}
+		nextIndex, err = bucket.NextSequence()
+		if err != nil {
+			return fmt.Errorf("error getting next sequence number: %w", err)
+		}
+		return nil
+	})
 
-func (i *Index) SetID(id uint64) {
-	i.mu.Lock()
-	defer i.mu.Unlock()
-	if id > i.IndexID {
-		i.IndexID = id
+	if err != nil {
+		return 0, err
 	}
+
+	return nextIndex, nil
 }

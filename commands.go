@@ -7,9 +7,19 @@ import (
 	"strings"
 )
 
-var valid_commands []string = []string{"look", "go", "get", "drop", "inventory", "help", "quit", "say"}
+var validCommands = []string{"look", "go", "get", "drop", "inventory", "help", "quit", "say"}
 
-// Function to check if a slice contains a specific string
+type CommandHandler func(character *Character, tokens []string) bool
+
+var commandHandlers = map[string]CommandHandler{
+	"quit": executeQuitCommand,
+	"look": executeLookCommand,
+	"say":  executeSayCommand,
+	"go":   executeGoCommand,
+	"help": executeHelpCommand,
+	// Additional commands can be added here as needed.
+}
+
 func contains(slice []string, str string) bool {
 	lowerStr := strings.ToLower(str)
 	for _, v := range slice {
@@ -20,7 +30,6 @@ func contains(slice []string, str string) bool {
 	return false
 }
 
-// Function to process the command
 func validateCommand(command string, validCommands []string) (string, []string, error) {
 	trimmedCommand := strings.TrimSpace(command)
 	tokens := strings.Fields(trimmedCommand)
@@ -30,20 +39,15 @@ func validateCommand(command string, validCommands []string) (string, []string, 
 	}
 
 	verb := ""
-
-	// Convert all tokens to lowercase
 	for i, token := range tokens {
 		tokens[i] = strings.ToLower(token)
 	}
-
-	// Iterate through the tokens to find the first valid verb
 	for _, token := range tokens {
 		if contains(validCommands, token) {
 			verb = token
 			break
 		}
 	}
-
 	if verb == "" {
 		return verb, tokens, errors.New("\n\rI don't understand your command.")
 	}
@@ -52,35 +56,19 @@ func validateCommand(command string, validCommands []string) (string, []string, 
 }
 
 func executeCommand(character *Character, verb string, tokens []string) bool {
-
-	command := strings.ToLower(verb)
-
-	switch command {
-	case "quit":
-		return executeQuitCommand(character)
-
-	case "look":
-		return executeLookCommand(character)
-
-	case "say":
-		return executeSayCommand(character, tokens)
-
-	case "go":
-		return executeGoCommand(character, tokens)
-
-	case "help":
-		return executeHelpCommand(character)
-
-	default:
-		character.Player.ToPlayer <- "\n\rCommand not yet implemented.\n\r"
+	handler, ok := commandHandlers[verb]
+	if !ok {
+		character.Player.ToPlayer <- "\n\rCommand not yet implemented or recognized.\n\r"
+		return false
 	}
-
-	return false // Indicate that the loop should continue
+	return handler(character, tokens)
 }
 
-func executeQuitCommand(character *Character) bool {
+func executeQuitCommand(character *Character, tokens []string) bool {
 	log.Printf("Player %s is quitting", character.Player.Name)
 	character.Player.ToPlayer <- "\n\rGoodbye!"
+	character.Room.SendRoomMessage(fmt.Sprintf("\n\r%s has left the game.\n\r", character.Name))
+
 	return true // Indicate that the loop should be exited
 }
 
@@ -98,6 +86,7 @@ func executeSayCommand(character *Character, tokens []string) bool {
 		if c != character {
 			// Send message to other characters in the room
 			c.Player.ToPlayer <- broadcastMessage
+			c.Player.WritePrompt()
 		}
 	}
 	character.Room.Mutex.Unlock()
@@ -108,7 +97,7 @@ func executeSayCommand(character *Character, tokens []string) bool {
 	return false
 }
 
-func executeLookCommand(character *Character) bool {
+func executeLookCommand(character *Character, tokens []string) bool {
 	room := character.Room
 	character.Player.ToPlayer <- room.RoomInfo(character)
 	return false
@@ -125,7 +114,7 @@ func executeGoCommand(character *Character, tokens []string) bool {
 	return false
 }
 
-func executeHelpCommand(character *Character) bool {
+func executeHelpCommand(character *Character, tokens []string) bool {
 	helpMessage := "\n\rAvailable Commands:" +
 		"\n\rquit - Quit the game" +
 		"\n\rsay <message> - Say something to all players" +
