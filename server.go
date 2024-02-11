@@ -15,7 +15,6 @@ type Server struct {
 	Port        uint16
 	Listener    net.Listener
 	SSHConfig   *ssh.ServerConfig
-	Players     map[uint64]*Player
 	PlayerCount uint64
 	Mutex       sync.Mutex
 	Config      Configuration
@@ -25,35 +24,14 @@ type Server struct {
 	PlayerIndex *Index
 }
 
-type Index struct {
-	IndexID uint64
-	mu      sync.Mutex
-}
-
-func (i *Index) GetID() uint64 {
-	i.mu.Lock()
-	defer i.mu.Unlock()
-	i.IndexID++
-	return i.IndexID
-}
-
-func (i *Index) SetID(id uint64) {
-	i.mu.Lock()
-	defer i.mu.Unlock()
-	if id > i.IndexID {
-		i.IndexID = id
-	}
-}
-
 func NewServer(config Configuration) (*Server, error) {
 	// Initialize the server with the configuration
 	server := &Server{
 		Port:        config.Port,
-		Players:     make(map[uint64]*Player),
+		PlayerIndex: &Index{},
 		Config:      config,
 		StartTime:   time.Now(),
 		Rooms:       make(map[int64]*Room),
-		PlayerIndex: &Index{},
 	}
 
 	log.Printf("Initializing database...")
@@ -84,16 +62,8 @@ func NewServer(config Configuration) (*Server, error) {
 	return server, nil
 }
 
-func (s *Server) authenticateWithCognito(username string, password string) bool {
-	_, err := SignInUser(username, password, s.Config)
-	if err != nil {
-		log.Printf("Authentication failed for user %s: %v", username, err)
-		return false
-	}
-	return true
-}
-
 func (s *Server) StartSSHServer() error {
+	// Read the private key from disk
 	privateBytes, err := os.ReadFile("./server.key")
 	if err != nil {
 		return fmt.Errorf("failed to read private key: %v", err)
@@ -105,7 +75,7 @@ func (s *Server) StartSSHServer() error {
 
 	s.SSHConfig = &ssh.ServerConfig{
 		PasswordCallback: func(conn ssh.ConnMetadata, password []byte) (*ssh.Permissions, error) {
-			authenticated := s.authenticateWithCognito(conn.User(), string(password))
+			authenticated := s.Authenticate(conn.User(), string(password))
 			if authenticated {
 				log.Printf("Player %s authenticated", conn.User())
 				return nil, nil
@@ -114,19 +84,17 @@ func (s *Server) StartSSHServer() error {
 			return nil, fmt.Errorf("password rejected for %q", conn.User())
 		},
 	}
+
 	s.SSHConfig.AddHostKey(private)
 
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", s.Port))
 	if err != nil {
 		return fmt.Errorf("failed to listen on port %d: %v", s.Port, err)
 	}
+
 	s.Listener = listener
 
 	log.Printf("SSH server listening on port %d", s.Port)
-
-	s.Mutex.Lock()
-	s.Players = make(map[uint64]*Player) // Initialize the Players map
-	s.Mutex.Unlock()
 
 	for {
 		conn, err := s.Listener.Accept()
@@ -142,6 +110,7 @@ func (s *Server) StartSSHServer() error {
 		}
 
 		go ssh.DiscardRequests(reqs)
+
 		go s.handleChannels(sshConn, chans)
 	}
 }
@@ -187,6 +156,7 @@ func (s *Server) handleChannels(sshConn *ssh.ServerConn, channels <-chan ssh.New
 			ToPlayer:      make(chan string),
 			FromPlayer:    make(chan string),
 			PlayerError:   make(chan error),
+			Echo:          true,
 			Prompt:        "> ",
 			Connection:    channel,
 			Server:        s,
@@ -196,8 +166,9 @@ func (s *Server) handleChannels(sshConn *ssh.ServerConn, channels <-chan ssh.New
 		// Handle SSH requests (pty-req, shell, window-change)
 		go player.HandleSSHRequests(requests)
 
-		// Start the goroutine responsible for handling outgoing messages to the player
-		player.StartMessageHandler()
+		// Start the goroutine responsible for player I/O
+		go player.PlayerInput()
+		go player.PlayerOutput()
 
 		// Initialize player
 		go func(p *Player) {
@@ -206,7 +177,7 @@ func (s *Server) handleChannels(sshConn *ssh.ServerConn, channels <-chan ssh.New
 			log.Printf("Player %s connected", p.Name)
 
 			// Send welcome message
-			p.SendMessage(fmt.Sprintf("Welcome to the game, %s!", p.Name))
+			p.ToPlayer <- fmt.Sprintf("Welcome to the game, %s!", p.Name)
 
 			// Character Selection Dialog
 			character, _ := s.SelectCharacter(p)
@@ -217,14 +188,11 @@ func (s *Server) handleChannels(sshConn *ssh.ServerConn, channels <-chan ssh.New
 
 			s.WriteCharacter(character)
 
-			s.Mutex.Lock()
-			delete(s.Players, p.Index)
-			s.Mutex.Unlock()
+			log.Printf("Player %s disconnected", p.Name)
+			player = nil
+
 		}(player)
 
-		s.Mutex.Lock()
-		s.Players[player.Index] = player
-		s.Mutex.Unlock()
 	}
 }
 

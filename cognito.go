@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
+	"log"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -120,4 +121,13 @@ func GetUserData(cognitoClient *cognitoidentityprovider.CognitoIdentityProvider,
 	}
 
 	return userOutput, nil
+}
+
+func (s *Server) Authenticate(username string, password string) bool {
+	_, err := SignInUser(username, password, s.Config)
+	if err != nil {
+		log.Printf("Authentication failed for user %s: %v", username, err)
+		return false
+	}
+	return true
 }

@@ -114,8 +114,10 @@ func (r *Room) AddExit(exit *Exit) {
 func (r *Room) SendRoomMessage(message string) {
 
 	for _, character := range r.Characters {
-		character.SendMessage(message)
-		character.Player.WritePrompt()
+		character.Player.ToPlayer <- message
+
+		character.Player.ToPlayer <- character.Player.Prompt
+
 	}
 }
 

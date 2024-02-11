@@ -1,16 +1,12 @@
 package main
 
 import (
-	"bufio"
-	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 
 	bolt "go.etcd.io/bbolt"
 )
@@ -32,65 +28,38 @@ type CharacterData struct {
 }
 
 func (s *Server) CreateCharacter(player *Player) (*Character, error) {
-	reader := bufio.NewReader(player.Connection)
-
-	go func() {
-		for msg := range player.ToPlayer {
-			player.Connection.Write([]byte(msg))
-		}
-	}()
-
 	// Prompt the player for the character name
-	player.SendMessage("Enter your character name: ")
+	player.ToPlayer <- "Enter your character name: "
 
-	var inputBuffer bytes.Buffer
-	for {
-		char, _, err := reader.ReadRune()
-		if err != nil {
-			if err != io.EOF {
-				player.Connection.Write([]byte(fmt.Sprintf("Error: %v\n\r", err)))
-			}
-			return nil, err
-		}
-
-		// Echo the character back to the player
-		player.Connection.Write([]byte(string(char)))
-
-		// Check if the character is a newline, indicating the end of input
-		if char == '\n' || char == '\r' {
-			break // Exit the loop once the newline character is encountered
-		}
-
-		// Add character to buffer
-		inputBuffer.WriteRune(char)
-	}
-
-	// Trim space to remove the newline character at the end
-	charName := strings.TrimSpace(inputBuffer.String())
-
-	player.SendMessage(fmt.Sprintf("\n\r"))
-
-	// Retrieve room 1, or handle the case where it does not exist
-
-	room, ok := s.Rooms[1] //TODO: This should be a function to get the starting room
+	// Wait for input from the player
+	charName, ok := <-player.FromPlayer
 	if !ok {
-		room, ok = s.Rooms[0]
-		if !ok {
-			return nil, fmt.Errorf("no room found")
-		}
+		// Handle the case where the channel is closed unexpectedly
+		return nil, fmt.Errorf("failed to receive character name input")
 	}
 
-	log.Printf("Starting room: %v", room)
+	// Since input is already trimmed in PlayerInput, no need to trim again
+	// charName := strings.TrimSpace(inputLine) // This line is not needed
+
+	// Log the character creation attempt
+	log.Printf("Creating character with name: %s", charName)
+
+	// Retrieve the starting room for the new character
+	room, ok := s.Rooms[1] // Assuming room 1 is the starting room
+	if !ok {
+		room, ok = s.Rooms[0] // Fallback to room 0 if room 1 doesn't exist
+		if !ok {
+			return nil, fmt.Errorf("no starting room found")
+		}
+	}
 
 	// Create and initialize the new character
 	character := s.NewCharacter(charName, player, room)
 
-	// Ensure the Characters map is initialized <- Do not like.
+	// Ensure the Characters map in the starting room is initialized
 	if room.Characters == nil {
 		room.Characters = make(map[uint64]*Character)
 	}
-
-	// Add the character to the room's Characters map
 	room.Characters[character.Index] = character
 
 	return character, nil
@@ -206,68 +175,45 @@ func (s *Server) LoadCharacter(player *Player, characterName string) (*Character
 	return character, nil
 }
 
-func (c *Character) SendMessage(message string) {
-	c.Player.SendMessage(message)
-}
-
 func (c *Character) InputLoop() {
-	reader := bufio.NewReader(c.Player.Connection)
-
-	go func() {
-		for msg := range c.Player.ToPlayer {
-			c.Player.Connection.Write([]byte(msg))
-		}
-	}()
-
 	// Initially execute the look command with no additional tokens
 	executeLookCommand(c, []string{}) // Adjusted to include the tokens parameter
 
-	time.Sleep(100 * time.Millisecond)
+	// Send initial prompt to player
+	c.Player.ToPlayer <- c.Player.Prompt
 
-	c.Player.WritePrompt()
-
-	var inputBuffer bytes.Buffer
 	for {
-		char, _, err := reader.ReadRune()
-		if err != nil {
-			if err != io.EOF {
-				c.Player.Connection.Write([]byte(fmt.Sprintf("Error: %v\n\r", err)))
-			}
+		// Wait for input from the player. This blocks until input is received.
+		inputLine, more := <-c.Player.FromPlayer
+		if !more {
+			// If the channel is closed, stop the input loop.
+			log.Printf("Input channel closed for player %s.", c.Player.Name)
 			return
 		}
 
-		// Echo the character back to the player
-		c.Player.Connection.Write([]byte(string(char)))
+		// Normalize line ending to \n\r for consistency
+		inputLine = strings.Replace(inputLine, "\n", "\n\r", -1)
 
-		// Add character to buffer
-		inputBuffer.WriteRune(char)
-
-		// Check if the character is a newline
-		if char == '\n' || char == '\r' {
-			inputLine := inputBuffer.String()
-
-			// Normalize line ending to \n\r
-			inputLine = strings.Replace(inputLine, "\n", "\n\r", -1)
-
-			// Process the command
-			verb, tokens, err := validateCommand(strings.TrimSpace(inputLine), validCommands) // Corrected to validCommands
-			if err != nil {
-				c.Player.Connection.Write([]byte(err.Error() + "\n\r"))
-				c.Player.WritePrompt()
-				inputBuffer.Reset()
-				continue
-			}
-
-			if executeCommand(c, verb, tokens) {
-				time.Sleep(100 * time.Millisecond)
-				inputBuffer.Reset()
-				return
-			}
-
-			log.Printf("Player %s issued command: %s", c.Player.Name, strings.Join(tokens, " "))
-			c.Player.WritePrompt()
-			inputBuffer.Reset()
+		// Process the command
+		verb, tokens, err := validateCommand(strings.TrimSpace(inputLine), validCommands) // Corrected to validCommands
+		if err != nil {
+			c.Player.ToPlayer <- err.Error() + "\n\r"
+			c.Player.ToPlayer <- c.Player.Prompt
+			continue
 		}
+
+		// Execute the command
+		if executeCommand(c, verb, tokens) {
+			// If command execution indicates to exit (or similar action), break the loop
+			// Note: Adjust logic as per your executeCommand's design to handle such conditions
+			break
+		}
+
+		// Log the command execution
+		log.Printf("Player %s issued command: %s", c.Player.Name, strings.Join(tokens, " "))
+
+		// Prompt for the next command
+		c.Player.ToPlayer <- c.Player.Prompt
 	}
 }
 
@@ -276,7 +222,7 @@ func (c *Character) Move(direction string) {
 	defer c.Mutex.Unlock()
 
 	if c.Room == nil {
-		c.SendMessage("You are not in any room to move from.\n\r")
+		c.Player.ToPlayer <- "You are not in any room to move from.\n\r"
 		return
 	}
 
@@ -284,13 +230,13 @@ func (c *Character) Move(direction string) {
 
 	selectedExit, exists := c.Room.Exits[direction]
 	if !exists {
-		c.SendMessage("You cannot go that way.\n\r")
+		c.Player.ToPlayer <- "You cannot go that way.\n\r"
 		return
 	}
 
 	newRoom, exists := c.Server.Rooms[selectedExit.TargetRoom]
 	if !exists {
-		c.SendMessage("The path leads nowhere.\n\r")
+		c.Player.ToPlayer <- "The path leads nowhere.\n\r"
 		return
 	}
 
@@ -320,41 +266,46 @@ func (c *Character) Move(direction string) {
 func (s *Server) SelectCharacter(player *Player) (*Character, error) {
 	var options []string // To store character names for easy reference by index
 
-	for {
-		player.SendMessage("Select a character:\n")
+	sendCharacterOptions := func() {
+		player.ToPlayer <- "Select a character:\n"
 
 		if len(player.CharacterList) > 0 {
 			i := 1
 			for name := range player.CharacterList {
-				player.SendMessage(fmt.Sprintf("%d: %s\n", i, name))
+				player.ToPlayer <- fmt.Sprintf("%d: %s\n", i, name)
 				options = append(options, name) // Append character name to options
 				i++
 			}
 		}
-		player.SendMessage("0: Create a new character\n")
+		player.ToPlayer <- "0: Create a new character\n"
+	}
 
-		reader := bufio.NewReader(player.Connection)
-		input, err := reader.ReadString('\n')
-		if err != nil {
-			player.Connection.Write([]byte(fmt.Sprintf("Error reading input: %v\n\r", err)))
-			return nil, err
+	for {
+		// Send options to the player
+		sendCharacterOptions()
+
+		// Wait for input from the player
+		input, ok := <-player.FromPlayer
+		if !ok {
+			// Handle the case where the channel is closed unexpectedly
+			return nil, fmt.Errorf("failed to receive input")
 		}
-		input = strings.TrimSpace(input)
 
 		// Convert input to integer
-		choice, err := strconv.Atoi(input)
+		choice, err := strconv.Atoi(strings.TrimSpace(input))
 		if err != nil || choice < 0 || choice > len(options) {
-			player.SendMessage("Invalid choice. Please select a valid option.\n")
+			player.ToPlayer <- "Invalid choice. Please select a valid option.\n"
 			continue // Prompt again
 		}
 
 		if choice == 0 {
 			// Create a new character
 			return s.CreateCharacter(player)
-		} else {
-			// Load an existing character
-			characterName := options[choice-1] // Adjust for 0-index; choice-1 maps to the correct character name
+		} else if choice <= len(options) {
+			// Load an existing character, adjusting index for 0-based slice indexing
+			characterName := options[choice-1]
 			return s.LoadCharacter(player, characterName)
 		}
+		// Additional validation can be added here if needed
 	}
 }
