@@ -86,7 +86,7 @@ func executeSayCommand(character *Character, tokens []string) bool {
 		if c != character {
 			// Send message to other characters in the room
 			c.Player.ToPlayer <- broadcastMessage
-			c.Player.WritePrompt()
+			c.Player.ToPlayer <- c.Player.Prompt
 		}
 	}
 	character.Room.Mutex.Unlock()
