@@ -12,16 +12,16 @@ import (
 )
 
 type Server struct {
-	Port           uint16
-	Listener       net.Listener
-	SSHConfig      *ssh.ServerConfig
-	PlayerCount    uint64
-	Mutex          sync.Mutex
-	Config         Configuration
-	StartTime      time.Time
-	Rooms          map[int64]*Room
-	Database       *KeyPair
-	PlayerIndex    *Index
+	Port            uint16
+	Listener        net.Listener
+	SSHConfig       *ssh.ServerConfig
+	PlayerCount     uint64
+	Mutex           sync.Mutex
+	Config          Configuration
+	StartTime       time.Time
+	Rooms           map[int64]*Room
+	Database        *KeyPair
+	PlayerIndex     *Index
 	CharacterExists map[string]bool
 }
 
