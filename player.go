@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"time"
 
 	bolt "go.etcd.io/bbolt"
@@ -57,6 +58,18 @@ func (p *Player) HandleSSHRequests(requests <-chan *ssh.Request) {
 // SendMessage sends a message to the player
 func (p *Player) SendMessage(message string) {
 	p.ToPlayer <- message
+}
+
+func (p *Player) StartMessageHandler() {
+	go func() {
+		for msg := range p.ToPlayer {
+			_, err := p.Connection.Write([]byte(msg + "\r\n"))
+			if err != nil {
+				log.Printf("Failed to send message to player %s: %v", p.Name, err)
+				return // Or handle the error as appropriate
+			}
+		}
+	}()
 }
 
 func (k *KeyPair) WritePlayer(player *Player) error {

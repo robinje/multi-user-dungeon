@@ -320,39 +320,41 @@ func (c *Character) Move(direction string) {
 func (s *Server) SelectCharacter(player *Player) (*Character, error) {
 	var options []string // To store character names for easy reference by index
 
-	player.SendMessage("Select a character:\n")
+	for {
+		player.SendMessage("Select a character:\n")
 
-	if len(player.CharacterList) > 0 {
-		i := 1
-		for name := range player.CharacterList {
-			player.SendMessage(fmt.Sprintf("%d: %s\n", i, name))
-			options = append(options, name) // Append character name to options
-			i++
+		if len(player.CharacterList) > 0 {
+			i := 1
+			for name := range player.CharacterList {
+				player.SendMessage(fmt.Sprintf("%d: %s\n", i, name))
+				options = append(options, name) // Append character name to options
+				i++
+			}
 		}
-	}
-	player.SendMessage("0: Create a new character\n")
+		player.SendMessage("0: Create a new character\n")
 
-	reader := bufio.NewReader(player.Connection)
-	input, err := reader.ReadString('\n')
-	if err != nil {
-		player.Connection.Write([]byte(fmt.Sprintf("Error reading input: %v\n\r", err)))
-		return nil, err
-	}
-	input = strings.TrimSpace(input)
+		reader := bufio.NewReader(player.Connection)
+		input, err := reader.ReadString('\n')
+		if err != nil {
+			player.Connection.Write([]byte(fmt.Sprintf("Error reading input: %v\n\r", err)))
+			return nil, err
+		}
+		input = strings.TrimSpace(input)
 
-	// Convert input to integer
-	choice, err := strconv.Atoi(input)
-	if err != nil || choice < 0 || choice > len(options) {
-		player.SendMessage("Invalid choice. Please select a valid option.\n")
-		return s.SelectCharacter(player) // Recursive call to handle incorrect input
-	}
+		// Convert input to integer
+		choice, err := strconv.Atoi(input)
+		if err != nil || choice < 0 || choice > len(options) {
+			player.SendMessage("Invalid choice. Please select a valid option.\n")
+			continue // Prompt again
+		}
 
-	if choice == 0 {
-		// Create a new character
-		return s.CreateCharacter(player)
-	} else {
-		// Load an existing character
-		characterName := options[choice-1] // Adjust for 0-index; choice-1 maps to the correct character name
-		return s.LoadCharacter(player, characterName)
+		if choice == 0 {
+			// Create a new character
+			return s.CreateCharacter(player)
+		} else {
+			// Load an existing character
+			characterName := options[choice-1] // Adjust for 0-index; choice-1 maps to the correct character name
+			return s.LoadCharacter(player, characterName)
+		}
 	}
 }

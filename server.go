@@ -12,18 +12,17 @@ import (
 )
 
 type Server struct {
-	Port           uint16
-	Listener       net.Listener
-	SSHConfig      *ssh.ServerConfig
-	Players        map[uint64]*Player
-	PlayerCount    uint64
-	Mutex          sync.Mutex
-	Config         Configuration
-	StartTime      time.Time
-	Rooms          map[int64]*Room
-	Database       *KeyPair
-	PlayerIndex    *Index
-	CharacterIndex *Index
+	Port        uint16
+	Listener    net.Listener
+	SSHConfig   *ssh.ServerConfig
+	Players     map[uint64]*Player
+	PlayerCount uint64
+	Mutex       sync.Mutex
+	Config      Configuration
+	StartTime   time.Time
+	Rooms       map[int64]*Room
+	Database    *KeyPair
+	PlayerIndex *Index
 }
 
 type Index struct {
@@ -62,10 +61,12 @@ func NewServer(config Configuration) (*Server, error) {
 	// Initialize the database
 	var err error
 	server.Database, err = NewKeyPair(config.DataFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize database: %v", err)
+	}
 
 	// Establish the player index
 	server.PlayerIndex.IndexID = 1
-	server.CharacterIndex.IndexID = 1
 
 	// Add a default room
 
@@ -195,6 +196,9 @@ func (s *Server) handleChannels(sshConn *ssh.ServerConn, channels <-chan ssh.New
 		// Handle SSH requests (pty-req, shell, window-change)
 		go player.HandleSSHRequests(requests)
 
+		// Start the goroutine responsible for handling outgoing messages to the player
+		player.StartMessageHandler()
+
 		// Initialize player
 		go func(p *Player) {
 			defer p.Connection.Close()
@@ -202,12 +206,14 @@ func (s *Server) handleChannels(sshConn *ssh.ServerConn, channels <-chan ssh.New
 			log.Printf("Player %s connected", p.Name)
 
 			// Send welcome message
-			p.Connection.Write([]byte(fmt.Sprintf("Welcome to the game, %s!\n\r", p.Name)))
+			p.SendMessage(fmt.Sprintf("Welcome to the game, %s!", p.Name))
 
 			// Character Selection Dialog
 			character, _ := s.SelectCharacter(p)
 
 			character.InputLoop()
+
+			close(player.ToPlayer)
 
 			s.WriteCharacter(character)
 
