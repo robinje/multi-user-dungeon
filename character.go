@@ -27,6 +27,52 @@ type CharacterData struct {
 	RoomID int64  `json:"roomID"`
 }
 
+func (s *Server) SelectCharacter(player *Player) (*Character, error) {
+	var options []string // To store character names for easy reference by index
+
+	sendCharacterOptions := func() {
+		player.ToPlayer <- "Select a character:\n"
+
+		if len(player.CharacterList) > 0 {
+			i := 1
+			for name := range player.CharacterList {
+				player.ToPlayer <- fmt.Sprintf("%d: %s\n", i, name)
+				options = append(options, name) // Append character name to options
+				i++
+			}
+		}
+		player.ToPlayer <- "0: Create a new character\n"
+	}
+
+	for {
+		// Send options to the player
+		sendCharacterOptions()
+
+		// Wait for input from the player
+		input, ok := <-player.FromPlayer
+		if !ok {
+			// Handle the case where the channel is closed unexpectedly
+			return nil, fmt.Errorf("failed to receive input")
+		}
+
+		// Convert input to integer
+		choice, err := strconv.Atoi(strings.TrimSpace(input))
+		if err != nil || choice < 0 || choice > len(options) {
+			player.ToPlayer <- "Invalid choice. Please select a valid option.\n"
+			continue
+		}
+
+		if choice == 0 {
+			// Create a new character
+			return s.CreateCharacter(player)
+		} else if choice <= len(options) {
+			// Load an existing character, adjusting index for 0-based slice indexing
+			characterName := options[choice-1]
+			return s.LoadCharacter(player, player.CharacterList[characterName])
+		}
+	}
+}
+
 func (s *Server) CreateCharacter(player *Player) (*Character, error) {
 	// Prompt the player for the character name
 	player.ToPlayer <- "Enter your character name: "
@@ -37,9 +83,6 @@ func (s *Server) CreateCharacter(player *Player) (*Character, error) {
 		// Handle the case where the channel is closed unexpectedly
 		return nil, fmt.Errorf("failed to receive character name input")
 	}
-
-	// Since input is already trimmed in PlayerInput, no need to trim again
-	// charName := strings.TrimSpace(inputLine) // This line is not needed
 
 	// Log the character creation attempt
 	log.Printf("Creating character with name: %s", charName)
@@ -102,8 +145,21 @@ func (s *Server) NewCharacter(Name string, Player *Player, Room *Room) *Characte
 	return character
 }
 
+// Converts a Character to CharacterData for serialization
+func (c *Character) ToData() *CharacterData {
+	return &CharacterData{
+		Index:  c.Index,
+		Name:   c.Name,
+		RoomID: c.Room.RoomID, // Assuming Room has a RoomID field
+	}
+}
+
 func (s *Server) WriteCharacter(character *Character) error {
-	characterData, err := json.Marshal(character)
+	// Convert Character to CharacterData before marshalling
+	characterData := character.ToData()
+
+	// Marshal CharacterData instead of Character
+	jsonData, err := json.Marshal(characterData)
 	if err != nil {
 		log.Printf("Error marshalling character data: %v", err)
 		return err
@@ -116,7 +172,7 @@ func (s *Server) WriteCharacter(character *Character) error {
 		}
 
 		indexKey := fmt.Sprintf("%d", character.Index)
-		err = bucket.Put([]byte(indexKey), characterData)
+		err = bucket.Put([]byte(indexKey), jsonData)
 		if err != nil {
 			return fmt.Errorf("failed to put character data: %v", err)
 		}
@@ -132,14 +188,15 @@ func (s *Server) WriteCharacter(character *Character) error {
 	return nil
 }
 
-func (s *Server) LoadCharacter(player *Player, characterName string) (*Character, error) {
+func (s *Server) LoadCharacter(player *Player, characterIndex uint64) (*Character, error) {
 	var characterData []byte
 	err := s.Database.db.View(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket([]byte("Characters"))
 		if bucket == nil {
 			return fmt.Errorf("characters bucket not found")
 		}
-		characterData = bucket.Get([]byte(characterName))
+		indexKey := fmt.Sprintf("%d", characterIndex)
+		characterData = bucket.Get([]byte(indexKey))
 		return nil
 	})
 
@@ -170,7 +227,7 @@ func (s *Server) LoadCharacter(player *Player, characterName string) (*Character
 		Server: s,
 	}
 
-	log.Printf("Loaded and created character %s with Index %d in Room %d", character.Name, character.Index, room.RoomID)
+	log.Printf("Loaded character %s (Index %d) in Room %d", character.Name, character.Index, room.RoomID)
 
 	return character, nil
 }
@@ -261,51 +318,4 @@ func (c *Character) Move(direction string) {
 	newRoom.Mutex.Unlock()
 
 	executeLookCommand(c, []string{})
-}
-
-func (s *Server) SelectCharacter(player *Player) (*Character, error) {
-	var options []string // To store character names for easy reference by index
-
-	sendCharacterOptions := func() {
-		player.ToPlayer <- "Select a character:\n"
-
-		if len(player.CharacterList) > 0 {
-			i := 1
-			for name := range player.CharacterList {
-				player.ToPlayer <- fmt.Sprintf("%d: %s\n", i, name)
-				options = append(options, name) // Append character name to options
-				i++
-			}
-		}
-		player.ToPlayer <- "0: Create a new character\n"
-	}
-
-	for {
-		// Send options to the player
-		sendCharacterOptions()
-
-		// Wait for input from the player
-		input, ok := <-player.FromPlayer
-		if !ok {
-			// Handle the case where the channel is closed unexpectedly
-			return nil, fmt.Errorf("failed to receive input")
-		}
-
-		// Convert input to integer
-		choice, err := strconv.Atoi(strings.TrimSpace(input))
-		if err != nil || choice < 0 || choice > len(options) {
-			player.ToPlayer <- "Invalid choice. Please select a valid option.\n"
-			continue // Prompt again
-		}
-
-		if choice == 0 {
-			// Create a new character
-			return s.CreateCharacter(player)
-		} else if choice <= len(options) {
-			// Load an existing character, adjusting index for 0-based slice indexing
-			characterName := options[choice-1]
-			return s.LoadCharacter(player, characterName)
-		}
-		// Additional validation can be added here if needed
-	}
 }
