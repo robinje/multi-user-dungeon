@@ -85,6 +85,17 @@ func (s *Server) CreateCharacter(player *Player) (*Character, error) {
 		return nil, fmt.Errorf("failed to receive character name input")
 	}
 
+	charName = strings.TrimSpace(charName)
+
+	if len(charName) == 0 {
+		return nil, fmt.Errorf("character name cannot be empty")
+	}
+
+	// Check if the character name already exists
+	if s.CharacterExists[strings.ToLower(charName)] {
+		return nil, fmt.Errorf("Character already exists")
+	}
+
 	// Log the character creation attempt
 	log.Printf("Creating character with name: %s", charName)
 
@@ -319,4 +330,36 @@ func (c *Character) Move(direction string) {
 	newRoom.Mutex.Unlock()
 
 	executeLookCommand(c, []string{})
+}
+
+func (s *Server) LoadCharacterNames() (map[string]bool, error) {
+
+	names := make(map[string]bool)
+
+	err := s.Database.db.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte("Characters"))
+		if b == nil {
+			return fmt.Errorf("Characters bucket not found")
+		}
+
+		return b.ForEach(func(k, v []byte) error {
+			var cd CharacterData
+			if err := json.Unmarshal(v, &cd); err != nil {
+				log.Printf("Error unmarshalling character data: %v", err)
+			}
+
+			names[strings.ToLower(cd.Name)] = true // Store the character name in the map
+			return nil
+		})
+	})
+
+	if len(names) == 0 {
+		return nil, fmt.Errorf("no characters found")
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("error reading from BoltDB: %w", err)
+	}
+
+	return names, nil
 }
