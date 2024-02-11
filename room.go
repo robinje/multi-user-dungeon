@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -114,66 +115,50 @@ func (r *Room) AddExit(exit *Exit) {
 func (r *Room) SendRoomMessage(message string) {
 
 	for _, character := range r.Characters {
-		character.SendMessage(message)
-		character.Player.WritePrompt()
+		character.Player.ToPlayer <- message
+
+		character.Player.ToPlayer <- character.Player.Prompt
+
 	}
 }
 
 func (r *Room) RoomInfo(character *Character) string {
 	roomInfo := fmt.Sprintf("\n\r[%s]\n\r%s\n\r", r.Title, r.Description)
-
 	var displayExits strings.Builder
 
-	exits := make([]string, 0, len(r.Exits))
-	for _, exit := range r.Exits {
-		exits = append(exits, exit.Direction)
+	exits := make([]string, 0) // Ensure a valid, empty slice is created
+	for direction := range r.Exits {
+		exits = append(exits, direction) // Append safely
 	}
 
-	switch len(exits) {
-	case 0:
+	// Sorting exits for consistent display
+	sort.Strings(exits)
+
+	if len(exits) == 0 {
 		displayExits.WriteString("There are no exits.\n\r")
-	case 1:
-		displayExits.WriteString(fmt.Sprintf("Obvious exit: %s\n\r", exits[0]))
-	case 2:
-		displayExits.WriteString(fmt.Sprintf("Obvious exits: %s and %s\n\r", exits[0], exits[1]))
-	default:
+	} else {
 		displayExits.WriteString("Obvious exits: ")
-		for i, exit := range exits[:len(exits)-1] {
+		for i, exit := range exits {
 			if i > 0 {
 				displayExits.WriteString(", ")
 			}
 			displayExits.WriteString(exit)
 		}
-		displayExits.WriteString(", and " + exits[len(exits)-1] + "\n\r")
+		displayExits.WriteString("\n\r")
 	}
 
 	var charactersInRoom strings.Builder
-	otherCharacters := make([]string, 0, len(r.Characters)-1)
 	for _, c := range r.Characters {
 		if c != character {
-			otherCharacters = append(otherCharacters, c.Name)
+			charactersInRoom.WriteString(c.Name + ", ")
 		}
 	}
-
-	switch len(otherCharacters) {
-	case 0:
-		charactersInRoom.WriteString("You are alone.\n\r")
-	case 1:
-		charactersInRoom.WriteString(fmt.Sprintf("Also here: %s\n\r", otherCharacters[0]))
-	case 2:
-		charactersInRoom.WriteString(fmt.Sprintf("Also here: %s and %s\n\r", otherCharacters[0], otherCharacters[1]))
-	default:
-		charactersInRoom.WriteString("Also here: ")
-		for i, name := range otherCharacters[:len(otherCharacters)-1] {
-			if i > 0 {
-				charactersInRoom.WriteString(", ")
-			}
-			charactersInRoom.WriteString(name)
-		}
-		charactersInRoom.WriteString(", and " + otherCharacters[len(otherCharacters)-1])
+	if charactersInRoom.Len() > 0 {
+		charactersInRoomStr := charactersInRoom.String()
+		roomInfo += "Also here: " + charactersInRoomStr[:len(charactersInRoomStr)-2] + "\n\r"
+	} else {
+		roomInfo += "You are alone.\n\r"
 	}
 
-	roomDescription := fmt.Sprintf("%s%s%s", roomInfo, displayExits.String(), charactersInRoom.String())
-
-	return roomDescription
+	return roomInfo + displayExits.String()
 }
