@@ -177,7 +177,7 @@ func (s *Server) handleChannels(sshConn *ssh.ServerConn, channels <-chan ssh.New
 			log.Printf("Player %s connected", p.Name)
 
 			// Send welcome message
-			p.ToPlayer <- fmt.Sprintf("Welcome to the game, %s!", p.Name)
+			p.ToPlayer <- fmt.Sprintf("Welcome to the game, %s!\n\r", p.Name)
 
 			// Character Selection Dialog
 			character, _ := s.SelectCharacter(p)

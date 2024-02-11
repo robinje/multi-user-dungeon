@@ -31,17 +31,18 @@ func (s *Server) SelectCharacter(player *Player) (*Character, error) {
 	var options []string // To store character names for easy reference by index
 
 	sendCharacterOptions := func() {
-		player.ToPlayer <- "Select a character:\n"
+		player.ToPlayer <- "Select a character:\n\r"
 
 		if len(player.CharacterList) > 0 {
 			i := 1
 			for name := range player.CharacterList {
-				player.ToPlayer <- fmt.Sprintf("%d: %s\n", i, name)
+				player.ToPlayer <- fmt.Sprintf("%d: %s\n\r", i, name)
 				options = append(options, name) // Append character name to options
 				i++
 			}
 		}
-		player.ToPlayer <- "0: Create a new character\n"
+		player.ToPlayer <- "0: Create a new character\n\r"
+		player.ToPlayer <- "Enter the number of your choice: "
 	}
 
 	for {
@@ -58,7 +59,7 @@ func (s *Server) SelectCharacter(player *Player) (*Character, error) {
 		// Convert input to integer
 		choice, err := strconv.Atoi(strings.TrimSpace(input))
 		if err != nil || choice < 0 || choice > len(options) {
-			player.ToPlayer <- "Invalid choice. Please select a valid option.\n"
+			player.ToPlayer <- "Invalid choice. Please select a valid option.\n\r"
 			continue
 		}
 

@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"strings"
 	"time"
 
 	bolt "go.etcd.io/bbolt"
@@ -98,8 +97,10 @@ func (k *KeyPair) ReadPlayer(playerName string) (string, map[string]uint64, erro
 }
 
 func (p *Player) PlayerInput() {
-	reader := bufio.NewReader(p.Connection) // Create a bufio.Reader once here
-	var inputBuffer bytes.Buffer            // Buffer to accumulate characters into a line
+
+	var inputBuffer bytes.Buffer
+
+	reader := bufio.NewReader(p.Connection)
 
 	for {
 		char, _, err := reader.ReadRune() // Read one rune (character) at a time from the buffered reader
@@ -118,21 +119,26 @@ func (p *Player) PlayerInput() {
 		}
 
 		// Echo the character back to the player if Echo is true
-		if p.Echo {
-			p.ToPlayer <- string(char)
+		// Ensure we do not echo back newline characters, maintaining input cleanliness
+		if p.Echo && char != '\n' && char != '\r' {
+			if _, err := p.Connection.Write([]byte(string(char))); err != nil {
+				log.Printf("Failed to echo character to player %s: %v", p.Name, err)
+			}
 		}
-
-		// Add character to the buffer
-		inputBuffer.WriteRune(char)
 
 		// Check if the character is a newline, indicating the end of input
 		if char == '\n' || char == '\r' {
-			// Send the accumulated line (excluding the newline character) through the FromPlayer channel
-			p.FromPlayer <- strings.TrimRight(inputBuffer.String(), "\r\n")
-
-			// Clear the buffer for the next line of input
-			inputBuffer.Reset()
+			// Trim the newline character and send the input through the FromPlayer channel
+			// This assumes that the inputBuffer contains the input line up to the newline character
+			if inputBuffer.Len() > 0 { // Ensure we have something to send
+				p.FromPlayer <- inputBuffer.String()
+				inputBuffer.Reset() // Clear the buffer for the next line of input
+			}
+			continue
 		}
+
+		// Add character to the buffer for accumulating the line
+		inputBuffer.WriteRune(char)
 	}
 
 	// Close the channel to signify no more input will be processed
@@ -142,7 +148,7 @@ func (p *Player) PlayerInput() {
 func (p *Player) PlayerOutput() {
 	for message := range p.ToPlayer {
 		// Append carriage return and newline for SSH protocol compatibility
-		messageToSend := message + "\r\n"
+		messageToSend := message
 		if _, err := p.Connection.Write([]byte(messageToSend)); err != nil {
 			log.Printf("Failed to send message to player %s: %v", p.Name, err)
 			// Consider whether to continue or break based on your error handling policy
