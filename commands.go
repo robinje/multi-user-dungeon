@@ -44,7 +44,7 @@ func validateCommand(command string, validCommands []string) (string, []string, 
 	}
 	for _, token := range tokens {
 		if contains(validCommands, strings.ToLower(token)) {
-			verb = token
+			verb = strings.ToLower(token)
 			break
 		}
 	}
