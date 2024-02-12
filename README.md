@@ -13,10 +13,16 @@ The current objectives are:
 - [x] Player authentication system
 - [x] Impliment a database for the game.
 - [x] Character creation system.
-- [ ] Build a private messaging system.
+- [ ] Build a direct messaging system.
 - [ ] Build game mechanics.
-- [ ] Build a combat system.
 - [ ] Player creation system.
+- [ ] Build a world creation system.
+- [ ] Build a quest system.
+- [ ] Build the object system.
+- [ ] Build Simple Non-Player Characters (NPCs).
+- [ ] Build AI Controlled NPCs
+- [ ] Build dynamic conent updating system.
+
 
 TODO:
 
@@ -25,9 +31,15 @@ TODO:
 - [x] Display in the incoming IP address and Port on the server.
 - [x] Add a help command.
 - [ ] Add a message of the day (MOTD) command.
-- [ ] Add a player list command.
+- [ ] Add a character list command.
 - [ ] Impliment Persistant Logging.
 - [ ] Allow users to change their passwords.
+- [ ] Add the ability to delete characters.
+- [ ] Add the ability to delete accounts.
+- [ ] Add an obscentity filter.
+- [ ] Graph validation of loaded rooms and exits.
+- [ ] Expand the character creation process.
+
 
 ## Demployment
 
