@@ -160,10 +160,10 @@ func (s *Server) NewCharacter(Name string, Player *Player, Room *Room) *Characte
 	}
 
 	if s.Characters == nil {
-		s.Characters = make(map[uint64]*Character)
+		s.Characters = make(map[string]*Character)
 	}
 
-	s.Characters[characterIndex] = character
+	s.Characters[Name] = character
 
 	return character
 }
@@ -251,10 +251,10 @@ func (s *Server) LoadCharacter(player *Player, characterIndex uint64) (*Characte
 	}
 
 	if s.Characters == nil {
-		s.Characters = make(map[uint64]*Character)
+		s.Characters = make(map[string]*Character)
 	}
 
-	s.Characters[cd.Index] = character
+	s.Characters[cd.Name] = character
 
 	log.Printf("Loaded character %s (Index %d) in Room %d", character.Name, character.Index, room.RoomID)
 

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"sort"
 	"strings"
 )
 
@@ -17,7 +18,7 @@ var commandHandlers = map[string]CommandHandler{
 	"say":  executeSayCommand,
 	"go":   executeGoCommand,
 	"help": executeHelpCommand,
-	// Additional commands can be added here as needed.
+	"who":  executeWhoCommand,
 }
 
 func contains(slice []string, str string) bool {
@@ -114,13 +115,59 @@ func executeGoCommand(character *Character, tokens []string) bool {
 	return false
 }
 
+func executeWhoCommand(character *Character, tokens []string) bool {
+	// Retrieve the server instance from the character
+	server := character.Server
+
+	characterNames := make([]string, 0, len(server.Characters))
+	for name := range server.Characters {
+		characterNames = append(characterNames, name)
+	}
+
+	// Sort character names for consistent display
+	sort.Strings(characterNames)
+
+	// Calculate the number of columns and rows based on console dimensions
+	maxNameLength := 15
+	columnWidth := maxNameLength + 2 // Adding 2 for spacing between names
+	columns := character.Player.ConsoleWidth / columnWidth
+	if columns == 0 {
+		columns = 1 // Ensure at least one column if console width is too small
+	}
+	rows := len(characterNames) / columns
+	if len(characterNames)%columns != 0 {
+		rows++ // Add an extra row for any remainder
+	}
+
+	// Prepare message builder to construct the output
+	var messageBuilder strings.Builder
+	messageBuilder.WriteString("\n\rOnline Characters:\n\r")
+
+	// Loop through rows and columns to construct the output
+	for row := 0; row < rows; row++ {
+		for col := 0; col < columns; col++ {
+			index := row + col*rows
+			if index < len(characterNames) {
+				messageBuilder.WriteString(fmt.Sprintf("%-15s  ", characterNames[index]))
+			}
+		}
+		messageBuilder.WriteString("\n\r") // New line at the end of each row
+	}
+
+	// Send the constructed message to the player
+	character.Player.ToPlayer <- messageBuilder.String()
+
+	return false
+}
+
 func executeHelpCommand(character *Character, tokens []string) bool {
 	helpMessage := "\n\rAvailable Commands:" +
-		"\n\rquit - Quit the game" +
+		"\n\rhelp - Display available commands" +
 		"\n\rsay <message> - Say something to all players" +
 		"\n\rlook - Look around the room" +
 		"\n\rgo <direction> - Move in a direction" +
-		"\n\rhelp - Display available commands\n\r"
+		"\n\rwho - List all character online" +
+		"\n\rquit - Quit the game\n\r"
 
 	character.Player.ToPlayer <- helpMessage
 	return false
