@@ -23,6 +23,7 @@ type Server struct {
 	Database        *KeyPair
 	PlayerIndex     *Index
 	CharacterExists map[string]bool
+	Characters      map[uint64]*Character
 }
 
 func NewServer(config Configuration) (*Server, error) {
@@ -33,6 +34,7 @@ func NewServer(config Configuration) (*Server, error) {
 		Config:      config,
 		StartTime:   time.Now(),
 		Rooms:       make(map[int64]*Room),
+		Characters:  make(map[uint64]*Character),
 	}
 
 	log.Printf("Initializing database...")
