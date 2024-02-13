@@ -30,8 +30,8 @@ TODO:
 - [x] Allow players to enter their name.
 - [x] Display in the incoming IP address and Port on the server.
 - [x] Add a help command.
+- [x] Add a character list command.
 - [ ] Add a message of the day (MOTD) command.
-- [ ] Add a character list command.
 - [ ] Impliment Persistant Logging.
 - [ ] Allow users to change their passwords.
 - [ ] Add the ability to delete characters.

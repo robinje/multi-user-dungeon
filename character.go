@@ -91,9 +91,14 @@ func (s *Server) CreateCharacter(player *Player) (*Character, error) {
 		return nil, fmt.Errorf("character name cannot be empty")
 	}
 
+	// Limit character names to 15 characters
+	if len(charName) > 15 {
+		return nil, fmt.Errorf("character name must be 15 characters or fewer")
+	}
+
 	// Check if the character name already exists
 	if s.CharacterExists[strings.ToLower(charName)] {
-		return nil, fmt.Errorf("Character already exists")
+		return nil, fmt.Errorf("character already exists")
 	}
 
 	// Log the character creation attempt
@@ -153,6 +158,12 @@ func (s *Server) NewCharacter(Name string, Player *Player, Room *Room) *Characte
 		return nil
 
 	}
+
+	if s.Characters == nil {
+		s.Characters = make(map[string]*Character)
+	}
+
+	s.Characters[Name] = character
 
 	return character
 }
@@ -238,6 +249,12 @@ func (s *Server) LoadCharacter(player *Player, characterIndex uint64) (*Characte
 		Player: player,
 		Server: s,
 	}
+
+	if s.Characters == nil {
+		s.Characters = make(map[string]*Character)
+	}
+
+	s.Characters[cd.Name] = character
 
 	log.Printf("Loaded character %s (Index %d) in Room %d", character.Name, character.Index, room.RoomID)
 
