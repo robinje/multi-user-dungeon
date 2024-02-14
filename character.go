@@ -296,7 +296,7 @@ func (c *Character) InputLoop() {
 		inputLine = strings.Replace(inputLine, "\n", "\n\r", -1)
 
 		// Process the command
-		verb, tokens, err := validateCommand(strings.TrimSpace(inputLine), validCommands) // Corrected to validCommands
+		verb, tokens, err := validateCommand(strings.TrimSpace(inputLine), commandHandlers)
 		if err != nil {
 			c.Player.ToPlayer <- err.Error() + "\n\r"
 			c.Player.ToPlayer <- c.Player.Prompt

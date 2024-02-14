@@ -8,17 +8,16 @@ import (
 	"strings"
 )
 
-var validCommands = []string{"look", "go", "get", "drop", "inventory", "help", "quit", "say"}
-
 type CommandHandler func(character *Character, tokens []string) bool
 
 var commandHandlers = map[string]CommandHandler{
-	"quit": executeQuitCommand,
-	"look": executeLookCommand,
-	"say":  executeSayCommand,
-	"go":   executeGoCommand,
-	"help": executeHelpCommand,
-	"who":  executeWhoCommand,
+	"quit":     executeQuitCommand,
+	"look":     executeLookCommand,
+	"say":      executeSayCommand,
+	"go":       executeGoCommand,
+	"help":     executeHelpCommand,
+	"who":      executeWhoCommand,
+	"password": executePasswordCommand,
 }
 
 func contains(slice []string, str string) bool {
@@ -31,7 +30,7 @@ func contains(slice []string, str string) bool {
 	return false
 }
 
-func validateCommand(command string, validCommands []string) (string, []string, error) {
+func validateCommand(command string, commandHandlers map[string]CommandHandler) (string, []string, error) {
 	trimmedCommand := strings.TrimSpace(command)
 	tokens := strings.Fields(trimmedCommand)
 
@@ -39,18 +38,9 @@ func validateCommand(command string, validCommands []string) (string, []string, 
 		return "", nil, errors.New("\n\rNo command entered.\n\r")
 	}
 
-	verb := ""
-	for i, token := range tokens {
-		tokens[i] = token
-	}
-	for _, token := range tokens {
-		if contains(validCommands, strings.ToLower(token)) {
-			verb = strings.ToLower(token)
-			break
-		}
-	}
-	if verb == "" {
-		return verb, tokens, errors.New("\n\rI don't understand your command.")
+	verb := strings.ToLower(tokens[0])
+	if _, exists := commandHandlers[verb]; !exists {
+		return "", tokens, fmt.Errorf("\n\rI don't understand your command.")
 	}
 
 	return verb, tokens, nil
@@ -160,6 +150,33 @@ func executeWhoCommand(character *Character, tokens []string) bool {
 	return false
 }
 
+func executePasswordCommand(character *Character, tokens []string) bool {
+	if len(tokens) != 3 {
+		character.Player.ToPlayer <- "\n\rUsage: password <oldPassword> <newPassword>\n\r"
+		return false
+	}
+
+	oldPassword := tokens[1]
+	newPassword := tokens[2]
+
+	// Call the Server's method to change the password
+	success, err := character.Server.ChangeUserPassword(character.Player.Name, oldPassword, newPassword)
+	if err != nil {
+		log.Printf("Failed to change password for user %s: %v", character.Player.Name, err)
+		character.Player.ToPlayer <- "\n\rFailed to change password. Please try again.\n\r"
+		return false
+	}
+
+	if success {
+		character.Player.ToPlayer <- "\n\rPassword changed successfully.\n\r"
+	} else {
+		// This path might be redundant, as an error should already indicate failure
+		character.Player.ToPlayer <- "\n\rFailed to change password for an unknown reason.\n\r"
+	}
+
+	return false // Keep the command loop running
+}
+
 func executeHelpCommand(character *Character, tokens []string) bool {
 	helpMessage := "\n\rAvailable Commands:" +
 		"\n\rhelp - Display available commands" +
@@ -167,6 +184,7 @@ func executeHelpCommand(character *Character, tokens []string) bool {
 		"\n\rlook - Look around the room" +
 		"\n\rgo <direction> - Move in a direction" +
 		"\n\rwho - List all character online" +
+		"\n\rpassword <oldPassword> <newPassword> - Change your password" +
 		"\n\rquit - Quit the game\n\r"
 
 	character.Player.ToPlayer <- helpMessage
