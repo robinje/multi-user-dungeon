@@ -22,7 +22,7 @@ func TestValidateCommand(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			verb, tokens, err := validateCommand(tt.command, validCommands) // Corrected to validCommands
+			verb, tokens, err := validateCommand(tt.command, commandHandlers)
 
 			// Check if the verb matches the expected verb
 			if verb != tt.expectedVerb {

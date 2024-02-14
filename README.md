@@ -31,9 +31,9 @@ TODO:
 - [x] Display in the incoming IP address and Port on the server.
 - [x] Add a help command.
 - [x] Add a character list command.
+- [x] Allow users to change their passwords.
 - [ ] Add a message of the day (MOTD) command.
 - [ ] Impliment Persistant Logging.
-- [ ] Allow users to change their passwords.
 - [ ] Add the ability to delete characters.
 - [ ] Add the ability to delete accounts.
 - [ ] Add an obscentity filter.
