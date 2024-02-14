@@ -351,7 +351,6 @@ func (c *Character) Move(direction string) {
 	// Update character's room
 	c.Room = newRoom
 
-
 	newRoom.SendRoomMessage(fmt.Sprintf("\n\r%s has arrived.\n\r", c.Name))
 
 	// Ensure the Characters map in the new room is initialized
