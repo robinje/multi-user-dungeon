@@ -120,7 +120,14 @@ func (s *Server) CreateCharacter(player *Player) (*Character, error) {
 	if room.Characters == nil {
 		room.Characters = make(map[uint64]*Character)
 	}
+
+	room.Mutex.Lock()
 	room.Characters[character.Index] = character
+	room.Mutex.Unlock()
+
+	s.Mutex.Lock()
+	s.CharacterExists[strings.ToLower(charName)] = true // Store the character name in the map
+	s.Mutex.Unlock()
 
 	return character, nil
 }
@@ -160,10 +167,14 @@ func (s *Server) NewCharacter(Name string, Player *Player, Room *Room) *Characte
 	}
 
 	if s.Characters == nil {
+		s.Mutex.Lock()
 		s.Characters = make(map[string]*Character)
+		s.Mutex.Unlock()
 	}
 
+	s.Mutex.Lock()
 	s.Characters[Name] = character
+	s.Mutex.Unlock()
 
 	return character
 }
@@ -251,10 +262,14 @@ func (s *Server) LoadCharacter(player *Player, characterIndex uint64) (*Characte
 	}
 
 	if s.Characters == nil {
+		s.Mutex.Lock()
 		s.Characters = make(map[string]*Character)
+		s.Mutex.Unlock()
 	}
 
+	s.Mutex.Lock()
 	s.Characters[cd.Name] = character
+	s.Mutex.Unlock()
 
 	log.Printf("Loaded character %s (Index %d) in Room %d", character.Name, character.Index, room.RoomID)
 
@@ -335,6 +350,7 @@ func (c *Character) Move(direction string) {
 
 	// Update character's room
 	c.Room = newRoom
+
 
 	newRoom.SendRoomMessage(fmt.Sprintf("\n\r%s has arrived.\n\r", c.Name))
 
