@@ -1,57 +1,64 @@
-# Multi-User Dungeon 
+# Multi-User Dungeon Engine
 
-The goal of this project is to create a commerical quality multi-user dungeon (MUD) engine that is flexible enough that it can be used as a conventional MUD or interactive fiction game.
+The goal of this project is to create a commercial-quality multi-user dungeon (MUD) engine that is flexible enough to be used as either a conventional MUD or an interactive fiction game.
 
-The current implimentation is an SSH server that allows for secure authentication and communication between the player and the server.
+The current implementation includes an SSH server for secure authentication and communication between the player and the server. The engine is primarily written in Go. Additionally, there is a user management system stub written in JavaScript and various utility scripts written in Python.
 
-The engine is being written in Go. There is a user management system that is a stub which is written in JavaScript. There are some scripts written in Python.
+## Current Objectives
 
-The current objectives are:
-
-- [x] Create the TCP server for clinet connections.
+- [x] Create the TCP server for client connections.
 - [x] Create a text parser for user input.
-- [x] Player authentication system
-- [x] Impliment a database for the game.
-- [x] Character creation system.
+- [x] Implement a player authentication system.
+- [x] Implement a database for the game.
+- [x] Implement a character creation system.
 - [ ] Build a direct messaging system.
-- [ ] Build game mechanics.
-- [ ] Player creation system.
-- [ ] Build a world creation system.
-- [ ] Build a quest system.
-- [ ] Build the object system.
-- [ ] Build Simple Non-Player Characters (NPCs).
-- [ ] Build AI Controlled NPCs
-- [ ] Build dynamic conent updating system.
+- [ ] Develop game mechanics.
+- [ ] Create a player creation system.
+- [ ] Implement a world creation system.
+- [ ] Design a quest system.
+- [ ] Construct the object system.
+- [ ] Develop simple Non-Player Characters (NPCs).
+- [ ] Create AI-controlled NPCs.
+- [ ] Implement a dynamic content updating system.
 
-
-TODO:
+## TODO
 
 - [x] Fix output formatting for the client.
 - [x] Allow players to enter their name.
-- [x] Display in the incoming IP address and Port on the server.
+- [x] Display the incoming IP address and Port on the server.
 - [x] Add a help command.
 - [x] Add a character list command.
 - [x] Allow users to change their passwords.
-- [ ] Add a message of the day (MOTD) command.
-- [ ] Impliment Persistant Logging.
+- [ ] Add a Message of the Day (MOTD) command.
+- [ ] Implement Persistent Logging.
 - [ ] Add the ability to delete characters.
 - [ ] Add the ability to delete accounts.
-- [ ] Add an obscentity filter.
-- [ ] Graph validation of loaded rooms and exits.
+- [ ] Implement an obscenity filter.
+- [ ] Validate graph of loaded rooms and exits.
 - [ ] Expand the character creation process.
 
+## Deployment
 
-## Demployment
+Deploying the server involves several steps, from setting up your environment to running the server. Follow these steps to ensure a smooth deployment process:
 
-To deploy the server, you will need to have Go installed on your system. You can download it from the [Go website](https://golang.org/).
+1. **Install Go**: The server is written in Go, so you need to have Go installed on your system. Download it from the [Go website](https://golang.org/).
 
-You will need to have an AWS account to deploy the server. You can sign up for an account [here](https://aws.amazon.com/).
+2. **Set Up AWS Account**: An AWS account is required for deploying certain components of the server, such as the authentication system. Sign up for an account [here](https://aws.amazon.com/) if you don't already have one.
 
-You will need AWS credentials for that account which have sufficient permissions to create the Cognito user pool, and the IAM policies and roles.
+3. **Configure AWS Credentials**: Ensure you have AWS credentials configured on your machine. These credentials should have sufficient permissions to create a Cognito user pool and the necessary IAM policies and roles. You can configure your credentials by using the AWS CLI and running `aws configure`.
 
-Run the `./scripts/deploy_cognito.py` script to create the Cognito instace and the IAM policies and roles, it will also generate the `config.json` file that is needed to run the server.
+4. **Deploy Cognito and IAM Resources**:
+    - Navigate to the `scripts` directory within the project.
+    - Run the `deploy_cognito.py` script using the command `python deploy_cognito.py`. This script will create the Cognito instance along with the required IAM policies and roles. It will also generate the `config.json` file needed to run the server. Ensure you have Python installed on your machine to execute this script.
 
-Install the Go dependencies by running `go mod download`.
+5. **Install Go Dependencies**: Before starting the server, you need to install the necessary Go dependencies. In the root directory of the project, run `go mod download` to fetch all required packages.
 
-Start the server by running `go run .` in the root directory of the project.
+6. **Start the Server**: Finally, you can start the server by running `go run .` from the root directory of the project. This command compiles and runs the Go application, starting up your MUD server.
+
+Ensure all steps are completed without errors before trying to connect to the server. If you encounter any issues during deployment, refer to the specific tool's documentation for troubleshooting advice.
+
+
+## License
+
+This project is licensed under the Apache 2.0 License. See the LICENSE file for more details.
 
