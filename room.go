@@ -25,7 +25,7 @@ type Room struct {
 type Exit struct {
 	ExitID     int64
 	TargetRoom int64
-	Visibile   bool
+	Visible   bool
 	Direction  string
 }
 
