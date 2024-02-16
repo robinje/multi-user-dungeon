@@ -85,6 +85,22 @@ func (s *Server) CreateCharacter(player *Player) (*Character, error) {
 		return nil, fmt.Errorf("failed to receive character name input")
 	}
 
+	charName = strings.TrimSpace(charName)
+
+	if len(charName) == 0 {
+		return nil, fmt.Errorf("character name cannot be empty")
+	}
+
+	// Limit character names to 15 characters
+	if len(charName) > 15 {
+		return nil, fmt.Errorf("character name must be 15 characters or fewer")
+	}
+
+	// Check if the character name already exists
+	if s.CharacterExists[strings.ToLower(charName)] {
+		return nil, fmt.Errorf("character already exists")
+	}
+
 	// Log the character creation attempt
 	log.Printf("Creating character with name: %s", charName)
 
@@ -104,7 +120,14 @@ func (s *Server) CreateCharacter(player *Player) (*Character, error) {
 	if room.Characters == nil {
 		room.Characters = make(map[uint64]*Character)
 	}
+
+	room.Mutex.Lock()
 	room.Characters[character.Index] = character
+	room.Mutex.Unlock()
+
+	s.Mutex.Lock()
+	s.CharacterExists[strings.ToLower(charName)] = true // Store the character name in the map
+	s.Mutex.Unlock()
 
 	return character, nil
 }
@@ -142,6 +165,16 @@ func (s *Server) NewCharacter(Name string, Player *Player, Room *Room) *Characte
 		return nil
 
 	}
+
+	if s.Characters == nil {
+		s.Mutex.Lock()
+		s.Characters = make(map[string]*Character)
+		s.Mutex.Unlock()
+	}
+
+	s.Mutex.Lock()
+	s.Characters[Name] = character
+	s.Mutex.Unlock()
 
 	return character
 }
@@ -228,6 +261,16 @@ func (s *Server) LoadCharacter(player *Player, characterIndex uint64) (*Characte
 		Server: s,
 	}
 
+	if s.Characters == nil {
+		s.Mutex.Lock()
+		s.Characters = make(map[string]*Character)
+		s.Mutex.Unlock()
+	}
+
+	s.Mutex.Lock()
+	s.Characters[cd.Name] = character
+	s.Mutex.Unlock()
+
 	log.Printf("Loaded character %s (Index %d) in Room %d", character.Name, character.Index, room.RoomID)
 
 	return character, nil
@@ -253,7 +296,7 @@ func (c *Character) InputLoop() {
 		inputLine = strings.Replace(inputLine, "\n", "\n\r", -1)
 
 		// Process the command
-		verb, tokens, err := validateCommand(strings.TrimSpace(inputLine), validCommands) // Corrected to validCommands
+		verb, tokens, err := validateCommand(strings.TrimSpace(inputLine), commandHandlers)
 		if err != nil {
 			c.Player.ToPlayer <- err.Error() + "\n\r"
 			c.Player.ToPlayer <- c.Player.Prompt
@@ -319,4 +362,36 @@ func (c *Character) Move(direction string) {
 	newRoom.Mutex.Unlock()
 
 	executeLookCommand(c, []string{})
+}
+
+func (s *Server) LoadCharacterNames() (map[string]bool, error) {
+
+	names := make(map[string]bool)
+
+	err := s.Database.db.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte("Characters"))
+		if b == nil {
+			return fmt.Errorf("Characters bucket not found")
+		}
+
+		return b.ForEach(func(k, v []byte) error {
+			var cd CharacterData
+			if err := json.Unmarshal(v, &cd); err != nil {
+				log.Printf("Error unmarshalling character data: %v", err)
+			}
+
+			names[strings.ToLower(cd.Name)] = true // Store the character name in the map
+			return nil
+		})
+	})
+
+	if len(names) == 0 {
+		return nil, fmt.Errorf("no characters found")
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("error reading from BoltDB: %w", err)
+	}
+
+	return names, nil
 }

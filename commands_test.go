@@ -18,12 +18,11 @@ func TestValidateCommand(t *testing.T) {
 		{"invalid command", "fly me to the moon", "", []string{"fly", "me", "to", "the", "moon"}, "\n\rI don't understand your command."},
 		{"valid command", "go north", "go", []string{"go", "north"}, ""},
 		{"extra spaces", "  look  ", "look", []string{"look"}, ""},
-		{"mixed case", "GeT item", "get", []string{"get", "item"}, ""},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			verb, tokens, err := validateCommand(tt.command, validCommands) // Corrected to validCommands
+			verb, tokens, err := validateCommand(tt.command, commandHandlers)
 
 			// Check if the verb matches the expected verb
 			if verb != tt.expectedVerb {

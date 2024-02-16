@@ -12,16 +12,18 @@ import (
 )
 
 type Server struct {
-	Port        uint16
-	Listener    net.Listener
-	SSHConfig   *ssh.ServerConfig
-	PlayerCount uint64
-	Mutex       sync.Mutex
-	Config      Configuration
-	StartTime   time.Time
-	Rooms       map[int64]*Room
-	Database    *KeyPair
-	PlayerIndex *Index
+	Port            uint16
+	Listener        net.Listener
+	SSHConfig       *ssh.ServerConfig
+	PlayerCount     uint64
+	Mutex           sync.Mutex
+	Config          Configuration
+	StartTime       time.Time
+	Rooms           map[int64]*Room
+	Database        *KeyPair
+	PlayerIndex     *Index
+	CharacterExists map[string]bool
+	Characters      map[string]*Character
 }
 
 func NewServer(config Configuration) (*Server, error) {
@@ -32,6 +34,7 @@ func NewServer(config Configuration) (*Server, error) {
 		Config:      config,
 		StartTime:   time.Now(),
 		Rooms:       make(map[int64]*Room),
+		Characters:  make(map[string]*Character),
 	}
 
 	log.Printf("Initializing database...")
@@ -45,6 +48,15 @@ func NewServer(config Configuration) (*Server, error) {
 
 	// Establish the player index
 	server.PlayerIndex.IndexID = 1
+
+	// Load the character names from the database
+
+	log.Printf("Loading character names from database...")
+
+	server.CharacterExists, err = server.LoadCharacterNames()
+	if err != nil {
+		log.Printf("Error loading character names from database: %v", err)
+	}
 
 	// Add a default room
 
