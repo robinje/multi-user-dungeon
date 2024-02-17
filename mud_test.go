@@ -1,7 +1,6 @@
 package main
 
 import (
-	"io/ioutil"
 	"os"
 	"reflect"
 	"testing"
@@ -20,7 +19,7 @@ func TestLoadConfigurationSuccess(t *testing.T) {
 	}
 
 	// Create a temporary JSON file with the configuration.
-	tempFile, err := ioutil.TempFile("", "config-*.json")
+	tempFile, err := os.CreateTemp("", "config-*.json")
 	if err != nil {
 		t.Fatalf("Unable to create temporary file: %v", err)
 	}
@@ -57,7 +56,7 @@ func TestLoadConfigurationFileNotFound(t *testing.T) {
 
 // TestLoadConfigurationInvalidJSON tests loading a configuration file with invalid JSON.
 func TestLoadConfigurationInvalidJSON(t *testing.T) {
-	tempFile, err := ioutil.TempFile("", "invalidConfig-*.json")
+	tempFile, err := os.CreateTemp("", "invalidConfig-*.json")
 	if err != nil {
 		t.Fatalf("Unable to create temporary file: %v", err)
 	}
