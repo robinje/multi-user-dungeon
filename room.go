@@ -35,14 +35,14 @@ func (kp *KeyPair) LoadRooms() (map[int64]*Room, error) {
 	err := kp.db.View(func(tx *bolt.Tx) error {
 		roomsBucket := tx.Bucket([]byte("Rooms"))
 		if roomsBucket == nil {
-			return fmt.Errorf("Rooms bucket not found")
+			return fmt.Errorf("rooms bucket not found")
 		}
 
 		log.Printf("Using Rooms bucket: %v", roomsBucket)
 
 		exitsBucket := tx.Bucket([]byte("Exits"))
 		if exitsBucket == nil {
-			return fmt.Errorf("Exits bucket not found")
+			return fmt.Errorf("exits bucket not found")
 		}
 
 		log.Printf("Using Exits bucket: %v", exitsBucket)

@@ -26,16 +26,6 @@ var commandHandlers = map[string]CommandHandler{
 	"fuck":      executeQuitCommand,
 }
 
-func contains(slice []string, str string) bool {
-	lowerStr := strings.ToLower(str)
-	for _, v := range slice {
-		if strings.ToLower(v) == lowerStr {
-			return true
-		}
-	}
-	return false
-}
-
 func validateCommand(command string, commandHandlers map[string]CommandHandler) (string, []string, error) {
 	trimmedCommand := strings.TrimSpace(command)
 	tokens := strings.Fields(trimmedCommand)
@@ -46,7 +36,7 @@ func validateCommand(command string, commandHandlers map[string]CommandHandler) 
 
 	verb := strings.ToLower(tokens[0])
 	if _, exists := commandHandlers[verb]; !exists {
-		return "", tokens, fmt.Errorf("\n\rI don't understand your command.")
+		return "", tokens, fmt.Errorf("command not understood")
 	}
 
 	return verb, tokens, nil
