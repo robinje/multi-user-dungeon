@@ -5,6 +5,7 @@ import (
 	"flag"
 	"log"
 	"os"
+	"time"
 )
 
 type Configuration struct {
@@ -35,6 +36,9 @@ func main() {
 		return
 	}
 
+	// Start the auto-save routine
+	go server.AutoSaveCharacters()
+
 	// Start the server
 	if err := server.StartSSHServer(); err != nil {
 		log.Printf("Failed to start server: %v", err)
@@ -56,4 +60,16 @@ func loadConfiguration(configFile string) (Configuration, error) {
 	}
 
 	return config, nil
+}
+
+func (s *Server) AutoSaveCharacters() {
+	for {
+		// Sleep for the configured duration
+		time.Sleep(time.Duration(s.AutoSave) * time.Second)
+
+		// Save the characters to the database
+		if err := s.SaveActiveCharacters(); err != nil {
+			log.Printf("Failed to save characters: %v", err)
+		}
+	}
 }

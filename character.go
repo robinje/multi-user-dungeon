@@ -395,3 +395,21 @@ func (s *Server) LoadCharacterNames() (map[string]bool, error) {
 
 	return names, nil
 }
+
+func (s *Server) SaveActiveCharacters() error {
+	s.Mutex.Lock()
+	defer s.Mutex.Unlock()
+
+	fmt.Println("Saving active characters...")
+
+	for _, character := range s.Characters {
+		err := s.WriteCharacter(character)
+		if err != nil {
+			return fmt.Errorf("error saving character %s: %w", character.Name, err)
+		}
+	}
+
+	fmt.Println("Active characters saved successfully.")
+
+	return nil
+}
