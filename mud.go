@@ -8,12 +8,14 @@ import (
 )
 
 type Configuration struct {
-	Port           uint16 `json:"Port"`
-	UserPoolID     string `json:"UserPoolId"`
-	ClientSecret   string `json:"UserPoolClientSecret"`
-	UserPoolRegion string `json:"UserPoolRegion"`
-	ClientID       string `json:"UserPoolClientId"`
-	DataFile       string `json:"DataFile"`
+	Port           uint16  `json:"Port"`
+	UserPoolID     string  `json:"UserPoolId"`
+	ClientSecret   string  `json:"UserPoolClientSecret"`
+	UserPoolRegion string  `json:"UserPoolRegion"`
+	ClientID       string  `json:"UserPoolClientId"`
+	DataFile       string  `json:"DataFile"`
+	Balance        float64 `json:"Balance"`
+	AutoSave       uint16  `json:"AutoSave"`
 }
 
 func main() {

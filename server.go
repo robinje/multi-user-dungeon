@@ -24,6 +24,8 @@ type Server struct {
 	PlayerIndex     *Index
 	CharacterExists map[string]bool
 	Characters      map[string]*Character
+	Balance         float64
+	AutoSave        uint16
 }
 
 func NewServer(config Configuration) (*Server, error) {
@@ -35,6 +37,8 @@ func NewServer(config Configuration) (*Server, error) {
 		StartTime:   time.Now(),
 		Rooms:       make(map[int64]*Room),
 		Characters:  make(map[string]*Character),
+		Balance:     config.Balance,
+		AutoSave:    config.AutoSave,
 	}
 
 	log.Printf("Initializing database...")
