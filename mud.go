@@ -5,15 +5,18 @@ import (
 	"flag"
 	"log"
 	"os"
+	"time"
 )
 
 type Configuration struct {
-	Port           uint16 `json:"Port"`
-	UserPoolID     string `json:"UserPoolId"`
-	ClientSecret   string `json:"UserPoolClientSecret"`
-	UserPoolRegion string `json:"UserPoolRegion"`
-	ClientID       string `json:"UserPoolClientId"`
-	DataFile       string `json:"DataFile"`
+	Port           uint16  `json:"Port"`
+	UserPoolID     string  `json:"UserPoolId"`
+	ClientSecret   string  `json:"UserPoolClientSecret"`
+	UserPoolRegion string  `json:"UserPoolRegion"`
+	ClientID       string  `json:"UserPoolClientId"`
+	DataFile       string  `json:"DataFile"`
+	Balance        float64 `json:"Balance"`
+	AutoSave       uint16  `json:"AutoSave"`
 }
 
 func main() {
@@ -32,6 +35,9 @@ func main() {
 		log.Printf("Failed to create server: %v", err)
 		return
 	}
+
+	// Start the auto-save routine
+	go server.AutoSaveCharacters()
 
 	// Start the server
 	if err := server.StartSSHServer(); err != nil {
@@ -54,4 +60,16 @@ func loadConfiguration(configFile string) (Configuration, error) {
 	}
 
 	return config, nil
+}
+
+func (s *Server) AutoSaveCharacters() {
+	for {
+		// Sleep for the configured duration
+		time.Sleep(time.Duration(s.AutoSave) * time.Second)
+
+		// Save the characters to the database
+		if err := s.SaveActiveCharacters(); err != nil {
+			log.Printf("Failed to save characters: %v", err)
+		}
+	}
 }
