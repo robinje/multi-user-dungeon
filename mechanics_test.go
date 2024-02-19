@@ -4,33 +4,99 @@ import (
 	"testing"
 )
 
-// TestChallenge tests the Challenge function to ensure it produces consistent and expected results.
-func TestChallenge(t *testing.T) {
-	// Define test cases
-	testCases := []struct {
-		name          string
-		attackerScore float64
-		defenderScore float64
-		expectedMin   float64 // Minimum expected result, considering non-negative outcomes
+// TestPositiveDifference checks the function with attacker > defender
+func TestPositiveDifference(t *testing.T) {
+	attacker, defender := 10.0, 5.0
+	result := Challenge(attacker, defender)
+	if result <= 0 {
+		t.Errorf("Expected a positive result, got %v", result)
+	}
+}
+
+// TestNegativeDifference checks the function with attacker < defender
+func TestNegativeDifference(t *testing.T) {
+	attacker, defender := 5.0, 10.0
+	result := Challenge(attacker, defender)
+	if result <= 0 {
+		t.Errorf("Expected a positive result, got %v", result)
+	}
+}
+
+// TestZeroDifference checks the function with attacker == defender
+func TestZeroDifference(t *testing.T) {
+	attacker, defender := 5.0, 5.0
+	result := Challenge(attacker, defender)
+	if result <= 0 {
+		t.Errorf("Expected a positive result, got %v", result)
+	}
+}
+
+// TestWithExtremes checks the function with inputs at the extremes of the valid range
+func TestWithExtremes(t *testing.T) {
+	tests := []struct {
+		attacker float64
+		defender float64
 	}{
-		// Since the Challenge function's output is now heavily dependent on random values and adjusted sigma,
-		// defining an exact expected range becomes challenging. Instead, we'll ensure the output is non-negative
-		// and attempt to verify behavior based on score differences.
-		{"EqualScores", 5.0, 5.0, 0},          // Expecting minimal adjustment for equal scores
-		{"AttackerAdvantage", 10.0, 5.0, 0},   // Expecting possible higher outcome due to advantage
-		{"DefenderAdvantage", 5.0, 10.0, 0},   // Even with a disadvantage, outcome should not be negative
-		{"ExtremeAdvantage", 20.0, 0.0, 0},    // Testing edge case with a significant score difference
-		{"ExtremeDisadvantage", 0.0, 20.0, 0}, // Testing edge case with significant disadvantage
+		{0, 20},
+		{20, 0},
 	}
 
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			outcome := Challenge(tc.attackerScore, tc.defenderScore)
+	for _, test := range tests {
+		result := Challenge(test.attacker, test.defender)
+		if result <= 0 {
+			t.Errorf("Expected a positive result for attacker = %v and defender = %v, got %v", test.attacker, test.defender, result)
+		}
+	}
+}
 
-			// Check if the outcome is non-negative and meets minimum expectations
-			if outcome < tc.expectedMin {
-				t.Errorf("Outcome %.4f for '%s' is less than the minimum expected %.4f", outcome, tc.name, tc.expectedMin)
-			}
-		})
+// TestBoundaryValues checks the function with boundary values
+func TestBoundaryValues(t *testing.T) {
+	tests := []struct {
+		attacker float64
+		defender float64
+	}{
+		{0, 0},
+		{20, 20},
+	}
+
+	for _, test := range tests {
+		result := Challenge(test.attacker, test.defender)
+		if result <= 0 {
+			t.Errorf("Expected a positive result for attacker = %v and defender = %v, got %v", test.attacker, test.defender, result)
+		}
+	}
+}
+
+// TestStatisticalDistribution tests the distribution of outcomes over many runs
+func TestStatisticalDistribution(t *testing.T) {
+	attacker, defender := 15.0, 5.0
+	const runs = 1000
+	results := make([]float64, runs)
+
+	for i := 0; i < runs; i++ {
+		results[i] = Challenge(attacker, defender)
+	}
+
+	var sum float64
+	for _, result := range results {
+		sum += result
+		if result <= 0 {
+			t.Errorf("Expected a positive result, got %v", result)
+		}
+	}
+	average := sum / float64(runs)
+	if average <= 0 {
+		t.Errorf("Expected a positive average result, got %v", average)
+	}
+}
+
+// TestStabilityWithConstantInputs checks if repeated calls with the same inputs yield different outcomes
+func TestStabilityWithConstantInputs(t *testing.T) {
+	attacker, defender := 10.0, 10.0
+	firstResult := Challenge(attacker, defender)
+	secondResult := Challenge(attacker, defender)
+
+	if firstResult == secondResult {
+		t.Errorf("Expected different results for repeated calls, got %v and %v", firstResult, secondResult)
 	}
 }

@@ -371,7 +371,7 @@ func (s *Server) LoadCharacterNames() (map[string]bool, error) {
 	err := s.Database.db.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte("Characters"))
 		if b == nil {
-			return fmt.Errorf("Characters bucket not found")
+			return fmt.Errorf("characters bucket not found")
 		}
 
 		return b.ForEach(func(k, v []byte) error {
