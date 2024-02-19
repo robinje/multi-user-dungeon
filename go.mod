@@ -3,7 +3,7 @@ module github.com/robinje/multi-user-dungeon
 go 1.21
 
 require (
-	github.com/aws/aws-sdk-go v1.50.15
+	github.com/aws/aws-sdk-go v1.50.20
 	go.etcd.io/bbolt v1.3.8
 	golang.org/x/crypto v0.19.0
 )
