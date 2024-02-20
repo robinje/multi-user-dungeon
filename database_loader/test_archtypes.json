@@ -1,5 +1,5 @@
 {
-    "archtyoes": {
+    "archetypes": {
         "wizard": {
             "name": "Wizard",
             "description": "A Wizard!",
@@ -26,7 +26,7 @@
                 "Climbing": 0.0,
                 "Lockpicking": 0.0,
                 "Mythos": 1.0,
-                "Archane": 1.0,
+                "Arcane": 1.0,
                 "FirstAid": 1.0,
                 "Foraging": 1.0,
                 "Appraise": 1.0
@@ -59,7 +59,7 @@
             "Climbing": 1.0,
             "Lockpicking": 1.0,
             "Mythos": 0.0,
-            "Archane": 0.0,
+            "Arcane": 0.0,
             "FirstAid": 0.0,
             "Foraging": 0.0,
             "Appraise": 0.0
@@ -91,7 +91,7 @@
             "Climbing": 1.0,
             "Lockpicking": 1.0,
             "Mythos": 0.0,
-            "Archane": 0.0,
+            "Arcane": 0.0,
             "FirstAid": 0.0,
             "Foraging": 0.0,
             "Appraise": 0.0
