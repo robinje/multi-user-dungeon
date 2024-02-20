@@ -11,54 +11,24 @@ import (
 	bolt "go.etcd.io/bbolt"
 )
 
-type Attributes struct {
-	Strength     float64
-	Agility      float64
-	Endurance    float64
-	Charisma     float64
-	Intrigue     float64
-	Presence     float64
-	Perception   float64
-	Intelligence float64
-	Cunning      float64
-}
-
-type Abilities struct {
-	Melee         float64
-	Archery       float64
-	Brawling      float64
-	Dodge         float64
-	Parry         float64
-	Stealth       float64
-	Investigation float64
-	Tumbling      float64
-	Climbing      float64
-	Lockpicking   float64
-	Mythos        float64
-	Archane       float64
-	FirstAid      float64
-	Foraging      float64
-	Appraise      float64
-}
-
 type Character struct {
 	Index      uint64
 	Room       *Room
 	Name       string
 	Player     *Player
-	Attributes Attributes
-	Abilities  Abilities
+	Attributes map[string]float64
+	Abilities  map[string]float64
 	Mutex      sync.Mutex
 	Server     *Server
 }
 
 // CharacterData for unmarshalling character.
 type CharacterData struct {
-	Index      uint64     `json:"index"`
-	Name       string     `json:"name"`
-	RoomID     int64      `json:"roomID"`
-	Attributes Attributes `json:"attributes"`
-	Abilities  Abilities  `json:"abilities"`
+	Index      uint64             `json:"index"`
+	Name       string             `json:"name"`
+	RoomID     int64              `json:"roomID"`
+	Attributes map[string]float64 `json:"attributes"`
+	Abilities  map[string]float64 `json:"abilities"`
 }
 
 func (s *Server) SelectCharacter(player *Player) (*Character, error) {
@@ -176,11 +146,13 @@ func (s *Server) NewCharacter(Name string, Player *Player, Room *Room) *Characte
 	}
 
 	character := &Character{
-		Index:  characterIndex,
-		Room:   Room,
-		Name:   Name,
-		Player: Player,
-		Server: s,
+		Index:      characterIndex,
+		Room:       Room,
+		Name:       Name,
+		Player:     Player,
+		Attributes: make(map[string]float64),
+		Abilities:  make(map[string]float64),
+		Server:     s,
 	}
 
 	err = s.WriteCharacter(character)

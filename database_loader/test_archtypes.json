@@ -1,0 +1,100 @@
+{
+    "archtyoes": {
+        "wizard": {
+            "name": "Wizard",
+            "description": "A Wizard!",
+            "Attributes": {
+                "Strength": 1.0,
+                "Agility": 1.0,
+                "Endurance": 1.0,
+                "Charisma": 1.0,
+                "Intrigue": 2.0,
+                "Presence": 2.0,
+                "Perception": 2.0,
+                "Intelligence": 3.0,
+                "Cunning": 2.0
+            },
+            "Abilities": {
+                "Melee": 0.0,
+                "Archery": 0.0,
+                "Brawling": 0.0,
+                "Dodge": 0.0,
+                "Parry": 0.0,
+                "Stealth": 0.0,
+                "Investigation": 0.0,
+                "Tumbling": 0.0,
+                "Climbing": 0.0,
+                "Lockpicking": 0.0,
+                "Mythos": 1.0,
+                "Archane": 1.0,
+                "FirstAid": 1.0,
+                "Foraging": 1.0,
+                "Appraise": 1.0
+            }
+        }
+    },
+    "rogue": {
+        "name": "Rogue",
+        "description": "A Rogue!",
+        "Attributes": {
+            "Strength": 2.0,
+            "Agility": 2.0,
+            "Endurance": 1.0,
+            "Charisma": 3.0,
+            "Intrigue": 3.0,
+            "Presence": 1.0,
+            "Perception": 1.0,
+            "Intelligence": 1.0,
+            "Cunning": 1.0
+        },
+        "Abilities": {
+            "Melee": 0.0,
+            "Archery": 0.0,
+            "Brawling": 0.0,
+            "Dodge": 0.0,
+            "Parry": 0.0,
+            "Stealth": 1.0,
+            "Investigation": 1.0,
+            "Tumbling": 1.0,
+            "Climbing": 1.0,
+            "Lockpicking": 1.0,
+            "Mythos": 0.0,
+            "Archane": 0.0,
+            "FirstAid": 0.0,
+            "Foraging": 0.0,
+            "Appraise": 0.0
+        }
+    },
+    "warrior": {
+        "name": "Warrior",
+        "description": "A Warrior!",
+        "Attributes": {
+            "Strength": 2.0,
+            "Agility": 2.0,
+            "Endurance": 1.0,
+            "Charisma": 3.0,
+            "Intrigue": 3.0,
+            "Presence": 1.0,
+            "Perception": 1.0,
+            "Intelligence": 1.0,
+            "Cunning": 1.0
+        },
+        "Abilities": {
+            "Melee": 0.0,
+            "Archery": 0.0,
+            "Brawling": 0.0,
+            "Dodge": 0.0,
+            "Parry": 0.0,
+            "Stealth": 1.0,
+            "Investigation": 1.0,
+            "Tumbling": 1.0,
+            "Climbing": 1.0,
+            "Lockpicking": 1.0,
+            "Mythos": 0.0,
+            "Archane": 0.0,
+            "FirstAid": 0.0,
+            "Foraging": 0.0,
+            "Appraise": 0.0
+        }
+    }
+}

@@ -147,13 +147,13 @@ func LoadBolt(rooms map[int64]*Room, fileName string) (map[int64]*Room, error) {
 		roomsBucket := tx.Bucket([]byte("Rooms"))
 		if roomsBucket == nil {
 			fmt.Println("Rooms bucket not found")
-			return fmt.Errorf("Rooms bucket not found")
+			return fmt.Errorf("rooms bucket not found")
 		}
 
 		exitsBucket := tx.Bucket([]byte("Exits"))
 		if exitsBucket == nil {
 			fmt.Println("Exits bucket not found")
-			return fmt.Errorf("Exits bucket not found")
+			return fmt.Errorf("exits bucket not found")
 		}
 
 		err := roomsBucket.ForEach(func(k, v []byte) error {
@@ -309,7 +309,7 @@ func main() {
 	}
 
 	// Load data from BoltDB
-	rooms, err = LoadBolt(rooms, *boltFilePath)
+	_, err = LoadBolt(rooms, *boltFilePath)
 	if err != nil {
 		fmt.Println("Data load from BoltDB failed:", err)
 	} else {
