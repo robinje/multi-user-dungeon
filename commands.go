@@ -5,29 +5,25 @@ import (
 	"fmt"
 	"log"
 	"sort"
+	"strconv"
 	"strings"
 )
 
 type CommandHandler func(character *Character, tokens []string) bool
 
 var commandHandlers = map[string]CommandHandler{
-	"quit":     executeQuitCommand,
-	"look":     executeLookCommand,
-	"say":      executeSayCommand,
-	"go":       executeGoCommand,
-	"help":     executeHelpCommand,
-	"who":      executeWhoCommand,
-	"password": executePasswordCommand,
-}
-
-func contains(slice []string, str string) bool {
-	lowerStr := strings.ToLower(str)
-	for _, v := range slice {
-		if strings.ToLower(v) == lowerStr {
-			return true
-		}
-	}
-	return false
+	"quit":      executeQuitCommand,
+	"look":      executeLookCommand,
+	"say":       executeSayCommand,
+	"go":        executeGoCommand,
+	"help":      executeHelpCommand,
+	"who":       executeWhoCommand,
+	"password":  executePasswordCommand,
+	"challenge": executeChallengeCommand,
+	"\"":        executeSayCommand,  // Allow for double quotes to be used as a shortcut for the say command
+	"'":         executeSayCommand,  // Allow for single quotes to be used as a shortcut for the say command
+	"q!":        executeQuitCommand, // Allow for q! to be used as a shortcut for the quit command
+	"fuck":      executeQuitCommand,
 }
 
 func validateCommand(command string, commandHandlers map[string]CommandHandler) (string, []string, error) {
@@ -40,7 +36,7 @@ func validateCommand(command string, commandHandlers map[string]CommandHandler) 
 
 	verb := strings.ToLower(tokens[0])
 	if _, exists := commandHandlers[verb]; !exists {
-		return "", tokens, fmt.Errorf("\n\rI don't understand your command.")
+		return "", tokens, fmt.Errorf("command not understood")
 	}
 
 	return verb, tokens, nil
@@ -102,6 +98,36 @@ func executeGoCommand(character *Character, tokens []string) bool {
 
 	direction := tokens[1]
 	character.Move(direction)
+	return false
+}
+
+func executeChallengeCommand(character *Character, tokens []string) bool {
+	// Ensure the correct number of arguments are provided
+	if len(tokens) < 3 {
+		character.Player.ToPlayer <- "\n\rUsage: challenge <attackerScore> <defenderScore>\n\r"
+		return false
+	}
+
+	// Parse attacker and defender scores from the command arguments
+	attackerScore, err := strconv.ParseFloat(tokens[1], 64)
+	if err != nil {
+		character.Player.ToPlayer <- "\n\rInvalid attacker score format. Please enter a valid number.\n\r"
+		return false
+	}
+
+	defenderScore, err := strconv.ParseFloat(tokens[2], 64)
+	if err != nil {
+		character.Player.ToPlayer <- "\n\rInvalid defender score format. Please enter a valid number.\n\r"
+		return false
+	}
+
+	// Calculate the outcome using the Challenge function
+	outcome := character.Server.Challenge(attackerScore, defenderScore)
+
+	// Provide feedback to the player based on the challenge outcome
+	feedbackMessage := fmt.Sprintf("\n\rChallenge outcome: %f\n\r", outcome)
+	character.Player.ToPlayer <- feedbackMessage
+
 	return false
 }
 

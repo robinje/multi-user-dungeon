@@ -15,7 +15,7 @@ func TestValidateCommand(t *testing.T) {
 		expectedErr    string
 	}{
 		{"empty command", "", "", nil, "\n\rNo command entered.\n\r"},
-		{"invalid command", "fly me to the moon", "", []string{"fly", "me", "to", "the", "moon"}, "\n\rI don't understand your command."},
+		{"invalid command", "fly me to the moon", "", []string{"fly", "me", "to", "the", "moon"}, "command not understood"},
 		{"valid command", "go north", "go", []string{"go", "north"}, ""},
 		{"extra spaces", "  look  ", "look", []string{"look"}, ""},
 	}

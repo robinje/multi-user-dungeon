@@ -11,20 +11,54 @@ import (
 	bolt "go.etcd.io/bbolt"
 )
 
+type Attributes struct {
+	Strength     float64
+	Agility      float64
+	Endurance    float64
+	Charisma     float64
+	Intrigue     float64
+	Presence     float64
+	Perception   float64
+	Intelligence float64
+	Cunning      float64
+}
+
+type Abilities struct {
+	Melee         float64
+	Archery       float64
+	Brawling      float64
+	Dodge         float64
+	Parry         float64
+	Stealth       float64
+	Investigation float64
+	Tumbling      float64
+	Climbing      float64
+	Lockpicking   float64
+	Mythos        float64
+	Archane       float64
+	FirstAid      float64
+	Foraging      float64
+	Appraise      float64
+}
+
 type Character struct {
-	Index  uint64
-	Room   *Room
-	Name   string
-	Player *Player
-	Mutex  sync.Mutex
-	Server *Server
+	Index      uint64
+	Room       *Room
+	Name       string
+	Player     *Player
+	Attributes Attributes
+	Abilities  Abilities
+	Mutex      sync.Mutex
+	Server     *Server
 }
 
 // CharacterData for unmarshalling character.
 type CharacterData struct {
-	Index  uint64 `json:"index"`
-	Name   string `json:"name"`
-	RoomID int64  `json:"roomID"`
+	Index      uint64     `json:"index"`
+	Name       string     `json:"name"`
+	RoomID     int64      `json:"roomID"`
+	Attributes Attributes `json:"attributes"`
+	Abilities  Abilities  `json:"abilities"`
 }
 
 func (s *Server) SelectCharacter(player *Player) (*Character, error) {
@@ -182,9 +216,11 @@ func (s *Server) NewCharacter(Name string, Player *Player, Room *Room) *Characte
 // Converts a Character to CharacterData for serialization
 func (c *Character) ToData() *CharacterData {
 	return &CharacterData{
-		Index:  c.Index,
-		Name:   c.Name,
-		RoomID: c.Room.RoomID, // Assuming Room has a RoomID field
+		Index:      c.Index,
+		Name:       c.Name,
+		RoomID:     c.Room.RoomID,
+		Attributes: c.Attributes,
+		Abilities:  c.Abilities,
 	}
 }
 
@@ -254,11 +290,13 @@ func (s *Server) LoadCharacter(player *Player, characterIndex uint64) (*Characte
 	}
 
 	character := &Character{
-		Index:  cd.Index,
-		Room:   room,
-		Name:   cd.Name,
-		Player: player,
-		Server: s,
+		Index:      cd.Index,
+		Room:       room,
+		Name:       cd.Name,
+		Attributes: cd.Attributes,
+		Abilities:  cd.Abilities,
+		Player:     player,
+		Server:     s,
 	}
 
 	if s.Characters == nil {
@@ -371,7 +409,7 @@ func (s *Server) LoadCharacterNames() (map[string]bool, error) {
 	err := s.Database.db.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte("Characters"))
 		if b == nil {
-			return fmt.Errorf("Characters bucket not found")
+			return fmt.Errorf("characters bucket not found")
 		}
 
 		return b.ForEach(func(k, v []byte) error {
@@ -394,4 +432,22 @@ func (s *Server) LoadCharacterNames() (map[string]bool, error) {
 	}
 
 	return names, nil
+}
+
+func (s *Server) SaveActiveCharacters() error {
+	s.Mutex.Lock()
+	defer s.Mutex.Unlock()
+
+	fmt.Println("Saving active characters...")
+
+	for _, character := range s.Characters {
+		err := s.WriteCharacter(character)
+		if err != nil {
+			return fmt.Errorf("error saving character %s: %w", character.Name, err)
+		}
+	}
+
+	fmt.Println("Active characters saved successfully.")
+
+	return nil
 }
