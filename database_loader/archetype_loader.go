@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 
 	bolt "go.etcd.io/bbolt"
@@ -20,7 +19,13 @@ type ArchetypesData struct {
 	Archetypes map[string]Archetype `json:"archetypes"`
 }
 
-func loadJSONData(fileName string) (*ArchetypesData, error) {
+func archDisplay(archetypes *ArchetypesData) {
+	for key, archetype := range archetypes.Archetypes {
+		fmt.Println(key, archetype)
+	}
+}
+
+func archLoadJSON(fileName string) (*ArchetypesData, error) {
 	file, err := os.ReadFile(fileName)
 	if err != nil {
 		return nil, err
@@ -32,10 +37,15 @@ func loadJSONData(fileName string) (*ArchetypesData, error) {
 		return nil, err
 	}
 
+	// Iterate over the loaded archetypes and print a line for each.
+	for key, archetype := range data.Archetypes {
+		fmt.Printf("Loaded archetype '%s': %s - %s\n", key, archetype.Name, archetype.Description)
+	}
+
 	return &data, nil
 }
 
-func storeArchetypesInBoltDB(dbPath string, archetypes *ArchetypesData) error {
+func archWriteBolt(archetypes *ArchetypesData, dbPath string) error {
 	db, err := bolt.Open(dbPath, 0600, nil)
 	if err != nil {
 		return err
@@ -49,6 +59,7 @@ func storeArchetypesInBoltDB(dbPath string, archetypes *ArchetypesData) error {
 		}
 
 		for key, archetype := range archetypes.Archetypes {
+			fmt.Println("Writing", key, archetype)
 			data, err := json.Marshal(archetype)
 			if err != nil {
 				return err
@@ -61,23 +72,35 @@ func storeArchetypesInBoltDB(dbPath string, archetypes *ArchetypesData) error {
 	})
 }
 
-func main() {
-	// Path to your JSON file with archetypes data
-	jsonFilePath := "path_to_your_json_file.json"
-	// Path to your BoltDB file
-	boltDBPath := "archetypes.db"
-
-	// Load JSON data from file
-	archetypesData, err := loadJSONData(jsonFilePath)
+func archLoadBolt(dbPath string) (*ArchetypesData, error) {
+	db, err := bolt.Open(dbPath, 0600, &bolt.Options{ReadOnly: true})
 	if err != nil {
-		log.Fatalf("Failed to load JSON data: %v", err)
+		return nil, err
+	}
+	defer db.Close()
+
+	archetypesData := &ArchetypesData{Archetypes: make(map[string]Archetype)}
+
+	err = db.View(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket([]byte("Archetypes"))
+		if bucket == nil {
+			return fmt.Errorf("Archetypes bucket does not exist")
+		}
+
+		return bucket.ForEach(func(k, v []byte) error {
+			var archetype Archetype
+			if err := json.Unmarshal(v, &archetype); err != nil {
+				return err
+			}
+			fmt.Println("Reading", string(k), archetype)
+			archetypesData.Archetypes[string(k)] = archetype
+			return nil
+		})
+	})
+
+	if err != nil {
+		return nil, err
 	}
 
-	// Store the data in BoltDB
-	err = storeArchetypesInBoltDB(boltDBPath, archetypesData)
-	if err != nil {
-		log.Fatalf("Failed to store data in BoltDB: %v", err)
-	}
-
-	fmt.Println("Data successfully stored in BoltDB.")
+	return archetypesData, nil
 }

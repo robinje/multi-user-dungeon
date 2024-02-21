@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"flag"
 	"fmt"
 	"os"
 	"strconv"
@@ -64,7 +63,7 @@ type Room struct {
 	Exits       map[string]*Exit
 }
 
-func Display(rooms map[int64]*Room) {
+func roomDisplay(rooms map[int64]*Room) {
 	fmt.Println("Rooms:")
 	for _, room := range rooms {
 		fmt.Printf("Room %d: %s\n", room.RoomID, room.Title)
@@ -74,7 +73,7 @@ func Display(rooms map[int64]*Room) {
 	}
 }
 
-func LoadJSON(rooms map[int64]*Room, fileName string) (map[int64]*Room, error) {
+func roomLoadJSON(rooms map[int64]*Room, fileName string) (map[int64]*Room, error) {
 	byteValue, err := os.ReadFile(fileName)
 	if err != nil {
 		return rooms, fmt.Errorf("error reading file: %w", err)
@@ -130,7 +129,7 @@ func LoadJSON(rooms map[int64]*Room, fileName string) (map[int64]*Room, error) {
 	return rooms, nil
 }
 
-func LoadBolt(rooms map[int64]*Room, fileName string) (map[int64]*Room, error) {
+func roomLoadBolt(rooms map[int64]*Room, fileName string) (map[int64]*Room, error) {
 
 	if rooms == nil {
 		rooms = make(map[int64]*Room)
@@ -202,7 +201,7 @@ func LoadBolt(rooms map[int64]*Room, fileName string) (map[int64]*Room, error) {
 
 	if err != nil {
 		fmt.Printf("Error reading from BoltDB: %v\n", err)
-		return rooms, fmt.Errorf("error reading from BoltDB: %w", err)
+		return rooms, fmt.Errorf("error reading room data from BoltDB: %w", err)
 	}
 
 	// Display(rooms)
@@ -210,14 +209,15 @@ func LoadBolt(rooms map[int64]*Room, fileName string) (map[int64]*Room, error) {
 	return rooms, nil
 }
 
-func WriteBolt(rooms map[int64]*Room, dbPath string) (map[int64]*Room, error) {
+func roomWriteBolt(rooms map[int64]*Room, dbPath string) error {
 	db, err := bolt.Open(dbPath, 0600, nil)
 	if err != nil {
-		return nil, fmt.Errorf("error opening database: %v", err)
+		return fmt.Errorf("error opening database: %v", err)
 	}
 	defer db.Close()
 
-	return nil, db.Update(func(tx *bolt.Tx) error {
+	// db.Update returns an error, which we directly return to the caller.
+	return db.Update(func(tx *bolt.Tx) error {
 		roomsBucket, err := tx.CreateBucketIfNotExists([]byte("Rooms"))
 		if err != nil {
 			return err
@@ -239,7 +239,10 @@ func WriteBolt(rooms map[int64]*Room, dbPath string) (map[int64]*Room, error) {
 			}
 
 			for dir, exit := range room.Exits {
-				exitID, _ := exitsBucket.NextSequence()
+				exitID, err := exitsBucket.NextSequence()
+				if err != nil {
+					return err // Now checking error from NextSequence
+				}
 				exit.ExitID = int64(exitID) // Assign the next sequence number as ExitID
 				exitData, err := json.Marshal(exit)
 				if err != nil {
@@ -253,66 +256,4 @@ func WriteBolt(rooms map[int64]*Room, dbPath string) (map[int64]*Room, error) {
 		}
 		return nil
 	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	return rooms, nil
-}
-
-func main() {
-	jsonFilePath := flag.String("j", "test_data.json", "Path to the JSON file.")
-	boltFilePath := flag.String("b", "test_data.bolt", "Path to the Bolt DB file.")
-	help := flag.Bool("h", false, "Display help.")
-
-	flag.Parse()
-
-	if *help {
-		fmt.Println("Usage of program:")
-		fmt.Println("  -j string")
-		fmt.Println("        Path to the JSON file. (default \"test_data.json\")")
-		fmt.Println("  -b string")
-		fmt.Println("        Path to the Bolt DB file. (default \"test_data.bolt\")")
-		fmt.Println("  -h")
-		fmt.Println("        Display help.")
-		return
-	}
-
-	// Initialize the rooms map
-
-	rooms := make(map[int64]*Room)
-
-	// Load data from BoltDB
-	rooms, err := LoadBolt(rooms, *boltFilePath)
-	if err != nil {
-		fmt.Println("Data load from BoltDB failed:", err)
-	} else {
-		fmt.Println("Data loaded from BoltDB successfully")
-	}
-
-	// Load the JSON data
-	rooms, err = LoadJSON(rooms, *jsonFilePath)
-	if err != nil {
-		fmt.Println("Data load failed:", err)
-	} else {
-		fmt.Println("Data loaded successfully")
-	}
-
-	// Write data to BoltDB
-	rooms, err = WriteBolt(rooms, *boltFilePath)
-	if err != nil {
-		fmt.Println("Data write failed:", err)
-		return // Ensure to exit if writing fails
-	} else {
-		fmt.Println("Data written successfully")
-	}
-
-	// Load data from BoltDB
-	_, err = LoadBolt(rooms, *boltFilePath)
-	if err != nil {
-		fmt.Println("Data load from BoltDB failed:", err)
-	} else {
-		fmt.Println("Data loaded from BoltDB successfully")
-	}
 }
