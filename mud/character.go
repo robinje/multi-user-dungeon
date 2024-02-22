@@ -31,6 +31,17 @@ type CharacterData struct {
 	Abilities  map[string]float64 `json:"abilities"`
 }
 
+type Archetype struct {
+	Name        string             `json:"name"`
+	Description string             `json:"description"`
+	Attributes  map[string]float64 `json:"Attributes"`
+	Abilities   map[string]float64 `json:"Abilities"`
+}
+
+type ArchetypesData struct {
+	Archetypes map[string]Archetype `json:"archetypes"`
+}
+
 func (s *Server) SelectCharacter(player *Player) (*Character, error) {
 	var options []string // To store character names for easy reference by index
 
@@ -422,4 +433,32 @@ func (s *Server) SaveActiveCharacters() error {
 	fmt.Println("Active characters saved successfully.")
 
 	return nil
+}
+
+func (s *Server) LoadArchetypes() (*ArchetypesData, error) {
+
+	archetypesData := &ArchetypesData{Archetypes: make(map[string]Archetype)}
+
+	err := s.Database.db.View(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket([]byte("Archetypes"))
+		if bucket == nil {
+			return fmt.Errorf("archetypes bucket does not exist")
+		}
+
+		return bucket.ForEach(func(k, v []byte) error {
+			var archetype Archetype
+			if err := json.Unmarshal(v, &archetype); err != nil {
+				return err
+			}
+			fmt.Println("Reading", string(k), archetype)
+			archetypesData.Archetypes[string(k)] = archetype
+			return nil
+		})
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return archetypesData, nil
 }
