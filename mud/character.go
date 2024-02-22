@@ -392,6 +392,26 @@ func (c *Character) InputLoop() {
 		// Prompt for the next command
 		c.Player.ToPlayer <- c.Player.Prompt
 	}
+
+	// Close the player's input channel
+	close(c.Player.FromPlayer)
+
+	// Remove the character from the room
+
+	c.Room.Mutex.Lock()
+	delete(c.Room.Characters, c.Index)
+	c.Room.Mutex.Unlock()
+
+	// Remove the character from the server's active characters
+	c.Server.Mutex.Lock()
+	delete(c.Server.Characters, c.Name)
+	c.Server.Mutex.Unlock()
+
+	// Save the character to the database
+	err := c.Server.WriteCharacter(c)
+	if err != nil {
+		log.Printf("Error saving character %s: %v", c.Name, err)
+	}
 }
 
 func (c *Character) Move(direction string) {
