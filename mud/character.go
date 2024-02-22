@@ -48,6 +48,7 @@ func (s *Server) SelectCharacter(player *Player) (*Character, error) {
 
 	sendCharacterOptions := func() {
 		player.ToPlayer <- "Select a character:\n\r"
+		player.ToPlayer <- "0: Create a new character\n\r"
 
 		if len(player.CharacterList) > 0 {
 			i := 1
@@ -57,7 +58,6 @@ func (s *Server) SelectCharacter(player *Player) (*Character, error) {
 				i++
 			}
 		}
-		player.ToPlayer <- "0: Create a new character\n\r"
 		player.ToPlayer <- "Enter the number of your choice: "
 	}
 
@@ -92,7 +92,7 @@ func (s *Server) SelectCharacter(player *Player) (*Character, error) {
 
 func (s *Server) CreateCharacter(player *Player) (*Character, error) {
 	// Prompt the player for the character name
-	player.ToPlayer <- "Enter your character name: "
+	player.ToPlayer <- "\n\rEnter your character name: "
 
 	// Wait for input from the player
 	charName, ok := <-player.FromPlayer
@@ -122,7 +122,7 @@ func (s *Server) CreateCharacter(player *Player) (*Character, error) {
 	if s.Archetypes != nil && len(s.Archetypes.Archetypes) > 0 {
 		for {
 			// Prepare and send the selection message to the player
-			selectionMsg := "Select an archetype by number:\n"
+			selectionMsg := "\n\rSelect an archetype by number:\n\r"
 			archetypeOptions := make([]string, 0, len(s.Archetypes.Archetypes))
 			for name, archetype := range s.Archetypes.Archetypes {
 				// Adding each archetype name and description to the list
@@ -132,7 +132,7 @@ func (s *Server) CreateCharacter(player *Player) (*Character, error) {
 			sort.Strings(archetypeOptions)
 
 			for i, option := range archetypeOptions {
-				selectionMsg += fmt.Sprintf("%d: %s\n", i+1, option)
+				selectionMsg += fmt.Sprintf("%d: %s\n\r", i+1, option)
 			}
 			player.ToPlayer <- selectionMsg
 
@@ -207,9 +207,11 @@ func (s *Server) NewCharacter(Name string, Player *Player, Room *Room, archetype
 	// Apply archetype attributes and abilities if an archetype is selected
 	if archetypeName != "" {
 		if archetype, ok := s.Archetypes.Archetypes[archetypeName]; ok {
+			character.Attributes = make(map[string]float64)
 			for attr, value := range archetype.Attributes {
 				character.Attributes[attr] = value
 			}
+			character.Abilities = make(map[string]float64)
 			for ability, value := range archetype.Abilities {
 				character.Abilities[ability] = value
 			}
@@ -471,7 +473,7 @@ func (s *Server) SaveActiveCharacters() error {
 	s.Mutex.Lock()
 	defer s.Mutex.Unlock()
 
-	fmt.Println("Saving active characters...")
+	log.Println("Saving active characters...")
 
 	for _, character := range s.Characters {
 		err := s.WriteCharacter(character)
@@ -480,7 +482,7 @@ func (s *Server) SaveActiveCharacters() error {
 		}
 	}
 
-	fmt.Println("Active characters saved successfully.")
+	log.Println("Active characters saved successfully.")
 
 	return nil
 }
@@ -500,7 +502,7 @@ func (s *Server) LoadArchetypes() (*ArchetypesData, error) {
 			if err := json.Unmarshal(v, &archetype); err != nil {
 				return err
 			}
-			fmt.Println("Reading", string(k), archetype)
+			log.Println("Reading", string(k), archetype)
 			archetypesData.Archetypes[string(k)] = archetype
 			return nil
 		})
