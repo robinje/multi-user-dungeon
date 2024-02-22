@@ -84,7 +84,7 @@ func archLoadBolt(dbPath string) (*ArchetypesData, error) {
 	err = db.View(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket([]byte("Archetypes"))
 		if bucket == nil {
-			return fmt.Errorf("Archetypes bucket does not exist")
+			return fmt.Errorf("archetypes bucket does not exist")
 		}
 
 		return bucket.ForEach(func(k, v []byte) error {
