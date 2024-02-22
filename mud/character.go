@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -31,11 +32,23 @@ type CharacterData struct {
 	Abilities  map[string]float64 `json:"abilities"`
 }
 
+type Archetype struct {
+	Name        string             `json:"name"`
+	Description string             `json:"description"`
+	Attributes  map[string]float64 `json:"Attributes"`
+	Abilities   map[string]float64 `json:"Abilities"`
+}
+
+type ArchetypesData struct {
+	Archetypes map[string]Archetype `json:"archetypes"`
+}
+
 func (s *Server) SelectCharacter(player *Player) (*Character, error) {
 	var options []string // To store character names for easy reference by index
 
 	sendCharacterOptions := func() {
 		player.ToPlayer <- "Select a character:\n\r"
+		player.ToPlayer <- "0: Create a new character\n\r"
 
 		if len(player.CharacterList) > 0 {
 			i := 1
@@ -45,7 +58,6 @@ func (s *Server) SelectCharacter(player *Player) (*Character, error) {
 				i++
 			}
 		}
-		player.ToPlayer <- "0: Create a new character\n\r"
 		player.ToPlayer <- "Enter the number of your choice: "
 	}
 
@@ -80,7 +92,7 @@ func (s *Server) SelectCharacter(player *Player) (*Character, error) {
 
 func (s *Server) CreateCharacter(player *Player) (*Character, error) {
 	// Prompt the player for the character name
-	player.ToPlayer <- "Enter your character name: "
+	player.ToPlayer <- "\n\rEnter your character name: "
 
 	// Wait for input from the player
 	charName, ok := <-player.FromPlayer
@@ -105,6 +117,46 @@ func (s *Server) CreateCharacter(player *Player) (*Character, error) {
 		return nil, fmt.Errorf("character already exists")
 	}
 
+	// Check if any archetypes are loaded
+	var selectedArchetype string
+	if s.Archetypes != nil && len(s.Archetypes.Archetypes) > 0 {
+		for {
+			// Prepare and send the selection message to the player
+			selectionMsg := "\n\rSelect a character archetype.\n\r"
+			archetypeOptions := make([]string, 0, len(s.Archetypes.Archetypes))
+			for name, archetype := range s.Archetypes.Archetypes {
+				// Adding each archetype name and description to the list
+				archetypeOptions = append(archetypeOptions, name+" - "+archetype.Description)
+			}
+			// Optional: Sort the options if needed
+			sort.Strings(archetypeOptions)
+
+			for i, option := range archetypeOptions {
+				selectionMsg += fmt.Sprintf("%d: %s\n\r", i+1, option)
+			}
+
+			selectionMsg += "Enter the number of your choice: "
+			// Send the selection message to the player
+			player.ToPlayer <- selectionMsg
+
+			// Wait for input from the player
+			selection, ok := <-player.FromPlayer
+			if !ok {
+				return nil, fmt.Errorf("failed to receive archetype selection")
+			}
+
+			// Convert selection to an integer and validate
+			selectionNum, err := strconv.Atoi(strings.TrimSpace(selection))
+			if err == nil && selectionNum >= 1 && selectionNum <= len(archetypeOptions) {
+				selectedOption := archetypeOptions[selectionNum-1]
+				selectedArchetype = strings.Split(selectedOption, " - ")[0]
+				break // Valid selection; break out of the loop
+			} else {
+				player.ToPlayer <- "Invalid selection. Please select a valid archetype number."
+			}
+		}
+	}
+
 	// Log the character creation attempt
 	log.Printf("Creating character with name: %s", charName)
 
@@ -118,7 +170,7 @@ func (s *Server) CreateCharacter(player *Player) (*Character, error) {
 	}
 
 	// Create and initialize the new character
-	character := s.NewCharacter(charName, player, room)
+	character := s.NewCharacter(charName, player, room, selectedArchetype)
 
 	// Ensure the Characters map in the starting room is initialized
 	if room.Characters == nil {
@@ -136,7 +188,7 @@ func (s *Server) CreateCharacter(player *Player) (*Character, error) {
 	return character, nil
 }
 
-func (s *Server) NewCharacter(Name string, Player *Player, Room *Room) *Character {
+func (s *Server) NewCharacter(Name string, Player *Player, Room *Room, archetypeName string) *Character {
 
 	// Generate a new unique index for the character
 	characterIndex, err := s.Database.NextIndex("Characters")
@@ -153,6 +205,20 @@ func (s *Server) NewCharacter(Name string, Player *Player, Room *Room) *Characte
 		Attributes: make(map[string]float64),
 		Abilities:  make(map[string]float64),
 		Server:     s,
+	}
+
+	// Apply archetype attributes and abilities if an archetype is selected
+	if archetypeName != "" {
+		if archetype, ok := s.Archetypes.Archetypes[archetypeName]; ok {
+			character.Attributes = make(map[string]float64)
+			for attr, value := range archetype.Attributes {
+				character.Attributes[attr] = value
+			}
+			character.Abilities = make(map[string]float64)
+			for ability, value := range archetype.Abilities {
+				character.Abilities[ability] = value
+			}
+		}
 	}
 
 	err = s.WriteCharacter(character)
@@ -326,6 +392,26 @@ func (c *Character) InputLoop() {
 		// Prompt for the next command
 		c.Player.ToPlayer <- c.Player.Prompt
 	}
+
+	// Close the player's input channel
+	close(c.Player.FromPlayer)
+
+	// Remove the character from the room
+
+	c.Room.Mutex.Lock()
+	delete(c.Room.Characters, c.Index)
+	c.Room.Mutex.Unlock()
+
+	// Remove the character from the server's active characters
+	c.Server.Mutex.Lock()
+	delete(c.Server.Characters, c.Name)
+	c.Server.Mutex.Unlock()
+
+	// Save the character to the database
+	err := c.Server.WriteCharacter(c)
+	if err != nil {
+		log.Printf("Error saving character %s: %v", c.Name, err)
+	}
 }
 
 func (c *Character) Move(direction string) {
@@ -410,7 +496,7 @@ func (s *Server) SaveActiveCharacters() error {
 	s.Mutex.Lock()
 	defer s.Mutex.Unlock()
 
-	fmt.Println("Saving active characters...")
+	log.Println("Saving active characters...")
 
 	for _, character := range s.Characters {
 		err := s.WriteCharacter(character)
@@ -419,7 +505,35 @@ func (s *Server) SaveActiveCharacters() error {
 		}
 	}
 
-	fmt.Println("Active characters saved successfully.")
+	log.Println("Active characters saved successfully.")
 
 	return nil
+}
+
+func (s *Server) LoadArchetypes() (*ArchetypesData, error) {
+
+	archetypesData := &ArchetypesData{Archetypes: make(map[string]Archetype)}
+
+	err := s.Database.db.View(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket([]byte("Archetypes"))
+		if bucket == nil {
+			return fmt.Errorf("archetypes bucket does not exist")
+		}
+
+		return bucket.ForEach(func(k, v []byte) error {
+			var archetype Archetype
+			if err := json.Unmarshal(v, &archetype); err != nil {
+				return err
+			}
+			log.Println("Reading", string(k), archetype)
+			archetypesData.Archetypes[string(k)] = archetype
+			return nil
+		})
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return archetypesData, nil
 }
