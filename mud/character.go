@@ -122,7 +122,7 @@ func (s *Server) CreateCharacter(player *Player) (*Character, error) {
 	if s.Archetypes != nil && len(s.Archetypes.Archetypes) > 0 {
 		for {
 			// Prepare and send the selection message to the player
-			selectionMsg := "\n\rSelect an archetype by number:\n\r"
+			selectionMsg := "\n\rSelect a character archetype.\n\r"
 			archetypeOptions := make([]string, 0, len(s.Archetypes.Archetypes))
 			for name, archetype := range s.Archetypes.Archetypes {
 				// Adding each archetype name and description to the list
@@ -134,6 +134,9 @@ func (s *Server) CreateCharacter(player *Player) (*Character, error) {
 			for i, option := range archetypeOptions {
 				selectionMsg += fmt.Sprintf("%d: %s\n\r", i+1, option)
 			}
+
+			selectionMsg += "Enter the number of your choice: "
+			// Send the selection message to the player
 			player.ToPlayer <- selectionMsg
 
 			// Wait for input from the player
