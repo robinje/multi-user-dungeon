@@ -21,4 +21,6 @@ jobs:
         - name: Run tests
           run: |
             go get github.com/robinje/multi-user-dungeon
+            cd mud
+            go vet .
             go test -v ./...
