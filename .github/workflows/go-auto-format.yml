@@ -29,11 +29,13 @@ jobs:
         git config --global user.name 'Dark Relics Automatic'
         git config --global user.email 'contact@darkrelics.net'
         git pull
-        go fmt ./...
         cd ./mud
+        go fmt ./...
         go mod tidy
         cd ../database_loader
+        go fmt ./...
         go mod tidy
+        cd ..
         git add . -v
         if ! git diff-index --quiet HEAD; then
           git commit -m "Apply Autoformatting" --allow-empty
