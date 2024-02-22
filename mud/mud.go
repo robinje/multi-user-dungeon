@@ -65,7 +65,7 @@ func loadConfiguration(configFile string) (Configuration, error) {
 func (s *Server) AutoSaveCharacters() {
 	for {
 		// Sleep for the configured duration
-		time.Sleep(time.Duration(s.AutoSave) * time.Second)
+		time.Sleep(time.Duration(s.AutoSave) * time.Minute)
 
 		// Save the characters to the database
 		if err := s.SaveActiveCharacters(); err != nil {

@@ -26,6 +26,7 @@ type Server struct {
 	Characters      map[string]*Character
 	Balance         float64
 	AutoSave        uint16
+	Archetypes      *ArchetypesData
 }
 
 func NewServer(config Configuration) (*Server, error) {
@@ -60,6 +61,11 @@ func NewServer(config Configuration) (*Server, error) {
 	server.CharacterExists, err = server.LoadCharacterNames()
 	if err != nil {
 		log.Printf("Error loading character names from database: %v", err)
+	}
+
+	server.Archetypes, err = server.LoadArchetypes()
+	if err != nil {
+		log.Printf("Error loading archetypes from database: %v", err)
 	}
 
 	// Add a default room

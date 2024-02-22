@@ -36,7 +36,7 @@ func validateCommand(command string, commandHandlers map[string]CommandHandler) 
 
 	verb := strings.ToLower(tokens[0])
 	if _, exists := commandHandlers[verb]; !exists {
-		return "", tokens, fmt.Errorf("command not understood")
+		return "", tokens, fmt.Errorf(" command not understood")
 	}
 
 	return verb, tokens, nil

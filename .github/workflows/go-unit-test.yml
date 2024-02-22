@@ -20,5 +20,13 @@ jobs:
 
         - name: Run tests
           run: |
-            go get github.com/robinje/multi-user-dungeon
+            git fetch -q
+            git checkout ${{github.head_ref}} --progress
+            git config --global user.name 'Dark Relics Automatic'
+            git config --global user.email 'contact@darkrelics.net'
+            git pull
+            cd mud
+            go vet .
             go test -v ./...
+            cd ../database_loader
+            go vet .
