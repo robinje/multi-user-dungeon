@@ -30,7 +30,7 @@
 
 # Ignore the config file.
 
-/config.json
+**/config.json
 
 # Ignore bolt files.
 
