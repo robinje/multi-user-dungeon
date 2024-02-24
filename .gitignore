@@ -32,6 +32,8 @@
 
 **/config.json
 
+**/*.key
+
 # Ignore bolt files.
 
 *.bolt
