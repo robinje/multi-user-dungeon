@@ -1,12 +1,14 @@
 {
     "Port": 9050,
     "UserPoolRegion": "us-east-1",
-    "UserPoolClientId": "57bajkuv6vnsrbp6buvhm2cc3m",
+    "UserPoolClientId": "xxxxxxxxxxxxxxxxxxxxxxxxxx",
     "UserPoolDomain": "mud-user-pool",
-    "UserPoolId": "us-east-1_5W3BgRqw8",
-    "UserPoolArn": "arn:aws:cognito-idp:us-east-1:542230992937:userpool/us-east-1_5W3BgRqw8",
-    "UserPoolClientSecret": "oij09gql9a6qr85job97k1r7ioo6ri90pfc8238kn5nnvmt86mg",
+    "UserPoolId": "us-east-1_xxxxxxxxx",
+    "UserPoolArn": "arn:aws:cognito-idp:us-east-1:999999999999:userpool/us-east-1_xxxxxxxxx",
+    "UserPoolClientSecret": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
     "DataFile": "./data.bolt",
     "Balance": 0.25,
-    "AutoSave": 5
+    "AutoSave": 5,
+    "StartingHealth": 10,
+    "StartingEssence": 3
 }
