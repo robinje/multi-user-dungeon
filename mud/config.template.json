@@ -8,5 +8,7 @@
     "UserPoolClientSecret": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
     "DataFile": "./data.bolt",
     "Balance": 0.25,
-    "AutoSave": 5
+    "AutoSave": 5,
+    "StartingHealth": 10,
+    "StartingEssence": 3
 }
