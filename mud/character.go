@@ -21,6 +21,8 @@ type Character struct {
 	Abilities  map[string]float64
 	Mutex      sync.Mutex
 	Server     *Server
+	Essence    float64
+	Health     float64
 }
 
 // CharacterData for unmarshalling character.
@@ -30,6 +32,8 @@ type CharacterData struct {
 	RoomID     int64              `json:"roomID"`
 	Attributes map[string]float64 `json:"attributes"`
 	Abilities  map[string]float64 `json:"abilities"`
+	Essence    float64            `json:"essence"`
+	Health     float64            `json:"health"`
 }
 
 type Archetype struct {
@@ -202,6 +206,8 @@ func (s *Server) NewCharacter(Name string, Player *Player, Room *Room, archetype
 		Room:       Room,
 		Name:       Name,
 		Player:     Player,
+		Health:     float64(s.Health),
+		Essence:    float64(s.Essence),
 		Attributes: make(map[string]float64),
 		Abilities:  make(map[string]float64),
 		Server:     s,
@@ -257,6 +263,8 @@ func (c *Character) ToData() *CharacterData {
 		Index:      c.Index,
 		Name:       c.Name,
 		RoomID:     c.Room.RoomID,
+		Health:     c.Health,
+		Essence:    c.Essence,
 		Attributes: c.Attributes,
 		Abilities:  c.Abilities,
 	}
@@ -331,6 +339,8 @@ func (s *Server) LoadCharacter(player *Player, characterIndex uint64) (*Characte
 		Index:      cd.Index,
 		Room:       room,
 		Name:       cd.Name,
+		Health:     cd.Health,
+		Essence:    cd.Essence,
 		Attributes: cd.Attributes,
 		Abilities:  cd.Abilities,
 		Player:     player,
