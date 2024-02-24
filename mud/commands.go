@@ -13,6 +13,7 @@ type CommandHandler func(character *Character, tokens []string) bool
 
 var commandHandlers = map[string]CommandHandler{
 	"quit":      executeQuitCommand,
+	"show":      executeShowCommand,
 	"look":      executeLookCommand,
 	"say":       executeSayCommand,
 	"go":        executeGoCommand,
@@ -203,9 +204,40 @@ func executePasswordCommand(character *Character, tokens []string) bool {
 	return false // Keep the command loop running
 }
 
+func executeShowCommand(character *Character, tokens []string) bool {
+	player := character.Player
+	var output strings.Builder
+
+	// First row: Character's Name
+	output.WriteString(fmt.Sprintf("Name: %s\r\n", character.Name))
+
+	// Health and Essence (integer component only)
+	output.WriteString(fmt.Sprintf("Health: %d, Essence: %d\r\n", int(character.Health), int(character.Essence)))
+
+	// Attributes
+	output.WriteString("Attributes:\r\n")
+	for attr, value := range character.Attributes {
+		output.WriteString(fmt.Sprintf("%-15s: %2d\r\n", attr, int(value)))
+	}
+
+	// Abilities (only those with scores of 1 or greater)
+	output.WriteString("Abilities:\r\n")
+	for ability, score := range character.Abilities {
+		if score >= 1 {
+			output.WriteString(fmt.Sprintf("%-15s: %2d\r\n", ability, int(score)))
+		}
+	}
+
+	// Send the composed information to the player
+	player.ToPlayer <- output.String()
+
+	return false // Keep the command loop running
+}
+
 func executeHelpCommand(character *Character, tokens []string) bool {
 	helpMessage := "\n\rAvailable Commands:" +
 		"\n\rhelp - Display available commands" +
+		"\n\rshow - Display character information" +
 		"\n\rsay <message> - Say something to all players" +
 		"\n\rlook - Look around the room" +
 		"\n\rgo <direction> - Move in a direction" +

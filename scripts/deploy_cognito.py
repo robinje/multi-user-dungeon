@@ -9,7 +9,7 @@ import boto3
 
 STACK_NAME = "MUD-Cognito-Stack"
 
-CONFIG_PATH = "../config.json"
+CONFIG_PATH = "../mud/config.json"
 
 CLOUDFORMATION_PATH = "../cloudformation/cognito.yml"
 

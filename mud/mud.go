@@ -17,6 +17,8 @@ type Configuration struct {
 	DataFile       string  `json:"DataFile"`
 	Balance        float64 `json:"Balance"`
 	AutoSave       uint16  `json:"AutoSave"`
+	Essence        uint16  `json:"StartingEssence"`
+	Health         uint16  `json:"StartingHealth"`
 }
 
 func main() {

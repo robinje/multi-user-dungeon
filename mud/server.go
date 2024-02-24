@@ -27,6 +27,8 @@ type Server struct {
 	Balance         float64
 	AutoSave        uint16
 	Archetypes      *ArchetypesData
+	Health          uint16
+	Essence         uint16
 }
 
 func NewServer(config Configuration) (*Server, error) {
@@ -40,6 +42,8 @@ func NewServer(config Configuration) (*Server, error) {
 		Characters:  make(map[string]*Character),
 		Balance:     config.Balance,
 		AutoSave:    config.AutoSave,
+		Health:      config.Health,
+		Essence:     config.Essence,
 	}
 
 	log.Printf("Initializing database...")
