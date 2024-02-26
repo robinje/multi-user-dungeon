@@ -12,7 +12,6 @@ type Object struct {
 	Name        string
 	Description string
 	Mass        float64
-	ContainerID uint64
 }
 
 type ObjectData struct {
@@ -20,7 +19,6 @@ type ObjectData struct {
 	Name        string  `json:"name"`
 	Description string  `json:"description"`
 	Mass        float64 `json:"mass"`
-	ContainerID uint64  `json:"container_id"`
 }
 
 type Container struct {
@@ -72,7 +70,6 @@ func (s *Server) LoadObject(indexKey uint64) (*Object, error) {
 		Name:        od.Name,
 		Description: od.Description,
 		Mass:        od.Mass,
-		ContainerID: od.ContainerID,
 	}
 
 	return object, nil

@@ -21,6 +21,10 @@ Parameters:
   ReplyEmailAddress:
     Type: String
     Description: Email address to send from
+  VerificationSubject:
+    Type: String
+    Description: Subject of the email verification message
+    Default: Your verification link
 
 Resources:
   CognitoUserPool:
@@ -58,6 +62,10 @@ Resources:
         - email
       UsernameConfiguration:
         CaseSensitive: false
+      AutoVerifiedAttributes:
+        - email
+      EmailVerificationSubject: !Ref VerificationSubject
+      EmailVerificationMessage: 'Please click the link below to verify your email address. {####}'
 
   CognitoUserPoolClient:
     Type: AWS::Cognito::UserPoolClient

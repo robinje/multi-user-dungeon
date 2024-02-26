@@ -37,3 +37,8 @@
 # Ignore bolt files.
 
 *.bolt
+
+
+# JavaScript
+
+**/package-lock.json
