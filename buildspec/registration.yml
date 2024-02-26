@@ -1,0 +1,22 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      nodejs: 20
+    commands:
+      - cd registration
+      - npm install
+
+  pre_build:
+    commands:
+      - npx eslint .
+
+  build:
+    commands:
+      - sed -i 's/YOUR_COGNITO_USER_POOL_ID/$USER_POOL_ID/' app.js
+      - sed -i 's/YOUR_COGNITO_CLIENT_ID/$CLIENT_ID/' app.js
+
+  post_build:
+    commands:
+      - aws s3 cp . s3://$S3_BUCKET_NAME/ --recursive --exclude "*" --include "*.html" --include "*.js"
