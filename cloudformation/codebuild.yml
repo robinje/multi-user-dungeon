@@ -1,0 +1,86 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+
+Parameters:
+  UserPoolId:
+    Type: String
+    Description: The ID of the AWS Cognito User Pool
+  ClientId:
+    Type: String
+    Description: The Client ID of the AWS Cognito User Pool
+  S3BucketName:
+    Type: String
+    Description: The name of the S3 bucket where build artifacts will be stored
+  GitHubSourceRepo:
+    Type: String
+    Description: The GitHub repository URL for the source code
+    Default: https://github.com/robinje/multi-user-dungeon
+
+Resources:
+  CodeBuildAccessPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      Description: "Managed policy for CodeBuild to access logs and S3"
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - 'logs:CreateLogGroup'
+              - 'logs:CreateLogStream'
+              - 'logs:PutLogEvents'
+            Resource: '*'
+          - Effect: Allow
+            Action: 's3:*'
+            Resource: 
+              - !Sub "arn:aws:s3:::${S3BucketName}"
+              - !Sub "arn:aws:s3:::${S3BucketName}/*"
+
+  CodeBuildServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+            Action: 'sts:AssumeRole'
+      Path: '/'
+      ManagedPolicyArns:
+        - !Ref CodeBuildAccessPolicy
+
+  RegistrationApplicationCodeBuild:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: RegistrationApplicationBuild
+      Description: Build project for the Registration Application
+      ServiceRole: !GetAtt CodeBuildServiceRole.Arn
+      Artifacts:
+        Type: NO_ARTIFACTS
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/standard:5.0
+        EnvironmentVariables:
+          - Name: USER_POOL_ID
+            Value: !Ref UserPoolId
+          - Name: CLIENT_ID
+            Value: !Ref ClientId
+          - Name: S3_BUCKET_NAME
+            Value: !Ref S3BucketName
+      Source:
+        Type: GITHUB
+        Location: !Ref GitHubSourceRepo
+        BuildSpec: 'buildspec.yml'
+      TimeoutInMinutes: 15
+
+Outputs:
+  CodeBuildProjectName:
+    Description: "Name of the CodeBuild Project"
+    Value: !Ref RegistrationApplicationCodeBuild
+
+  CodeBuildProjectARN:
+    Description: "ARN of the CodeBuild Project"
+    Value: !GetAtt RegistrationApplicationCodeBuild.Arn
+

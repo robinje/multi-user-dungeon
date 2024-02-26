@@ -1,3 +1,5 @@
+import * as AmazonCognitoIdentity from 'amazon-cognito-identity-js';
+
 document.getElementById('registrationForm').addEventListener('submit', function(event) {
     event.preventDefault();
     registerUser();
@@ -53,7 +55,7 @@ function requestPasswordReset() {
 
     var cognitoUser = new AmazonCognitoIdentity.CognitoUser(userData);
     cognitoUser.forgotPassword({
-        onSuccess: function (result) {
+        onSuccess: function () {
             console.log('Password reset request successful');
             document.getElementById('passwordResetForm').style.display = 'block';
         },
