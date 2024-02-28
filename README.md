@@ -11,6 +11,8 @@ The current implementation includes an SSH server for secure authentication and 
 - [x] Implement a player authentication system.
 - [x] Implement a database for the game.
 - [x] Implement a character creation system.
+- [x] Implement a text colorization system.
+- [ ] Define Object taxonomy.
 - [ ] Build a direct messaging system.
 - [ ] Develop game mechanics.
 - [ ] Create a player creation system.
@@ -20,6 +22,7 @@ The current implementation includes an SSH server for secure authentication and 
 - [ ] Develop simple Non-Player Characters (NPCs).
 - [ ] Create AI-controlled NPCs.
 - [ ] Implement a dynamic content updating system.
+- [ ] Design an ecenomic framework.
 
 ## TODO
 
@@ -29,13 +32,14 @@ The current implementation includes an SSH server for secure authentication and 
 - [x] Add a help command.
 - [x] Add a character list command.
 - [x] Allow users to change their passwords.
+- [x] Expand the character creation process.
 - [ ] Add a Message of the Day (MOTD) command.
 - [ ] Implement Persistent Logging.
 - [ ] Add the ability to delete characters.
 - [ ] Add the ability to delete accounts.
 - [ ] Implement an obscenity filter.
 - [ ] Validate graph of loaded rooms and exits.
-- [ ] Expand the character creation process.
+
 
 ## Deployment
 

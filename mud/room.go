@@ -123,7 +123,7 @@ func (r *Room) SendRoomMessage(message string) {
 }
 
 func (r *Room) RoomInfo(character *Character) string {
-	roomInfo := fmt.Sprintf("\n\r[%s]\n\r%s\n\r", r.Title, r.Description)
+	roomInfo := fmt.Sprintf("\n\r[%s]\n\r%s\n\r", ApplyColor("white", r.Title), r.Description)
 	var displayExits strings.Builder
 
 	exits := make([]string, 0) // Ensure a valid, empty slice is created
