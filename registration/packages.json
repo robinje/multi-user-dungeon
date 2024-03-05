@@ -1,19 +1,19 @@
 {
-    "name": "registration-application",
-    "version": "0.1.0",
-    "description": "A simple registration and password reset application using AWS Cognito",
-    "main": "app.js",
-    "scripts": {
-      "start": "node app.js",
-      "lint": "eslint .",
-      "test": "echo \"No tests specified\" && exit 0"
-    },
-    "author": "Jason E. Robinson",
-    "license": "Apache-2.0",
-    "devDependencies": {
-      "eslint": "^8.57.0"
-    },
-    "dependencies": {
-      "amazon-cognito-identity-js": "^6.3.7"
-    }
+  "name": "registration-application",
+  "version": "0.1.0",
+  "description": "A simple registration and password reset application using AWS Cognito",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "lint": "eslint .",
+    "test": "echo \"No tests specified\" && exit 0"
+  },
+  "author": "Jason E. Robinson",
+  "license": "Apache-2.0",
+  "devDependencies": {
+    "eslint": "^8.57.0"
+  },
+  "dependencies": {
+    "amazon-cognito-identity-js": "^6.3.7"
   }
+}

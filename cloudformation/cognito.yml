@@ -37,9 +37,9 @@ Resources:
       AdminCreateUserConfig:
         AllowAdminCreateUserOnly: false
         InviteMessageTemplate:
-          EmailMessage: 'Your username is {username} and temporary password is {####}.'
-          EmailSubject: 'Your temporary password'
-          SMSMessage: 'Your username is {username} and temporary password is {####}.'
+          EmailMessage: "Your username is {username} and temporary password is {####}."
+          EmailSubject: "Your temporary password"
+          SMSMessage: "Your username is {username} and temporary password is {####}."
         UnusedAccountValidityDays: 7
       Policies:
         PasswordPolicy:
@@ -65,7 +65,7 @@ Resources:
       AutoVerifiedAttributes:
         - email
       EmailVerificationSubject: !Ref VerificationSubject
-      EmailVerificationMessage: 'Please click the link below to verify your email address. {####}'
+      EmailVerificationMessage: "Please click the link below to verify your email address. {####}"
 
   CognitoUserPoolClient:
     Type: AWS::Cognito::UserPoolClient
@@ -87,7 +87,7 @@ Resources:
         - openid
         - email
         - profile
-      
+
   CognitoUserPoolDomain:
     Type: AWS::Cognito::UserPoolDomain
     Properties:

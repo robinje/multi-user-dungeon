@@ -1,5 +1,5 @@
 ---
-AWSTemplateFormatVersion: '2010-09-09'
+AWSTemplateFormatVersion: "2010-09-09"
 
 Parameters:
   UserPoolId:
@@ -22,17 +22,17 @@ Resources:
     Properties:
       Description: "Managed policy for CodeBuild to access logs and S3"
       PolicyDocument:
-        Version: '2012-10-17'
+        Version: "2012-10-17"
         Statement:
           - Effect: Allow
             Action:
-              - 'logs:CreateLogGroup'
-              - 'logs:CreateLogStream'
-              - 'logs:PutLogEvents'
-            Resource: '*'
+              - "logs:CreateLogGroup"
+              - "logs:CreateLogStream"
+              - "logs:PutLogEvents"
+            Resource: "*"
           - Effect: Allow
-            Action: 's3:*'
-            Resource: 
+            Action: "s3:*"
+            Resource:
               - !Sub "arn:aws:s3:::${S3BucketName}"
               - !Sub "arn:aws:s3:::${S3BucketName}/*"
 
@@ -40,13 +40,13 @@ Resources:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
-        Version: '2012-10-17'
+        Version: "2012-10-17"
         Statement:
           - Effect: Allow
             Principal:
               Service: codebuild.amazonaws.com
-            Action: 'sts:AssumeRole'
-      Path: '/'
+            Action: "sts:AssumeRole"
+      Path: "/"
       ManagedPolicyArns:
         - !Ref CodeBuildAccessPolicy
 
@@ -72,7 +72,7 @@ Resources:
       Source:
         Type: GITHUB
         Location: !Ref GitHubSourceRepo
-        BuildSpec: 'buildspec.yml'
+        BuildSpec: "buildspec.yml"
       TimeoutInMinutes: 15
 
 Outputs:
@@ -83,4 +83,3 @@ Outputs:
   CodeBuildProjectARN:
     Description: "ARN of the CodeBuild Project"
     Value: !GetAtt RegistrationApplicationCodeBuild.Arn
-
