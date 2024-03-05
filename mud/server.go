@@ -12,23 +12,27 @@ import (
 )
 
 type Server struct {
-	Port            uint16
-	Listener        net.Listener
-	SSHConfig       *ssh.ServerConfig
-	PlayerCount     uint64
-	Mutex           sync.Mutex
-	Config          Configuration
-	StartTime       time.Time
-	Rooms           map[int64]*Room
-	Database        *KeyPair
-	PlayerIndex     *Index
-	CharacterExists map[string]bool
-	Characters      map[string]*Character
-	Balance         float64
-	AutoSave        uint16
-	Archetypes      *ArchetypesData
-	Health          uint16
-	Essence         uint16
+	Port                uint16
+	Listener            net.Listener
+	SSHConfig           *ssh.ServerConfig
+	PlayerCount         uint64
+	Mutex               sync.Mutex
+	Config              Configuration
+	StartTime           time.Time
+	Rooms               map[int64]*Room
+	Database            *KeyPair
+	PlayerIndex         *Index
+	CharacterExists     map[string]bool
+	Characters          map[string]*Character
+	Balance             float64
+	AutoSave            uint16
+	Archetypes          *ArchetypesData
+	Health              uint16
+	Essence             uint16
+	Objects             map[uint64]*Object
+	Containers          map[uint64]*Container
+	ObjectPrototypes    map[uint64]*Object
+	ContainerPrototypes map[uint64]*Container
 }
 
 func NewServer(config Configuration) (*Server, error) {
