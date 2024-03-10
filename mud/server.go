@@ -66,7 +66,7 @@ func NewServer(config Configuration) (*Server, error) {
 
 	log.Printf("Loading character names from database...")
 
-	server.CharacterExists, err = server.LoadCharacterNames()
+	server.CharacterExists, err = server.Database.LoadCharacterNames()
 	if err != nil {
 		log.Printf("Error loading character names from database: %v", err)
 	}

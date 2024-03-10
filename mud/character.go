@@ -470,11 +470,10 @@ func (c *Character) Move(direction string) {
 	executeLookCommand(c, []string{})
 }
 
-func (s *Server) LoadCharacterNames() (map[string]bool, error) {
-
+func (k *KeyPair) LoadCharacterNames() (map[string]bool, error) {
 	names := make(map[string]bool)
 
-	err := s.Database.db.View(func(tx *bolt.Tx) error {
+	err := k.db.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte("Characters"))
 		if b == nil {
 			return fmt.Errorf("characters bucket not found")

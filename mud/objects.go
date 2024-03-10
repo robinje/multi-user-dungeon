@@ -43,12 +43,10 @@ type ContainerData struct {
 	Verbs       map[string]string `json:"verbs"`
 }
 
-func (s *Server) LoadObject(indexKey uint64) (*Object, error) {
-	// Load object from database
-
+func (k *KeyPair) LoadObject(indexKey uint64) (*Object, error) {
 	var objectData []byte
 
-	err := s.Database.db.View(func(tx *bolt.Tx) error {
+	err := k.db.View(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket([]byte("Objects"))
 		if bucket == nil {
 			return fmt.Errorf("objects bucket not found")
@@ -81,10 +79,9 @@ func (s *Server) LoadObject(indexKey uint64) (*Object, error) {
 	}
 
 	return object, nil
-
 }
 
-func (s *Server) WriteObject(obj *Object) error {
+func (k *KeyPair) WriteObject(obj *Object) error {
 	// First, serialize the Object to JSON
 	objData := ObjectData{
 		Index:       obj.Index,
@@ -100,7 +97,7 @@ func (s *Server) WriteObject(obj *Object) error {
 	}
 
 	// Write serialized data to the database
-	err = s.Database.db.Update(func(tx *bolt.Tx) error {
+	err = k.db.Update(func(tx *bolt.Tx) error {
 		// Ensure the "Objects" bucket exists
 		bucket, err := tx.CreateBucketIfNotExists([]byte("Objects"))
 		if err != nil {
@@ -122,10 +119,10 @@ func (s *Server) WriteObject(obj *Object) error {
 	return err
 }
 
-func (s *Server) LoadContainer(indexKey uint64) (*Container, error) {
+func (k *KeyPair) LoadContainer(indexKey uint64) (*Container, error) {
 	var containerData []byte
 
-	err := s.Database.db.View(func(tx *bolt.Tx) error {
+	err := k.db.View(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket([]byte("Containers"))
 		if bucket == nil {
 			return fmt.Errorf("containers bucket not found")
@@ -158,7 +155,7 @@ func (s *Server) LoadContainer(indexKey uint64) (*Container, error) {
 
 	// Load each object within the container
 	for _, objIndex := range cd.Contents {
-		obj, err := s.LoadObject(objIndex)
+		obj, err := k.LoadObject(objIndex)
 		if err != nil {
 			return nil, fmt.Errorf("error loading container %d: %v", objIndex, err)
 		}
@@ -168,7 +165,7 @@ func (s *Server) LoadContainer(indexKey uint64) (*Container, error) {
 	return container, nil
 }
 
-func (s *Server) WriteContainer(container *Container) error {
+func (k *KeyPair) WriteContainer(container *Container) error {
 	// Prepare the data for serialization
 	cd := ContainerData{
 		Index:       container.Index,
@@ -187,7 +184,7 @@ func (s *Server) WriteContainer(container *Container) error {
 	}
 
 	// Write serialized data to the database
-	err = s.Database.db.Update(func(tx *bolt.Tx) error {
+	err = k.db.Update(func(tx *bolt.Tx) error {
 		bucket, err := tx.CreateBucketIfNotExists([]byte("Containers"))
 		if err != nil {
 			return fmt.Errorf("create bucket: %s", err)
@@ -203,12 +200,12 @@ func (s *Server) WriteContainer(container *Container) error {
 	return err
 }
 
-func (s *Server) LoadObjectPrototype(indexKey uint64) (*Object, error) {
+func (k *KeyPair) LoadObjectPrototype(indexKey uint64) (*Object, error) {
 	// Load object from database
 
 	var objectData []byte
 
-	err := s.Database.db.View(func(tx *bolt.Tx) error {
+	err := k.db.View(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket([]byte("ObjectPrototypes"))
 		if bucket == nil {
 			return fmt.Errorf("object prototypes bucket not found")
@@ -241,10 +238,9 @@ func (s *Server) LoadObjectPrototype(indexKey uint64) (*Object, error) {
 	}
 
 	return object, nil
-
 }
 
-func (s *Server) WriteObjectPrototype(obj *Object) error {
+func (k *KeyPair) WriteObjectPrototype(obj *Object) error {
 	// First, serialize the Object to JSON
 	objData := ObjectData{
 		Index:       obj.Index,
@@ -260,7 +256,7 @@ func (s *Server) WriteObjectPrototype(obj *Object) error {
 	}
 
 	// Write serialized data to the database
-	err = s.Database.db.Update(func(tx *bolt.Tx) error {
+	err = k.db.Update(func(tx *bolt.Tx) error {
 		// Ensure the "Objects" bucket exists
 		bucket, err := tx.CreateBucketIfNotExists([]byte("ObjectPrototypes"))
 		if err != nil {
@@ -282,10 +278,10 @@ func (s *Server) WriteObjectPrototype(obj *Object) error {
 	return err
 }
 
-func (s *Server) LoadContainerPrototype(indexKey uint64) (*Container, error) {
+func (k *KeyPair) LoadContainerPrototype(indexKey uint64) (*Container, error) {
 	var containerData []byte
 
-	err := s.Database.db.View(func(tx *bolt.Tx) error {
+	err := k.db.View(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket([]byte("ContainerPrototypes"))
 		if bucket == nil {
 			return fmt.Errorf("container prototypes bucket not found")
@@ -318,7 +314,7 @@ func (s *Server) LoadContainerPrototype(indexKey uint64) (*Container, error) {
 
 	// Load each object within the container
 	for _, objIndex := range cd.Contents {
-		obj, err := s.LoadObject(objIndex)
+		obj, err := k.LoadObject(objIndex)
 		if err != nil {
 			return nil, fmt.Errorf("error loading container prototype %d: %v", objIndex, err)
 		}
@@ -328,7 +324,7 @@ func (s *Server) LoadContainerPrototype(indexKey uint64) (*Container, error) {
 	return container, nil
 }
 
-func (s *Server) WriteContainerPrototype(container *Container) error {
+func (k *KeyPair) WriteContainerPrototype(container *Container) error {
 	// Prepare the data for serialization
 	cd := ContainerData{
 		Index:       container.Index,
@@ -347,7 +343,7 @@ func (s *Server) WriteContainerPrototype(container *Container) error {
 	}
 
 	// Write serialized data to the database
-	err = s.Database.db.Update(func(tx *bolt.Tx) error {
+	err = k.db.Update(func(tx *bolt.Tx) error {
 		bucket, err := tx.CreateBucketIfNotExists([]byte("ContainerPrototypes"))
 		if err != nil {
 			return fmt.Errorf("create bucket: %s", err)
