@@ -1,31 +1,31 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>User Registration and Password Reset</title>
-</head>
-<body>
+  </head>
+  <body>
     <h2>User Registration</h2>
     <form id="registrationForm">
-        <input type="text" id="email" placeholder="Email" required><br>
-        <input type="password" id="password" placeholder="Password" required><br>
-        <button type="submit">Register</button>
+      <input type="text" id="email" placeholder="Email" required /><br />
+      <input type="password" id="password" placeholder="Password" required /><br />
+      <button type="submit">Register</button>
     </form>
 
     <h2>Password Reset</h2>
     <form id="passwordResetRequestForm">
-        <input type="text" id="resetEmail" placeholder="Email" required><br>
-        <button type="submit">Request Password Reset</button>
+      <input type="text" id="resetEmail" placeholder="Email" required /><br />
+      <button type="submit">Request Password Reset</button>
     </form>
 
-    <form id="passwordResetForm" style="display:none;">
-        <input type="text" id="verificationCode" placeholder="Verification Code" required><br>
-        <input type="password" id="newPassword" placeholder="New Password" required><br>
-        <button type="submit">Reset Password</button>
+    <form id="passwordResetForm" style="display: none">
+      <input type="text" id="verificationCode" placeholder="Verification Code" required /><br />
+      <input type="password" id="newPassword" placeholder="New Password" required /><br />
+      <button type="submit">Reset Password</button>
     </form>
 
     <script src="https://sdk.amazonaws.com/js/aws-sdk-2.283.1.min.js"></script>
     <script src="app.js"></script>
-</body>
+  </body>
 </html>

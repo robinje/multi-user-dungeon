@@ -1,43 +1,43 @@
 name: Auto-format
 
 on:
-    push:
-      branches: [ develop ]
-    pull_request:
-      branches: "**"
+  push:
+    branches: [develop]
+  pull_request:
+    branches: "**"
 
 permissions:
-    pull-requests: write
-    contents: write
+  pull-requests: write
+  contents: write
 
 jobs:
   auto-format:
     runs-on: ubuntu-latest
     steps:
-    - name: Check out code
-      uses: actions/checkout@v4
+      - name: Check out code
+        uses: actions/checkout@v4
 
-    - name: Set up Go
-      uses: actions/setup-go@v5
-      with:
-        go-version: 1.21
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.21
 
-    - name: Auto format and commit
-      run: |
-        git fetch -q
-        git checkout ${{github.head_ref}} --progress
-        git config --global user.name 'Dark Relics Automatic'
-        git config --global user.email 'contact@darkrelics.net'
-        git pull
-        cd ./mud
-        go fmt ./...
-        go mod tidy
-        cd ../database_loader
-        go fmt ./...
-        go mod tidy
-        cd ..
-        git add . -v
-        if ! git diff-index --quiet HEAD; then
-          git commit -m "Apply Autoformatting" --allow-empty
-          git push -v
-        fi
+      - name: Auto format and commit
+        run: |
+          git fetch -q
+          git checkout ${{github.head_ref}} --progress
+          git config --global user.name 'Dark Relics Automatic'
+          git config --global user.email 'contact@darkrelics.net'
+          git pull
+          cd ./mud
+          go fmt ./...
+          go mod tidy
+          cd ../database_loader
+          go fmt ./...
+          go mod tidy
+          cd ..
+          git add . -v
+          if ! git diff-index --quiet HEAD; then
+            git commit -m "Apply Autoformatting" --allow-empty
+            git push -v
+          fi
