@@ -24,7 +24,6 @@ var commandHandlers = map[string]CommandHandler{
 	"\"":        executeSayCommand,  // Allow for double quotes to be used as a shortcut for the say command
 	"'":         executeSayCommand,  // Allow for single quotes to be used as a shortcut for the say command
 	"q!":        executeQuitCommand, // Allow for q! to be used as a shortcut for the quit command
-	"fuck":      executeQuitCommand,
 }
 
 func validateCommand(command string, commandHandlers map[string]CommandHandler) (string, []string, error) {
