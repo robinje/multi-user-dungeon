@@ -20,6 +20,7 @@ type Room struct {
 	Exits       map[string]*Exit
 	Characters  map[uint64]*Character
 	Mutex       sync.Mutex
+	Objects     []*Object
 }
 
 type Exit struct {
@@ -101,6 +102,8 @@ func NewRoom(RoomID int64, Area string, Title string, Description string) *Room 
 		Description: Description,
 		Exits:       make(map[string]*Exit),
 		Characters:  make(map[uint64]*Character),
+		Mutex:       sync.Mutex{},
+		Objects:     make([]*Object, 0),
 	}
 
 	log.Printf("Created room %s with ID %d", room.Title, room.RoomID)
@@ -126,12 +129,11 @@ func (r *Room) RoomInfo(character *Character) string {
 	roomInfo := fmt.Sprintf("\n\r[%s]\n\r%s\n\r", ApplyColor("white", r.Title), r.Description)
 	var displayExits strings.Builder
 
-	exits := make([]string, 0) // Ensure a valid, empty slice is created
+	exits := make([]string, 0)
 	for direction := range r.Exits {
-		exits = append(exits, direction) // Append safely
+		exits = append(exits, direction)
 	}
 
-	// Sorting exits for consistent display
 	sort.Strings(exits)
 
 	if len(exits) == 0 {
@@ -158,6 +160,14 @@ func (r *Room) RoomInfo(character *Character) string {
 		roomInfo += "Also here: " + charactersInRoomStr[:len(charactersInRoomStr)-2] + "\n\r"
 	} else {
 		roomInfo += "You are alone.\n\r"
+	}
+
+	// Display objects in the room
+	if len(r.Objects) > 0 {
+		roomInfo += "Objects in the room:\n\r"
+		for _, obj := range r.Objects {
+			roomInfo += "- " + obj.Name + "\n\r"
+		}
 	}
 
 	return roomInfo + displayExits.String()
