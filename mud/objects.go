@@ -12,8 +12,10 @@ type Object struct {
 	Name        string
 	Description string
 	Mass        float64
+	Wearable    bool
 	Verbs       map[string]string
 	Overrides   map[string]string
+	Container   bool
 	Contents    []uint64
 	IsPrototype bool
 }
@@ -23,8 +25,10 @@ type ObjectData struct {
 	Name        string            `json:"name"`
 	Description string            `json:"description"`
 	Mass        float64           `json:"mass"`
+	Wearable    bool              `json:"wearable"`
 	Verbs       map[string]string `json:"verbs"`
 	Overrides   map[string]string `json:"overrides"`
+	Container   bool              `json:"container"`
 	Contents    []uint64          `json:"contents"`
 	IsPrototype bool              `json:"is_prototype"`
 }
@@ -66,6 +70,7 @@ func (k *KeyPair) LoadObject(indexKey uint64, isPrototype bool) (*Object, error)
 		Mass:        od.Mass,
 		Verbs:       od.Verbs,
 		Overrides:   od.Overrides,
+		Container:   od.Container,
 		Contents:    od.Contents,
 		IsPrototype: od.IsPrototype,
 	}
@@ -82,6 +87,7 @@ func (k *KeyPair) WriteObject(obj *Object) error {
 		Mass:        obj.Mass,
 		Verbs:       obj.Verbs,
 		Overrides:   obj.Overrides,
+		Container:   obj.Container,
 		Contents:    obj.Contents,
 		IsPrototype: obj.IsPrototype,
 	}
