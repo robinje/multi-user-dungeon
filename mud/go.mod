@@ -1,6 +1,6 @@
 module github.com/robinje/multi-user-dungeon/mud
 
-go 1.21.5
+go 1.21
 
 require (
 	github.com/aws/aws-sdk-go v1.50.23
