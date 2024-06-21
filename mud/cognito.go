@@ -23,6 +23,7 @@ func calculateSecretHash(cognitoAppClientID, clientSecret, email string) string 
 }
 
 func SignInUser(email, password string, config Configuration) (*cognitoidentityprovider.InitiateAuthOutput, error) {
+	// Create New Session with AWS Config
 	sess, err := session.NewSession(&aws.Config{Region: aws.String(config.UserPoolRegion)})
 	if err != nil {
 		log.Printf("Error creating AWS session for sign-in: %v", err)
@@ -125,19 +126,10 @@ func GetUserData(accessToken string, config Configuration) (*cognitoidentityprov
 	return userOutput, nil
 }
 
-func (s *Server) Authenticate(username, password string) bool {
-	_, err := SignInUser(username, password, s.Config)
-	if err != nil {
-		log.Printf("Authentication attempt failed for user %s: %v", username, err)
-		return false
-	}
-	return true
-}
-
 // ChangeUserPassword changes the password of a user in AWS Cognito.
 // Returns true if the password was successfully changed.
-func (s *Server) ChangeUserPassword(username, currentPassword, newPassword string) (bool, error) {
-	signInOutput, err := SignInUser(username, currentPassword, s.Config)
+func ChangeUserPassword(username, currentPassword, newPassword string, config Configuration) (bool, error) {
+	signInOutput, err := SignInUser(username, currentPassword, config)
 	if err != nil {
 		// If there's an error signing in, it means the current password might be wrong or the user doesn't exist.
 		return false, fmt.Errorf("failed to sign in user: %v", err)
@@ -149,7 +141,7 @@ func (s *Server) ChangeUserPassword(username, currentPassword, newPassword strin
 	}
 
 	sess, err := session.NewSession(&aws.Config{
-		Region: aws.String(s.Config.UserPoolRegion),
+		Region: aws.String(config.UserPoolRegion),
 	})
 	if err != nil {
 		return false, fmt.Errorf("failed to create AWS session: %v", err)
