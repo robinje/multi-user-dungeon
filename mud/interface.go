@@ -32,8 +32,8 @@ type Player struct {
 	LoginTime     time.Time
 }
 
-func (s *Server) Authenticate(username, password string) bool {
-	_, err := SignInUser(username, password, s.Config)
+func Authenticate(username, password string, config Configuration) bool {
+	_, err := SignInUser(username, password, config)
 	if err != nil {
 		log.Printf("Authentication attempt failed for user %s: %v", username, err)
 		return false
@@ -55,7 +55,7 @@ func (s *Server) StartSSHServer() error {
 	s.SSHConfig = &ssh.ServerConfig{
 		PasswordCallback: func(conn ssh.ConnMetadata, password []byte) (*ssh.Permissions, error) {
 			// Authenticate the player
-			authenticated := s.Authenticate(conn.User(), string(password))
+			authenticated := Authenticate(conn.User(), string(password), s.Config)
 			if authenticated {
 				log.Printf("Player %s authenticated", conn.User())
 				return nil, nil
