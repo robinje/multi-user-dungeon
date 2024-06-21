@@ -32,7 +32,7 @@ type Character struct {
 // CharacterData for unmarshalling character.
 type CharacterData struct {
 	Index        uint64             `json:"index"`
-	PlayerID     uint64             `json:"playerID"`
+	PlayerID     string             `json:"playerID"`
 	Name         string             `json:"name"`
 	Attributes   map[string]float64 `json:"attributes"`
 	Abilities    map[string]float64 `json:"abilities"`
@@ -84,7 +84,7 @@ func (c *Character) ToData() *CharacterData {
 
 	return &CharacterData{
 		Index:        c.Index,
-		PlayerID:     c.Player.Index,
+		PlayerID:     c.Player.PlayerID,
 		Name:         c.Name,
 		Attributes:   c.Attributes,
 		Abilities:    c.Abilities,

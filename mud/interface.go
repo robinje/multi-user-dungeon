@@ -15,7 +15,7 @@ import (
 )
 
 type Player struct {
-	PlayerID      uint64
+	PlayerID      string
 	Index         uint64
 	Name          string
 	ToPlayer      chan string
@@ -30,6 +30,15 @@ type Player struct {
 	CharacterList map[string]uint64
 	Character     *Character
 	LoginTime     time.Time
+}
+
+func (s *Server) Authenticate(username, password string) bool {
+	_, err := SignInUser(username, password, s.Config)
+	if err != nil {
+		log.Printf("Authentication attempt failed for user %s: %v", username, err)
+		return false
+	}
+	return true
 }
 
 func (s *Server) StartSSHServer() error {

@@ -109,7 +109,7 @@ func (k *KeyPair) NextIndex(bucketName string) (uint64, error) {
 func (k *KeyPair) WritePlayer(player *Player) error {
 	// Create a PlayerData instance containing only the data to be serialized
 	pd := PlayerData{
-		Name:          player.Name,
+		Name:          player.PlayerID,
 		CharacterList: player.CharacterList,
 	}
 

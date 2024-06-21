@@ -125,15 +125,6 @@ func GetUserData(accessToken string, config Configuration) (*cognitoidentityprov
 	return userOutput, nil
 }
 
-func (s *Server) Authenticate(username, password string) bool {
-	_, err := SignInUser(username, password, s.Config)
-	if err != nil {
-		log.Printf("Authentication attempt failed for user %s: %v", username, err)
-		return false
-	}
-	return true
-}
-
 // ChangeUserPassword changes the password of a user in AWS Cognito.
 // Returns true if the password was successfully changed.
 func (s *Server) ChangeUserPassword(username, currentPassword, newPassword string) (bool, error) {
