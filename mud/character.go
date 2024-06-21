@@ -146,7 +146,7 @@ func (c *Character) FromData(cd *CharacterData) error {
 	return nil
 }
 
-func (s *Server) SelectCharacter(player *Player) (*Character, error) {
+func SelectCharacter(player *Player, server *Server) (*Character, error) {
 	var options []string // To store character names for easy reference by index
 
 	sendCharacterOptions := func() {
@@ -184,11 +184,11 @@ func (s *Server) SelectCharacter(player *Player) (*Character, error) {
 
 		if choice == 0 {
 			// Create a new character
-			return s.CreateCharacter(player)
+			return server.CreateCharacter(player)
 		} else if choice <= len(options) {
 			// Load an existing character, adjusting index for 0-based slice indexing
 			characterName := options[choice-1]
-			return s.LoadCharacter(player, player.CharacterList[characterName])
+			return server.LoadCharacter(player, player.CharacterList[characterName])
 		}
 	}
 }
