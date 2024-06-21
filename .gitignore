@@ -22,7 +22,7 @@
 
 .vscode/
 
-*.sum
+**/*.sum
 
 # Don't import keys.
 
