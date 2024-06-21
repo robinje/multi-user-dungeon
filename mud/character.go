@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	bolt "go.etcd.io/bbolt"
 )
@@ -52,6 +53,18 @@ type Archetype struct {
 
 type ArchetypesData struct {
 	Archetypes map[string]Archetype `json:"archetypes"`
+}
+
+func (s *Server) AutoSaveCharacters() {
+	for {
+		// Sleep for the configured duration
+		time.Sleep(time.Duration(s.AutoSave) * time.Minute)
+
+		// Save the characters to the database
+		if err := s.SaveActiveCharacters(); err != nil {
+			log.Printf("Failed to save characters: %v", err)
+		}
+	}
 }
 
 // Converts a Character to CharacterData for serialization
@@ -427,114 +440,6 @@ func (s *Server) LoadCharacter(player *Player, characterIndex uint64) (*Characte
 	log.Printf("Loaded character %s (Index %d) in Room %d", character.Name, character.Index, character.Room.RoomID)
 
 	return character, nil
-}
-
-func (c *Character) InputLoop() {
-	// Initially execute the look command with no additional tokens
-	executeLookCommand(c, []string{}) // Adjusted to include the tokens parameter
-
-	// Send initial prompt to player
-	c.Player.ToPlayer <- c.Player.Prompt
-
-	for {
-		// Wait for input from the player. This blocks until input is received.
-		inputLine, more := <-c.Player.FromPlayer
-		if !more {
-			// If the channel is closed, stop the input loop.
-			log.Printf("Input channel closed for player %s.", c.Player.Name)
-			return
-		}
-
-		// Normalize line ending to \n\r for consistency
-		inputLine = strings.Replace(inputLine, "\n", "\n\r", -1)
-
-		// Process the command
-		verb, tokens, err := validateCommand(strings.TrimSpace(inputLine), commandHandlers)
-		if err != nil {
-			c.Player.ToPlayer <- err.Error() + "\n\r"
-			c.Player.ToPlayer <- c.Player.Prompt
-			continue
-		}
-
-		// Execute the command
-		if executeCommand(c, verb, tokens) {
-			// If command execution indicates to exit (or similar action), break the loop
-			// Note: Adjust logic as per your executeCommand's design to handle such conditions
-			break
-		}
-
-		// Log the command execution
-		log.Printf("Player %s issued command: %s", c.Player.Name, strings.Join(tokens, " "))
-
-		// Prompt for the next command
-		c.Player.ToPlayer <- c.Player.Prompt
-	}
-
-	// Close the player's input channel
-	close(c.Player.FromPlayer)
-
-	// Remove the character from the room
-
-	c.Room.Mutex.Lock()
-	delete(c.Room.Characters, c.Index)
-	c.Room.Mutex.Unlock()
-
-	// Remove the character from the server's active characters
-	c.Server.Mutex.Lock()
-	delete(c.Server.Characters, c.Name)
-	c.Server.Mutex.Unlock()
-
-	// Save the character to the database
-	err := c.Server.WriteCharacter(c)
-	if err != nil {
-		log.Printf("Error saving character %s: %v", c.Name, err)
-	}
-}
-
-func (c *Character) Move(direction string) {
-	c.Mutex.Lock()
-	defer c.Mutex.Unlock()
-
-	if c.Room == nil {
-		c.Player.ToPlayer <- "You are not in any room to move from.\n\r"
-		return
-	}
-
-	log.Printf("Player %s is moving %s", c.Name, direction)
-
-	selectedExit, exists := c.Room.Exits[direction]
-	if !exists {
-		c.Player.ToPlayer <- "You cannot go that way.\n\r"
-		return
-	}
-
-	newRoom, exists := c.Server.Rooms[selectedExit.TargetRoom]
-	if !exists {
-		c.Player.ToPlayer <- "The path leads nowhere.\n\r"
-		return
-	}
-
-	// Safely remove the character from the old room
-	oldRoom := c.Room
-	oldRoom.Mutex.Lock()
-	delete(oldRoom.Characters, c.Index)
-	oldRoom.Mutex.Unlock()
-	oldRoom.SendRoomMessage(fmt.Sprintf("\n\r%s has left going %s.\n\r", c.Name, direction))
-
-	// Update character's room
-	c.Room = newRoom
-
-	newRoom.SendRoomMessage(fmt.Sprintf("\n\r%s has arrived.\n\r", c.Name))
-
-	// Ensure the Characters map in the new room is initialized
-	newRoom.Mutex.Lock()
-	if newRoom.Characters == nil {
-		newRoom.Characters = make(map[uint64]*Character)
-	}
-	newRoom.Characters[c.Index] = c
-	newRoom.Mutex.Unlock()
-
-	executeLookCommand(c, []string{})
 }
 
 func (k *KeyPair) LoadCharacterNames() (map[string]bool, error) {

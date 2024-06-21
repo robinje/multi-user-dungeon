@@ -115,6 +115,52 @@ func (r *Room) AddExit(exit *Exit) {
 	r.Exits[exit.Direction] = exit
 }
 
+func (c *Character) Move(direction string) {
+	c.Mutex.Lock()
+	defer c.Mutex.Unlock()
+
+	if c.Room == nil {
+		c.Player.ToPlayer <- "You are not in any room to move from.\n\r"
+		return
+	}
+
+	log.Printf("Player %s is moving %s", c.Name, direction)
+
+	selectedExit, exists := c.Room.Exits[direction]
+	if !exists {
+		c.Player.ToPlayer <- "You cannot go that way.\n\r"
+		return
+	}
+
+	newRoom, exists := c.Server.Rooms[selectedExit.TargetRoom]
+	if !exists {
+		c.Player.ToPlayer <- "The path leads nowhere.\n\r"
+		return
+	}
+
+	// Safely remove the character from the old room
+	oldRoom := c.Room
+	oldRoom.Mutex.Lock()
+	delete(oldRoom.Characters, c.Index)
+	oldRoom.Mutex.Unlock()
+	oldRoom.SendRoomMessage(fmt.Sprintf("\n\r%s has left going %s.\n\r", c.Name, direction))
+
+	// Update character's room
+	c.Room = newRoom
+
+	newRoom.SendRoomMessage(fmt.Sprintf("\n\r%s has arrived.\n\r", c.Name))
+
+	// Ensure the Characters map in the new room is initialized
+	newRoom.Mutex.Lock()
+	if newRoom.Characters == nil {
+		newRoom.Characters = make(map[uint64]*Character)
+	}
+	newRoom.Characters[c.Index] = c
+	newRoom.Mutex.Unlock()
+
+	executeLookCommand(c, []string{})
+}
+
 func (r *Room) SendRoomMessage(message string) {
 
 	for _, character := range r.Characters {
