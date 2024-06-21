@@ -491,11 +491,11 @@ func (s *Server) SaveActiveCharacters() error {
 	return nil
 }
 
-func (s *Server) LoadArchetypes() (*ArchetypesData, error) {
+func LoadArchetypes(db *bolt.DB) (*ArchetypesData, error) {
 
 	archetypesData := &ArchetypesData{Archetypes: make(map[string]Archetype)}
 
-	err := s.Database.db.View(func(tx *bolt.Tx) error {
+	err := db.View(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket([]byte("Archetypes"))
 		if bucket == nil {
 			return fmt.Errorf("archetypes bucket does not exist")

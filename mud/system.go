@@ -84,7 +84,7 @@ func NewServer(config Configuration) (*Server, error) {
 		log.Printf("Error loading character names from database: %v", err)
 	}
 
-	server.Archetypes, err = server.LoadArchetypes()
+	server.Archetypes, err = LoadArchetypes(server.Database.db)
 	if err != nil {
 		log.Printf("Error loading archetypes from database: %v", err)
 	}
