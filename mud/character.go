@@ -55,13 +55,13 @@ type ArchetypesData struct {
 	Archetypes map[string]Archetype `json:"archetypes"`
 }
 
-func (s *Server) AutoSaveCharacters() {
+func AutoSaveCharacters(server *Server) {
 	for {
 		// Sleep for the configured duration
-		time.Sleep(time.Duration(s.AutoSave) * time.Minute)
+		time.Sleep(time.Duration(server.AutoSave) * time.Minute)
 
 		// Save the characters to the database
-		if err := s.SaveActiveCharacters(); err != nil {
+		if err := server.SaveActiveCharacters(); err != nil {
 			log.Printf("Failed to save characters: %v", err)
 		}
 	}

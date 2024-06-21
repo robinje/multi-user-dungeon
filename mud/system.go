@@ -123,7 +123,7 @@ func main() {
 	}
 
 	// Start the auto-save routine
-	go server.AutoSaveCharacters()
+	go AutoSaveCharacters(server)
 
 	// Start the server
 	if err := server.StartSSHServer(); err != nil {
