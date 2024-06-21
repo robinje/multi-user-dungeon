@@ -329,7 +329,7 @@ func (s *Server) NewCharacter(Name string, Player *Player, Room *Room, archetype
 		}
 	}
 
-	err = s.WriteCharacter(character)
+	err = WriteCharacter(character, s.Database.db)
 	if err != nil {
 		log.Printf("Error writing character to database: %v", err)
 		return nil
@@ -359,7 +359,7 @@ func (s *Server) NewCharacter(Name string, Player *Player, Room *Room, archetype
 	return character
 }
 
-func (s *Server) WriteCharacter(character *Character) error {
+func WriteCharacter(character *Character, db *bolt.DB) error {
 	// Convert Character to CharacterData before marshalling
 	characterData := character.ToData()
 
@@ -370,7 +370,7 @@ func (s *Server) WriteCharacter(character *Character) error {
 		return err
 	}
 
-	err = s.Database.db.Update(func(tx *bolt.Tx) error {
+	err = db.Update(func(tx *bolt.Tx) error {
 		bucket, err := tx.CreateBucketIfNotExists([]byte("Characters"))
 		if err != nil {
 			return fmt.Errorf("create bucket: %s", err)
@@ -480,7 +480,7 @@ func (s *Server) SaveActiveCharacters() error {
 	log.Println("Saving active characters...")
 
 	for _, character := range s.Characters {
-		err := s.WriteCharacter(character)
+		err := WriteCharacter(character, s.Database.db)
 		if err != nil {
 			return fmt.Errorf("error saving character %s: %w", character.Name, err)
 		}

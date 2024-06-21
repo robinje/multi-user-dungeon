@@ -166,7 +166,7 @@ func (s *Server) handleChannels(sshConn *ssh.ServerConn, channels <-chan ssh.New
 
 			close(player.ToPlayer)
 
-			s.WriteCharacter(character)
+			WriteCharacter(character, s.Database.db)
 
 			log.Printf("Player %s disconnected", p.Name)
 			player = nil
@@ -342,7 +342,7 @@ func (c *Character) InputLoop() {
 	c.Server.Mutex.Unlock()
 
 	// Save the character to the database
-	err := c.Server.WriteCharacter(c)
+	err := WriteCharacter(c, c.Server.Database.db)
 	if err != nil {
 		log.Printf("Error saving character %s: %v", c.Name, err)
 	}
