@@ -1,6 +1,6 @@
 module github.com/robinje/multi-user-dungeon/database_loader
 
-go 1.21.5
+go 1.21
 
 require go.etcd.io/bbolt v1.3.8
 

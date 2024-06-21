@@ -1,6 +1,6 @@
 module github.com/robinje/multi-user-dungeon
 
-go 1.21.5
+go 1.21
 
 replace github.com/robinje/multi-user-dungeon/mud => ./mud
 
