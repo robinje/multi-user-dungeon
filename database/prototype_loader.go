@@ -35,7 +35,7 @@ type ItemData struct {
 }
 
 type PrototypesData struct {
-	ItemPrototypes []ItemData `json:"intemPrototypes"`
+	ItemPrototypes []ItemData `json:"itemPrototypes"`
 }
 
 func protoDisplay(prototypes *PrototypesData) {
