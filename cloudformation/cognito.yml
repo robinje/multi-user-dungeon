@@ -21,6 +21,10 @@ Parameters:
   ReplyEmailAddress:
     Type: String
     Description: Email address to send from
+  VerificationSubject:
+    Type: String
+    Description: Subject of the email verification message
+    Default: Your verification link
 
 Resources:
   CognitoUserPool:
@@ -33,9 +37,9 @@ Resources:
       AdminCreateUserConfig:
         AllowAdminCreateUserOnly: false
         InviteMessageTemplate:
-          EmailMessage: 'Your username is {username} and temporary password is {####}.'
-          EmailSubject: 'Your temporary password'
-          SMSMessage: 'Your username is {username} and temporary password is {####}.'
+          EmailMessage: "Your username is {username} and temporary password is {####}."
+          EmailSubject: "Your temporary password"
+          SMSMessage: "Your username is {username} and temporary password is {####}."
         UnusedAccountValidityDays: 7
       Policies:
         PasswordPolicy:
@@ -58,6 +62,10 @@ Resources:
         - email
       UsernameConfiguration:
         CaseSensitive: false
+      AutoVerifiedAttributes:
+        - email
+      EmailVerificationSubject: !Ref VerificationSubject
+      EmailVerificationMessage: "Please click the link below to verify your email address. {####}"
 
   CognitoUserPoolClient:
     Type: AWS::Cognito::UserPoolClient
@@ -79,7 +87,7 @@ Resources:
         - openid
         - email
         - profile
-      
+
   CognitoUserPoolDomain:
     Type: AWS::Cognito::UserPoolDomain
     Properties:

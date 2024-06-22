@@ -1,0 +1,16 @@
+{
+  "rooms": {
+    "11": {
+      "area": "The Vedant Forest",
+      "title": "Whispering Glade",
+      "description": "Amidst the Verdant Forest, sunlight pierces the leafy canopy, illuminating moss-covered trees. Birds chirp melodically, blending with rustling leaves. The air, rich with pine, invigorates. A tranquil, timeless haven.",
+      "exits": [
+        {
+          "direction": "out",
+          "visible": true,
+          "target_room": 2
+        }
+      ]
+    }
+  }
+}

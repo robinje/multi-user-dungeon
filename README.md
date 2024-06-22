@@ -11,15 +11,17 @@ The current implementation includes an SSH server for secure authentication and 
 - [x] Implement a player authentication system.
 - [x] Implement a database for the game.
 - [x] Implement a character creation system.
+- [x] Implement a text colorization system.
+- [ ] Define Item taxonomy.
 - [ ] Build a direct messaging system.
 - [ ] Develop game mechanics.
-- [ ] Create a player creation system.
 - [ ] Implement a world creation system.
 - [ ] Design a quest system.
-- [ ] Construct the object system.
+- [ ] Construct the item system.
 - [ ] Develop simple Non-Player Characters (NPCs).
 - [ ] Create AI-controlled NPCs.
 - [ ] Implement a dynamic content updating system.
+- [ ] Design an ecenomic framework.
 
 ## TODO
 
@@ -29,13 +31,15 @@ The current implementation includes an SSH server for secure authentication and 
 - [x] Add a help command.
 - [x] Add a character list command.
 - [x] Allow users to change their passwords.
+- [x] Expand the character creation process.
 - [ ] Add a Message of the Day (MOTD) command.
 - [ ] Implement Persistent Logging.
 - [ ] Add the ability to delete characters.
 - [ ] Add the ability to delete accounts.
 - [ ] Implement an obscenity filter.
 - [ ] Validate graph of loaded rooms and exits.
-- [ ] Expand the character creation process.
+- [ ] Load item prototypes at start.
+- [ ] Create function for creating items from prototypes.
 
 ## Deployment
 
@@ -48,8 +52,9 @@ Deploying the server involves several steps, from setting up your environment to
 3. **Configure AWS Credentials**: Ensure you have AWS credentials configured on your machine. These credentials should have sufficient permissions to create a Cognito user pool and the necessary IAM policies and roles. You can configure your credentials by using the AWS CLI and running `aws configure`.
 
 4. **Deploy Cognito and IAM Resources**:
-    - Navigate to the `scripts` directory within the project.
-    - Run the `deploy_cognito.py` script using the command `python deploy_cognito.py`. This script will create the Cognito instance along with the required IAM policies and roles. It will also generate the `config.json` file needed to run the server. Ensure you have Python installed on your machine to execute this script.
+
+   - Navigate to the `scripts` directory within the project.
+   - Run the `deploy_cognito.py` script using the command `python deploy_cognito.py`. This script will create the Cognito instance along with the required IAM policies and roles. It will also generate the `config.json` file needed to run the server. Ensure you have Python installed on your machine to execute this script.
 
 5. **Install Go Dependencies**: Before starting the server, you need to install the necessary Go dependencies. In the root directory of the project, run `go mod download` to fetch all required packages.
 
@@ -57,8 +62,6 @@ Deploying the server involves several steps, from setting up your environment to
 
 Ensure all steps are completed without errors before trying to connect to the server. If you encounter any issues during deployment, refer to the specific tool's documentation for troubleshooting advice.
 
-
 ## License
 
 This project is licensed under the Apache 2.0 License. See the LICENSE file for more details.
-

@@ -22,7 +22,7 @@
 
 .vscode/
 
-*.sum
+**/*.sum
 
 # Don't import keys.
 
@@ -37,3 +37,8 @@
 # Ignore bolt files.
 
 *.bolt
+
+
+# JavaScript
+
+**/package-lock.json

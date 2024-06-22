@@ -1,0 +1,55 @@
+{
+  "itemPrototypes": [
+    {
+      "index": 1,
+      "name": "Long Sword",
+      "description": "A finely crafted long sword with a sharp blade, glinting in the light.",
+      "mass": 4.5,
+      "wearable": false,
+      "verbs": {
+        "use": "You wield the long sword, ready for battle.",
+        "examine": "The sword's blade is etched with ancient runes."
+      },
+      "overrides": {
+        "attack": "attack"
+      },
+      "container": false,
+      "contents": [],
+      "is_prototype": true
+    },
+    {
+      "index": 2,
+      "name": "Magic Book",
+      "description": "An ancient tome filled with arcane knowledge and mystical spells.",
+      "mass": 2.0,
+      "wearable": false,
+      "verbs": {
+        "use": "You open the magic book and begin to recite a spell.",
+        "examine": "The book's pages are filled with magical incantations and diagrams."
+      },
+      "overrides": {
+        "read": "learn"
+      },
+      "container": false,
+      "contents": [],
+      "is_prototype": true
+    },
+    {
+      "index": 3,
+      "name": "Bow",
+      "description": "A sturdy bow made of fine wood, capable of shooting arrows with great precision.",
+      "mass": 3.0,
+      "wearable": true,
+      "verbs": {
+        "use": "You take aim with the bow, ready to loose an arrow at your target.",
+        "examine": "The wood of the bow is polished to a smooth finish, and the string is taut and strong."
+      },
+      "overrides": {
+        "shoot": "target"
+      },
+      "container": false,
+      "contents": [],
+      "is_prototype": true
+    }
+  ]
+}

@@ -24,7 +24,6 @@ var commandHandlers = map[string]CommandHandler{
 	"\"":        executeSayCommand,  // Allow for double quotes to be used as a shortcut for the say command
 	"'":         executeSayCommand,  // Allow for single quotes to be used as a shortcut for the say command
 	"q!":        executeQuitCommand, // Allow for q! to be used as a shortcut for the quit command
-	"fuck":      executeQuitCommand,
 }
 
 func validateCommand(command string, commandHandlers map[string]CommandHandler) (string, []string, error) {
@@ -187,7 +186,7 @@ func executePasswordCommand(character *Character, tokens []string) bool {
 	newPassword := tokens[2]
 
 	// Call the Server's method to change the password
-	success, err := character.Server.ChangeUserPassword(character.Player.Name, oldPassword, newPassword)
+	success, err := ChangeUserPassword(character.Player.Name, oldPassword, newPassword, character.Server.Config)
 	if err != nil {
 		log.Printf("Failed to change password for user %s: %v", character.Player.Name, err)
 		character.Player.ToPlayer <- "\n\rFailed to change password. Please try again.\n\r"

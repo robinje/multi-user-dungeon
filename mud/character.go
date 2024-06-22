@@ -8,32 +8,36 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	bolt "go.etcd.io/bbolt"
 )
 
 type Character struct {
 	Index      uint64
-	Room       *Room
-	Name       string
 	Player     *Player
+	Name       string
 	Attributes map[string]float64
 	Abilities  map[string]float64
-	Mutex      sync.Mutex
-	Server     *Server
 	Essence    float64
 	Health     float64
+	Room       *Room
+	Inventory  map[string]*Item
+	Server     *Server
+	Mutex      sync.Mutex
 }
 
 // CharacterData for unmarshalling character.
 type CharacterData struct {
 	Index      uint64             `json:"index"`
+	PlayerID   string             `json:"playerID"`
 	Name       string             `json:"name"`
-	RoomID     int64              `json:"roomID"`
 	Attributes map[string]float64 `json:"attributes"`
 	Abilities  map[string]float64 `json:"abilities"`
 	Essence    float64            `json:"essence"`
 	Health     float64            `json:"health"`
+	RoomID     int64              `json:"roomID"`
+	Inventory  map[string]uint64  `json:"inventory"`
 }
 
 type Archetype struct {
@@ -47,7 +51,71 @@ type ArchetypesData struct {
 	Archetypes map[string]Archetype `json:"archetypes"`
 }
 
-func (s *Server) SelectCharacter(player *Player) (*Character, error) {
+func AutoSaveCharacters(server *Server) {
+	for {
+		// Sleep for the configured duration
+		time.Sleep(time.Duration(server.AutoSave) * time.Minute)
+
+		// Save the characters to the database
+		if err := server.SaveActiveCharacters(); err != nil {
+			log.Printf("Failed to save characters: %v", err)
+		}
+	}
+}
+
+// Converts a Character to CharacterData for serialization
+func (c *Character) ToData() *CharacterData {
+
+	inventoryIDs := make(map[string]uint64, len(c.Inventory))
+	for name, obj := range c.Inventory {
+		inventoryIDs[name] = obj.Index
+	}
+
+	return &CharacterData{
+		Index:      c.Index,
+		PlayerID:   c.Player.PlayerID,
+		Name:       c.Name,
+		Attributes: c.Attributes,
+		Abilities:  c.Abilities,
+		Essence:    c.Essence,
+		Health:     c.Health,
+		RoomID:     c.Room.RoomID,
+		Inventory:  inventoryIDs,
+	}
+}
+
+func (c *Character) FromData(cd *CharacterData) error {
+	c.Index = cd.Index
+	c.Name = cd.Name
+	c.Attributes = cd.Attributes
+	c.Abilities = cd.Abilities
+	c.Essence = cd.Essence
+	c.Health = cd.Health
+
+	// Load the room
+	room, exists := c.Server.Rooms[cd.RoomID]
+	if !exists {
+		log.Printf("room with ID %d not found", cd.RoomID)
+		room = c.Server.Rooms[0]
+	}
+	c.Room = room
+
+	// Load items from the character's inventory
+	c.Inventory = make(map[string]*Item, len(cd.Inventory))
+	for _, objIndex := range cd.Inventory {
+		obj, err := c.Server.Database.LoadItem(objIndex, false)
+		if err != nil {
+			log.Printf("Error loading object %d for character %s: %v", objIndex, c.Name, err)
+			continue
+		}
+		// Use obj.Name or another unique identifier as the map key
+		c.Inventory[obj.Name] = obj
+	}
+
+	return nil
+}
+
+func SelectCharacter(player *Player, server *Server) (*Character, error) {
 	var options []string // To store character names for easy reference by index
 
 	sendCharacterOptions := func() {
@@ -85,11 +153,11 @@ func (s *Server) SelectCharacter(player *Player) (*Character, error) {
 
 		if choice == 0 {
 			// Create a new character
-			return s.CreateCharacter(player)
+			return server.CreateCharacter(player)
 		} else if choice <= len(options) {
 			// Load an existing character, adjusting index for 0-based slice indexing
 			characterName := options[choice-1]
-			return s.LoadCharacter(player, player.CharacterList[characterName])
+			return server.LoadCharacter(player, player.CharacterList[characterName])
 		}
 	}
 }
@@ -210,6 +278,7 @@ func (s *Server) NewCharacter(Name string, Player *Player, Room *Room, archetype
 		Essence:    float64(s.Essence),
 		Attributes: make(map[string]float64),
 		Abilities:  make(map[string]float64),
+		Inventory:  make(map[string]*Item),
 		Server:     s,
 	}
 
@@ -227,7 +296,7 @@ func (s *Server) NewCharacter(Name string, Player *Player, Room *Room, archetype
 		}
 	}
 
-	err = s.WriteCharacter(character)
+	err = WriteCharacter(character, s.Database.db)
 	if err != nil {
 		log.Printf("Error writing character to database: %v", err)
 		return nil
@@ -257,20 +326,7 @@ func (s *Server) NewCharacter(Name string, Player *Player, Room *Room, archetype
 	return character
 }
 
-// Converts a Character to CharacterData for serialization
-func (c *Character) ToData() *CharacterData {
-	return &CharacterData{
-		Index:      c.Index,
-		Name:       c.Name,
-		RoomID:     c.Room.RoomID,
-		Health:     c.Health,
-		Essence:    c.Essence,
-		Attributes: c.Attributes,
-		Abilities:  c.Abilities,
-	}
-}
-
-func (s *Server) WriteCharacter(character *Character) error {
+func WriteCharacter(character *Character, db *bolt.DB) error {
 	// Convert Character to CharacterData before marshalling
 	characterData := character.ToData()
 
@@ -281,7 +337,7 @@ func (s *Server) WriteCharacter(character *Character) error {
 		return err
 	}
 
-	err = s.Database.db.Update(func(tx *bolt.Tx) error {
+	err = db.Update(func(tx *bolt.Tx) error {
 		bucket, err := tx.CreateBucketIfNotExists([]byte("Characters"))
 		if err != nil {
 			return fmt.Errorf("create bucket: %s", err)
@@ -329,22 +385,13 @@ func (s *Server) LoadCharacter(player *Player, characterIndex uint64) (*Characte
 		return nil, fmt.Errorf("error unmarshalling character data: %w", err)
 	}
 
-	// Retrieve the Room object based on RoomID
-	room, exists := s.Rooms[cd.RoomID]
-	if !exists {
-		return nil, fmt.Errorf("room with ID %d not found", cd.RoomID)
+	character := &Character{
+		Server: s,
+		Player: player,
 	}
 
-	character := &Character{
-		Index:      cd.Index,
-		Room:       room,
-		Name:       cd.Name,
-		Health:     cd.Health,
-		Essence:    cd.Essence,
-		Attributes: cd.Attributes,
-		Abilities:  cd.Abilities,
-		Player:     player,
-		Server:     s,
+	if err := character.FromData(&cd); err != nil {
+		return nil, fmt.Errorf("error loading character from data: %w", err)
 	}
 
 	if s.Characters == nil {
@@ -357,124 +404,15 @@ func (s *Server) LoadCharacter(player *Player, characterIndex uint64) (*Characte
 	s.Characters[cd.Name] = character
 	s.Mutex.Unlock()
 
-	log.Printf("Loaded character %s (Index %d) in Room %d", character.Name, character.Index, room.RoomID)
+	log.Printf("Loaded character %s (Index %d) in Room %d", character.Name, character.Index, character.Room.RoomID)
 
 	return character, nil
 }
 
-func (c *Character) InputLoop() {
-	// Initially execute the look command with no additional tokens
-	executeLookCommand(c, []string{}) // Adjusted to include the tokens parameter
-
-	// Send initial prompt to player
-	c.Player.ToPlayer <- c.Player.Prompt
-
-	for {
-		// Wait for input from the player. This blocks until input is received.
-		inputLine, more := <-c.Player.FromPlayer
-		if !more {
-			// If the channel is closed, stop the input loop.
-			log.Printf("Input channel closed for player %s.", c.Player.Name)
-			return
-		}
-
-		// Normalize line ending to \n\r for consistency
-		inputLine = strings.Replace(inputLine, "\n", "\n\r", -1)
-
-		// Process the command
-		verb, tokens, err := validateCommand(strings.TrimSpace(inputLine), commandHandlers)
-		if err != nil {
-			c.Player.ToPlayer <- err.Error() + "\n\r"
-			c.Player.ToPlayer <- c.Player.Prompt
-			continue
-		}
-
-		// Execute the command
-		if executeCommand(c, verb, tokens) {
-			// If command execution indicates to exit (or similar action), break the loop
-			// Note: Adjust logic as per your executeCommand's design to handle such conditions
-			break
-		}
-
-		// Log the command execution
-		log.Printf("Player %s issued command: %s", c.Player.Name, strings.Join(tokens, " "))
-
-		// Prompt for the next command
-		c.Player.ToPlayer <- c.Player.Prompt
-	}
-
-	// Close the player's input channel
-	close(c.Player.FromPlayer)
-
-	// Remove the character from the room
-
-	c.Room.Mutex.Lock()
-	delete(c.Room.Characters, c.Index)
-	c.Room.Mutex.Unlock()
-
-	// Remove the character from the server's active characters
-	c.Server.Mutex.Lock()
-	delete(c.Server.Characters, c.Name)
-	c.Server.Mutex.Unlock()
-
-	// Save the character to the database
-	err := c.Server.WriteCharacter(c)
-	if err != nil {
-		log.Printf("Error saving character %s: %v", c.Name, err)
-	}
-}
-
-func (c *Character) Move(direction string) {
-	c.Mutex.Lock()
-	defer c.Mutex.Unlock()
-
-	if c.Room == nil {
-		c.Player.ToPlayer <- "You are not in any room to move from.\n\r"
-		return
-	}
-
-	log.Printf("Player %s is moving %s", c.Name, direction)
-
-	selectedExit, exists := c.Room.Exits[direction]
-	if !exists {
-		c.Player.ToPlayer <- "You cannot go that way.\n\r"
-		return
-	}
-
-	newRoom, exists := c.Server.Rooms[selectedExit.TargetRoom]
-	if !exists {
-		c.Player.ToPlayer <- "The path leads nowhere.\n\r"
-		return
-	}
-
-	// Safely remove the character from the old room
-	oldRoom := c.Room
-	oldRoom.Mutex.Lock()
-	delete(oldRoom.Characters, c.Index)
-	oldRoom.Mutex.Unlock()
-	oldRoom.SendRoomMessage(fmt.Sprintf("\n\r%s has left going %s.\n\r", c.Name, direction))
-
-	// Update character's room
-	c.Room = newRoom
-
-	newRoom.SendRoomMessage(fmt.Sprintf("\n\r%s has arrived.\n\r", c.Name))
-
-	// Ensure the Characters map in the new room is initialized
-	newRoom.Mutex.Lock()
-	if newRoom.Characters == nil {
-		newRoom.Characters = make(map[uint64]*Character)
-	}
-	newRoom.Characters[c.Index] = c
-	newRoom.Mutex.Unlock()
-
-	executeLookCommand(c, []string{})
-}
-
-func (s *Server) LoadCharacterNames() (map[string]bool, error) {
-
+func (k *KeyPair) LoadCharacterNames() (map[string]bool, error) {
 	names := make(map[string]bool)
 
-	err := s.Database.db.View(func(tx *bolt.Tx) error {
+	err := k.db.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte("Characters"))
 		if b == nil {
 			return fmt.Errorf("characters bucket not found")
@@ -492,11 +430,11 @@ func (s *Server) LoadCharacterNames() (map[string]bool, error) {
 	})
 
 	if len(names) == 0 {
-		return nil, fmt.Errorf("no characters found")
+		return names, fmt.Errorf("no characters found")
 	}
 
 	if err != nil {
-		return nil, fmt.Errorf("error reading from BoltDB: %w", err)
+		return names, fmt.Errorf("error reading from BoltDB: %w", err)
 	}
 
 	return names, nil
@@ -509,7 +447,7 @@ func (s *Server) SaveActiveCharacters() error {
 	log.Println("Saving active characters...")
 
 	for _, character := range s.Characters {
-		err := s.WriteCharacter(character)
+		err := WriteCharacter(character, s.Database.db)
 		if err != nil {
 			return fmt.Errorf("error saving character %s: %w", character.Name, err)
 		}
@@ -520,11 +458,11 @@ func (s *Server) SaveActiveCharacters() error {
 	return nil
 }
 
-func (s *Server) LoadArchetypes() (*ArchetypesData, error) {
+func LoadArchetypes(db *bolt.DB) (*ArchetypesData, error) {
 
 	archetypesData := &ArchetypesData{Archetypes: make(map[string]Archetype)}
 
-	err := s.Database.db.View(func(tx *bolt.Tx) error {
+	err := db.View(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket([]byte("Archetypes"))
 		if bucket == nil {
 			return fmt.Errorf("archetypes bucket does not exist")
