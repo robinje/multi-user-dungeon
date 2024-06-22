@@ -7,7 +7,7 @@ import (
 	bolt "go.etcd.io/bbolt"
 )
 
-type Object struct {
+type Item struct {
 	Index       uint64
 	Name        string
 	Description string
@@ -20,7 +20,7 @@ type Object struct {
 	IsPrototype bool
 }
 
-type ObjectData struct {
+type ItemData struct {
 	Index       uint64            `json:"index"`
 	Name        string            `json:"name"`
 	Description string            `json:"description"`
@@ -33,11 +33,11 @@ type ObjectData struct {
 	IsPrototype bool              `json:"is_prototype"`
 }
 
-func (k *KeyPair) LoadObject(indexKey uint64, isPrototype bool) (*Object, error) {
+func (k *KeyPair) LoadItem(indexKey uint64, isPrototype bool) (*Item, error) {
 	var objectData []byte
-	bucketName := "Objects"
+	bucketName := "Items"
 	if isPrototype {
-		bucketName = "ObjectPrototypes"
+		bucketName = "ItemPrototypes"
 	}
 
 	err := k.db.View(func(tx *bolt.Tx) error {
@@ -58,12 +58,12 @@ func (k *KeyPair) LoadObject(indexKey uint64, isPrototype bool) (*Object, error)
 		return nil, fmt.Errorf("object not found")
 	}
 
-	var od ObjectData
+	var od ItemData
 	if err := json.Unmarshal(objectData, &od); err != nil {
 		return nil, fmt.Errorf("error unmarshalling object data: %v", err)
 	}
 
-	object := &Object{
+	object := &Item{
 		Index:       od.Index,
 		Name:        od.Name,
 		Description: od.Description,
@@ -78,9 +78,9 @@ func (k *KeyPair) LoadObject(indexKey uint64, isPrototype bool) (*Object, error)
 	return object, nil
 }
 
-func (k *KeyPair) WriteObject(obj *Object) error {
-	// First, serialize the Object to JSON
-	objData := ObjectData{
+func (k *KeyPair) WriteItem(obj *Item) error {
+	// First, serialize the Items to JSON
+	objData := ItemData{
 		Index:       obj.Index,
 		Name:        obj.Name,
 		Description: obj.Description,
@@ -96,9 +96,9 @@ func (k *KeyPair) WriteObject(obj *Object) error {
 		return fmt.Errorf("error marshalling object data: %v", err)
 	}
 
-	bucketName := "Objects"
+	bucketName := "Items"
 	if obj.IsPrototype {
-		bucketName = "ObjectPrototypes"
+		bucketName = "ItemPrototypes"
 	}
 
 	// Write serialized data to the database

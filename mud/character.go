@@ -22,9 +22,9 @@ type Character struct {
 	Essence    float64
 	Health     float64
 	Room       *Room
-	Inventory  []*Object
-	RightHand  *Object
-	LeftHand   *Object
+	Inventory  []*Item
+	RightHand  *Item
+	LeftHand   *Item
 	Server     *Server
 	Mutex      sync.Mutex
 }
@@ -112,10 +112,10 @@ func (c *Character) FromData(cd *CharacterData) error {
 	}
 	c.Room = room
 
-	// Load objects from the character's inventory
-	c.Inventory = make([]*Object, len(cd.InventoryIDs))
+	// Load items from the character's inventory
+	c.Inventory = make([]*Item, len(cd.InventoryIDs))
 	for i, objIndex := range cd.InventoryIDs {
-		obj, err := c.Server.Database.LoadObject(objIndex, false)
+		obj, err := c.Server.Database.LoadItem(objIndex, false)
 		if err != nil {
 			log.Printf("Error loading object %d for character %s: %v", objIndex, c.Name, err)
 			continue
@@ -125,7 +125,7 @@ func (c *Character) FromData(cd *CharacterData) error {
 
 	// Load right hand object
 	if cd.RightHandID != 0 {
-		rightHand, err := c.Server.Database.LoadObject(cd.RightHandID, false)
+		rightHand, err := c.Server.Database.LoadItem(cd.RightHandID, false)
 		if err != nil {
 			log.Printf("Error loading right hand object %d for character %s: %v", cd.RightHandID, c.Name, err)
 		} else {
@@ -135,7 +135,7 @@ func (c *Character) FromData(cd *CharacterData) error {
 
 	// Load left hand object
 	if cd.LeftHandID != 0 {
-		leftHand, err := c.Server.Database.LoadObject(cd.LeftHandID, false)
+		leftHand, err := c.Server.Database.LoadItem(cd.LeftHandID, false)
 		if err != nil {
 			log.Printf("Error loading left hand object %d for character %s: %v", cd.LeftHandID, c.Name, err)
 		} else {
@@ -309,7 +309,7 @@ func (s *Server) NewCharacter(Name string, Player *Player, Room *Room, archetype
 		Essence:    float64(s.Essence),
 		Attributes: make(map[string]float64),
 		Abilities:  make(map[string]float64),
-		Inventory:  make([]*Object, 0),
+		Inventory:  make([]*Item, 0),
 		RightHand:  nil,
 		LeftHand:   nil,
 		Server:     s,
