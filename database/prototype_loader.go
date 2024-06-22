@@ -8,7 +8,7 @@ import (
 	bolt "go.etcd.io/bbolt"
 )
 
-type Object struct {
+type Item struct {
 	Index       uint64
 	Name        string
 	Description string
@@ -21,7 +21,7 @@ type Object struct {
 	IsPrototype bool
 }
 
-type ObjectData struct {
+type ItemData struct {
 	Index       uint64            `json:"index"`
 	Name        string            `json:"name"`
 	Description string            `json:"description"`
@@ -35,11 +35,11 @@ type ObjectData struct {
 }
 
 type PrototypesData struct {
-	ObjectPrototypes []ObjectData `json:"objectPrototypes"`
+	ItemPrototypes []ItemData `json:"itemPrototypes"`
 }
 
 func protoDisplay(prototypes *PrototypesData) {
-	for _, prototype := range prototypes.ObjectPrototypes {
+	for _, prototype := range prototypes.ItemPrototypes {
 		fmt.Println(prototype)
 	}
 }
@@ -57,7 +57,7 @@ func protoLoadJSON(fileName string) (*PrototypesData, error) {
 	}
 
 	// Iterate over the loaded prototypes and print a line for each.
-	for _, prototype := range data.ObjectPrototypes {
+	for _, prototype := range data.ItemPrototypes {
 		fmt.Printf("Loaded prototype: %s - %s\n", prototype.Name, prototype.Description)
 	}
 
@@ -77,7 +77,7 @@ func protoWriteBolt(prototypes *PrototypesData, dbPath string) error {
 			return err
 		}
 
-		for _, prototype := range prototypes.ObjectPrototypes {
+		for _, prototype := range prototypes.ItemPrototypes {
 			fmt.Println("Writing", prototype)
 			data, err := json.Marshal(prototype)
 			if err != nil {
@@ -108,12 +108,12 @@ func protoLoadBolt(dbPath string) (*PrototypesData, error) {
 		}
 
 		return bucket.ForEach(func(k, v []byte) error {
-			var prototype ObjectData
+			var prototype ItemData
 			if err := json.Unmarshal(v, &prototype); err != nil {
 				return err
 			}
 			fmt.Println("Reading", prototype)
-			prototypesData.ObjectPrototypes = append(prototypesData.ObjectPrototypes, prototype)
+			prototypesData.ItemPrototypes = append(prototypesData.ItemPrototypes, prototype)
 			return nil
 		})
 	})

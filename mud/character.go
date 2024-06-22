@@ -22,26 +22,22 @@ type Character struct {
 	Essence    float64
 	Health     float64
 	Room       *Room
-	Inventory  []*Object
-	RightHand  *Object
-	LeftHand   *Object
+	Inventory  map[string]*Item
 	Server     *Server
 	Mutex      sync.Mutex
 }
 
 // CharacterData for unmarshalling character.
 type CharacterData struct {
-	Index        uint64             `json:"index"`
-	PlayerID     string             `json:"playerID"`
-	Name         string             `json:"name"`
-	Attributes   map[string]float64 `json:"attributes"`
-	Abilities    map[string]float64 `json:"abilities"`
-	Essence      float64            `json:"essence"`
-	Health       float64            `json:"health"`
-	RoomID       int64              `json:"roomID"`
-	InventoryIDs []uint64           `json:"inventoryIDs"`
-	RightHandID  uint64             `json:"rightHandID"`
-	LeftHandID   uint64             `json:"leftHandID"`
+	Index      uint64             `json:"index"`
+	PlayerID   string             `json:"playerID"`
+	Name       string             `json:"name"`
+	Attributes map[string]float64 `json:"attributes"`
+	Abilities  map[string]float64 `json:"abilities"`
+	Essence    float64            `json:"essence"`
+	Health     float64            `json:"health"`
+	RoomID     int64              `json:"roomID"`
+	Inventory  map[string]uint64  `json:"inventory"`
 }
 
 type Archetype struct {
@@ -69,31 +65,22 @@ func AutoSaveCharacters(server *Server) {
 
 // Converts a Character to CharacterData for serialization
 func (c *Character) ToData() *CharacterData {
-	inventoryIDs := make([]uint64, len(c.Inventory))
-	for i, obj := range c.Inventory {
-		inventoryIDs[i] = obj.Index
-	}
 
-	var rightHandID, leftHandID uint64
-	if c.RightHand != nil {
-		rightHandID = c.RightHand.Index
-	}
-	if c.LeftHand != nil {
-		leftHandID = c.LeftHand.Index
+	inventoryIDs := make(map[string]uint64, len(c.Inventory))
+	for name, obj := range c.Inventory {
+		inventoryIDs[name] = obj.Index
 	}
 
 	return &CharacterData{
-		Index:        c.Index,
-		PlayerID:     c.Player.PlayerID,
-		Name:         c.Name,
-		Attributes:   c.Attributes,
-		Abilities:    c.Abilities,
-		Essence:      c.Essence,
-		Health:       c.Health,
-		RoomID:       c.Room.RoomID,
-		InventoryIDs: inventoryIDs,
-		RightHandID:  rightHandID,
-		LeftHandID:   leftHandID,
+		Index:      c.Index,
+		PlayerID:   c.Player.PlayerID,
+		Name:       c.Name,
+		Attributes: c.Attributes,
+		Abilities:  c.Abilities,
+		Essence:    c.Essence,
+		Health:     c.Health,
+		RoomID:     c.Room.RoomID,
+		Inventory:  inventoryIDs,
 	}
 }
 
@@ -108,39 +95,21 @@ func (c *Character) FromData(cd *CharacterData) error {
 	// Load the room
 	room, exists := c.Server.Rooms[cd.RoomID]
 	if !exists {
-		return fmt.Errorf("room with ID %d not found", cd.RoomID)
+		log.Printf("room with ID %d not found", cd.RoomID)
+		room = c.Server.Rooms[0]
 	}
 	c.Room = room
 
-	// Load objects from the character's inventory
-	c.Inventory = make([]*Object, len(cd.InventoryIDs))
-	for i, objIndex := range cd.InventoryIDs {
-		obj, err := c.Server.Database.LoadObject(objIndex, false)
+	// Load items from the character's inventory
+	c.Inventory = make(map[string]*Item, len(cd.Inventory))
+	for _, objIndex := range cd.Inventory {
+		obj, err := c.Server.Database.LoadItem(objIndex, false)
 		if err != nil {
 			log.Printf("Error loading object %d for character %s: %v", objIndex, c.Name, err)
 			continue
 		}
-		c.Inventory[i] = obj
-	}
-
-	// Load right hand object
-	if cd.RightHandID != 0 {
-		rightHand, err := c.Server.Database.LoadObject(cd.RightHandID, false)
-		if err != nil {
-			log.Printf("Error loading right hand object %d for character %s: %v", cd.RightHandID, c.Name, err)
-		} else {
-			c.RightHand = rightHand
-		}
-	}
-
-	// Load left hand object
-	if cd.LeftHandID != 0 {
-		leftHand, err := c.Server.Database.LoadObject(cd.LeftHandID, false)
-		if err != nil {
-			log.Printf("Error loading left hand object %d for character %s: %v", cd.LeftHandID, c.Name, err)
-		} else {
-			c.LeftHand = leftHand
-		}
+		// Use obj.Name or another unique identifier as the map key
+		c.Inventory[obj.Name] = obj
 	}
 
 	return nil
@@ -309,9 +278,7 @@ func (s *Server) NewCharacter(Name string, Player *Player, Room *Room, archetype
 		Essence:    float64(s.Essence),
 		Attributes: make(map[string]float64),
 		Abilities:  make(map[string]float64),
-		Inventory:  make([]*Object, 0),
-		RightHand:  nil,
-		LeftHand:   nil,
+		Inventory:  make(map[string]*Item),
 		Server:     s,
 	}
 
@@ -463,11 +430,11 @@ func (k *KeyPair) LoadCharacterNames() (map[string]bool, error) {
 	})
 
 	if len(names) == 0 {
-		return nil, fmt.Errorf("no characters found")
+		return names, fmt.Errorf("no characters found")
 	}
 
 	if err != nil {
-		return nil, fmt.Errorf("error reading from BoltDB: %w", err)
+		return names, fmt.Errorf("error reading from BoltDB: %w", err)
 	}
 
 	return names, nil

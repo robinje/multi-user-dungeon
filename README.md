@@ -12,7 +12,7 @@ The current implementation includes an SSH server for secure authentication and 
 - [x] Implement a database for the game.
 - [x] Implement a character creation system.
 - [x] Implement a text colorization system.
-- [ ] Define Object taxonomy.
+- [ ] Define Item taxonomy.
 - [ ] Build a direct messaging system.
 - [ ] Develop game mechanics.
 - [ ] Create a player creation system.

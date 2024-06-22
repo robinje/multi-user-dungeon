@@ -20,7 +20,7 @@ type Room struct {
 	Exits       map[string]*Exit
 	Characters  map[uint64]*Character
 	Mutex       sync.Mutex
-	Objects     []*Object
+	Items       []*Item
 }
 
 type Exit struct {
@@ -103,7 +103,7 @@ func NewRoom(RoomID int64, Area string, Title string, Description string) *Room 
 		Exits:       make(map[string]*Exit),
 		Characters:  make(map[uint64]*Character),
 		Mutex:       sync.Mutex{},
-		Objects:     make([]*Object, 0),
+		Items:       make([]*Item, 0),
 	}
 
 	log.Printf("Created room %s with ID %d", room.Title, room.RoomID)
@@ -209,9 +209,9 @@ func (r *Room) RoomInfo(character *Character) string {
 	}
 
 	// Display objects in the room
-	if len(r.Objects) > 0 {
-		roomInfo += "Objects in the room:\n\r"
-		for _, obj := range r.Objects {
+	if len(r.Items) > 0 {
+		roomInfo += "Itemss in the room:\n\r"
+		for _, obj := range r.Items {
 			roomInfo += "- " + obj.Name + "\n\r"
 		}
 	}
