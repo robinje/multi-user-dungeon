@@ -15,10 +15,9 @@ The current implementation includes an SSH server for secure authentication and 
 - [ ] Define Item taxonomy.
 - [ ] Build a direct messaging system.
 - [ ] Develop game mechanics.
-- [ ] Create a player creation system.
 - [ ] Implement a world creation system.
 - [ ] Design a quest system.
-- [ ] Construct the object system.
+- [ ] Construct the item system.
 - [ ] Develop simple Non-Player Characters (NPCs).
 - [ ] Create AI-controlled NPCs.
 - [ ] Implement a dynamic content updating system.
@@ -39,6 +38,8 @@ The current implementation includes an SSH server for secure authentication and 
 - [ ] Add the ability to delete accounts.
 - [ ] Implement an obscenity filter.
 - [ ] Validate graph of loaded rooms and exits.
+- [ ] Load item prototypes at start.
+- [ ] Create function for creating items from prototypes.
 
 ## Deployment
 
