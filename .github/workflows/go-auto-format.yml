@@ -32,7 +32,10 @@ jobs:
           cd ./mud
           go fmt ./...
           go mod tidy
-          cd ../database_loader
+          cd ../database
+          go fmt ./...
+          go mod tidy
+          cd ../database_utility
           go fmt ./...
           go mod tidy
           cd ..
