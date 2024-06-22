@@ -28,5 +28,7 @@ jobs:
           cd mud
           go vet .
           go test -v ./...
-          cd ../database_loader
+          cd ../database
+          go vet .
+          cd ../database_utility
           go vet .
