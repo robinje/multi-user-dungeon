@@ -463,11 +463,11 @@ func (k *KeyPair) LoadCharacterNames() (map[string]bool, error) {
 	})
 
 	if len(names) == 0 {
-		return nil, fmt.Errorf("no characters found")
+		return names, fmt.Errorf("no characters found")
 	}
 
 	if err != nil {
-		return nil, fmt.Errorf("error reading from BoltDB: %w", err)
+		return names, fmt.Errorf("error reading from BoltDB: %w", err)
 	}
 
 	return names, nil
