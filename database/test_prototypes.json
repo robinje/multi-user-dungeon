@@ -5,7 +5,8 @@
       "name": "Long Sword",
       "description": "A finely crafted long sword with a sharp blade, glinting in the light.",
       "mass": 4.5,
-      "wearable": false,
+      "wearable": true,
+      "worn_on": ["waist"],
       "verbs": {
         "use": "You wield the long sword, ready for battle.",
         "examine": "The sword's blade is etched with ancient runes."
@@ -15,7 +16,9 @@
       },
       "container": false,
       "contents": [],
-      "is_prototype": true
+      "is_prototype": true,
+      "is_worn": false,
+      "can_pick_up": true
     },
     {
       "index": 2,
@@ -23,6 +26,7 @@
       "description": "An ancient tome filled with arcane knowledge and mystical spells.",
       "mass": 2.0,
       "wearable": false,
+      "worn_on": [],
       "verbs": {
         "use": "You open the magic book and begin to recite a spell.",
         "examine": "The book's pages are filled with magical incantations and diagrams."
@@ -32,7 +36,9 @@
       },
       "container": false,
       "contents": [],
-      "is_prototype": true
+      "is_prototype": true,
+      "is_worn": false,
+      "can_pick_up": true
     },
     {
       "index": 3,
@@ -40,6 +46,7 @@
       "description": "A sturdy bow made of fine wood, capable of shooting arrows with great precision.",
       "mass": 3.0,
       "wearable": true,
+      "worn_on": ["back"],
       "verbs": {
         "use": "You take aim with the bow, ready to loose an arrow at your target.",
         "examine": "The wood of the bow is polished to a smooth finish, and the string is taut and strong."
@@ -49,7 +56,103 @@
       },
       "container": false,
       "contents": [],
-      "is_prototype": true
+      "is_prototype": true,
+      "is_worn": false,
+      "can_pick_up": true
+    },
+    {
+      "index": 4,
+      "name": "Leather Armor",
+      "description": "A set of well-crafted leather armor, offering decent protection without sacrificing mobility.",
+      "mass": 8.0,
+      "wearable": true,
+      "worn_on": ["chest"],
+      "verbs": {
+        "use": "You put on the leather armor, feeling its protective embrace.",
+        "examine": "The leather is thick and sturdy, with reinforced stitching at key points."
+      },
+      "overrides": {},
+      "container": false,
+      "contents": [],
+      "is_prototype": true,
+      "is_worn": false,
+      "can_pick_up": true
+    },
+    {
+      "index": 5,
+      "name": "Healing Potion",
+      "description": "A small vial containing a red, shimmering liquid that seems to glow with restorative energy.",
+      "mass": 0.5,
+      "wearable": false,
+      "worn_on": [],
+      "verbs": {
+        "use": "You drink the healing potion, feeling a warm sensation spread through your body.",
+        "examine": "The liquid inside the vial swirls with magical energy."
+      },
+      "overrides": {
+        "drink": "use"
+      },
+      "container": false,
+      "contents": [],
+      "is_prototype": true,
+      "is_worn": false,
+      "can_pick_up": true
+    },
+    {
+      "index": 6,
+      "name": "Backpack",
+      "description": "A sturdy leather backpack with multiple compartments, perfect for storing various items.",
+      "mass": 2.0,
+      "wearable": true,
+      "worn_on": ["back"],
+      "verbs": {
+        "use": "You open the backpack, ready to store or retrieve items.",
+        "examine": "The backpack is made of thick leather with reinforced straps and multiple pockets."
+      },
+      "overrides": {},
+      "container": true,
+      "contents": [],
+      "is_prototype": true,
+      "is_worn": false,
+      "can_pick_up": true
+    },
+    {
+      "index": 7,
+      "name": "Magic Ring",
+      "description": "A small, intricately carved golden ring that pulses with magical energy.",
+      "mass": 0.1,
+      "wearable": true,
+      "worn_on": ["left_finger", "right_finger"],
+      "verbs": {
+        "use": "You slip the ring onto your finger, feeling a surge of magical power.",
+        "examine": "The ring's surface is covered in tiny, glowing runes."
+      },
+      "overrides": {},
+      "container": false,
+      "contents": [],
+      "is_prototype": true,
+      "is_worn": false,
+      "can_pick_up": true
+    },
+    {
+      "index": 8,
+      "name": "Torch",
+      "description": "A wooden torch with a cloth-wrapped end, ready to be lit for illumination.",
+      "mass": 1.0,
+      "wearable": false,
+      "worn_on": [],
+      "verbs": {
+        "use": "You light the torch, casting a warm glow around you.",
+        "examine": "The torch is made of sturdy wood with a cloth-wrapped end soaked in flammable oil."
+      },
+      "overrides": {
+        "light": "use"
+      },
+      "container": false,
+      "contents": [],
+      "is_prototype": true,
+      "is_worn": false,
+      "can_pick_up": true
     }
   ]
 }

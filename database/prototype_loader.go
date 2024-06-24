@@ -14,11 +14,14 @@ type Item struct {
 	Description string
 	Mass        float64
 	Wearable    bool
+	WornOn      []string
 	Verbs       map[string]string
 	Overrides   map[string]string
 	Container   bool
 	Contents    []uint64
 	IsPrototype bool
+	IsWorn      bool
+	CanPickUp   bool
 }
 
 type ItemData struct {
@@ -27,11 +30,14 @@ type ItemData struct {
 	Description string            `json:"description"`
 	Mass        float64           `json:"mass"`
 	Wearable    bool              `json:"wearable"`
+	WornOn      []string          `json:"worn_on"`
 	Verbs       map[string]string `json:"verbs"`
 	Overrides   map[string]string `json:"overrides"`
 	Container   bool              `json:"container"`
 	Contents    []uint64          `json:"contents"`
 	IsPrototype bool              `json:"is_prototype"`
+	IsWorn      bool              `json:"is_worn"`
+	CanPickUp   bool              `json:"can_pick_up"`
 }
 
 type PrototypesData struct {
