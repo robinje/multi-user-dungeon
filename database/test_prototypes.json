@@ -111,7 +111,7 @@
       },
       "overrides": {},
       "container": true,
-      "contents": [],
+      "contents": [5, 8],
       "is_prototype": true,
       "is_worn": false,
       "can_pick_up": true

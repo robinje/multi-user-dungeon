@@ -18,7 +18,7 @@ type Item struct {
 	Verbs       map[string]string
 	Overrides   map[string]string
 	Container   bool
-	Contents    []uint64
+	Contents    []*Item
 	IsPrototype bool
 	IsWorn      bool
 	CanPickUp   bool
@@ -78,7 +78,7 @@ func protoWriteBolt(prototypes *PrototypesData, dbPath string) error {
 	defer db.Close()
 
 	return db.Update(func(tx *bolt.Tx) error {
-		bucket, err := tx.CreateBucketIfNotExists([]byte("Prototypes"))
+		bucket, err := tx.CreateBucketIfNotExists([]byte("ItemPrototypes"))
 		if err != nil {
 			return err
 		}
@@ -108,18 +108,44 @@ func protoLoadBolt(dbPath string) (*PrototypesData, error) {
 	prototypesData := &PrototypesData{}
 
 	err = db.View(func(tx *bolt.Tx) error {
-		bucket := tx.Bucket([]byte("Prototypes"))
+		bucket := tx.Bucket([]byte("ItemPrototypes"))
 		if bucket == nil {
-			return fmt.Errorf("prototypes bucket does not exist")
+			return fmt.Errorf("ItemPrototypes bucket does not exist")
 		}
 
 		return bucket.ForEach(func(k, v []byte) error {
-			var prototype ItemData
-			if err := json.Unmarshal(v, &prototype); err != nil {
+			var itemData ItemData
+			if err := json.Unmarshal(v, &itemData); err != nil {
 				return err
 			}
-			fmt.Println("Reading", prototype)
-			prototypesData.ItemPrototypes = append(prototypesData.ItemPrototypes, prototype)
+
+			item := &Item{
+				Index:       itemData.Index,
+				Name:        itemData.Name,
+				Description: itemData.Description,
+				Mass:        itemData.Mass,
+				Wearable:    itemData.Wearable,
+				WornOn:      itemData.WornOn,
+				Verbs:       itemData.Verbs,
+				Overrides:   itemData.Overrides,
+				Container:   itemData.Container,
+				IsPrototype: itemData.IsPrototype,
+				IsWorn:      itemData.IsWorn,
+				CanPickUp:   itemData.CanPickUp,
+			}
+
+			if item.Container {
+				item.Contents = make([]*Item, 0, len(itemData.Contents))
+				for _, contentIndex := range itemData.Contents {
+					// Note: This is a simplified version. You might need to implement
+					// a recursive loading mechanism for nested items.
+					contentItem := &Item{Index: contentIndex}
+					item.Contents = append(item.Contents, contentItem)
+				}
+			}
+
+			fmt.Println("Reading", item)
+			prototypesData.ItemPrototypes = append(prototypesData.ItemPrototypes, itemData)
 			return nil
 		})
 	})

@@ -3,5 +3,6 @@ go 1.21
 use (
     ./mud
     ./database
-    ./database_utility
+    ./database_viewer
+    ./database_create_item
 )

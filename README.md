@@ -40,6 +40,10 @@ The current implementation includes an SSH server for secure authentication and 
 - [ ] Validate graph of loaded rooms and exits.
 - [ ] Load item prototypes at start.
 - [ ] Create function for creating items from prototypes.
+- [x] Add take item command.
+- [ ] Add drop item command.
+- [ ] Add wear item command.
+- [ ] Add remove item command.
 
 ## Deployment
 
