@@ -576,3 +576,28 @@ func (c *Character) ListInventory() string {
 
 	return result
 }
+
+func (c *Character) findOwnedItem(name string) *Item {
+	c.Mutex.Lock()
+	defer c.Mutex.Unlock()
+
+	// Check worn items and items in hands
+	for location, item := range c.Inventory {
+		if strings.EqualFold(item.Name, name) && (item.IsWorn || location == "left_hand" || location == "right_hand") {
+			return item
+		}
+	}
+
+	// Check items in containers
+	for _, item := range c.Inventory {
+		if item.Container {
+			for _, containedItem := range item.Contents {
+				if strings.EqualFold(containedItem.Name, name) {
+					return containedItem
+				}
+			}
+		}
+	}
+
+	return nil
+}

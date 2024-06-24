@@ -21,6 +21,8 @@ var commandHandlers = map[string]CommandHandler{
 	"who":       executeWhoCommand,
 	"password":  executePasswordCommand,
 	"challenge": executeChallengeCommand,
+	"take":      executeTakeCommand, // Add the new take command
+	"get":       executeTakeCommand, // Alias for take command
 	"\"":        executeSayCommand,  // Allow for double quotes to be used as a shortcut for the say command
 	"'":         executeSayCommand,  // Allow for single quotes to be used as a shortcut for the say command
 	"q!":        executeQuitCommand, // Allow for q! to be used as a shortcut for the quit command
@@ -233,6 +235,85 @@ func executeShowCommand(character *Character, tokens []string) bool {
 	return false // Keep the command loop running
 }
 
+func executeTakeCommand(character *Character, tokens []string) bool {
+	if len(tokens) < 2 {
+		character.Player.ToPlayer <- "Usage: take <my | number position> <object>\n\r"
+		return false
+	}
+
+	// Check if hands are full
+	_, leftHandOccupied := character.Inventory["left_hand"]
+	_, rightHandOccupied := character.Inventory["right_hand"]
+	if leftHandOccupied && rightHandOccupied {
+		character.Player.ToPlayer <- "Both of your hands are full. You need a free hand to take an item.\n\r"
+		return false
+	}
+
+	var itemToTake *Item
+	var itemSource string
+	var itemPosition int
+
+	if tokens[1] == "my" {
+		itemName := strings.Join(tokens[2:], " ")
+		itemToTake = character.findOwnedItem(itemName)
+		if itemToTake != nil {
+			itemSource = "owned"
+		}
+	} else {
+		position, err := strconv.Atoi(tokens[1])
+		if err != nil {
+			character.Player.ToPlayer <- "Invalid position. Use a number or 'my'.\n\r"
+			return false
+		}
+		itemPosition = position
+		itemName := strings.Join(tokens[2:], " ")
+		itemToTake = character.Room.findItemByPosition(itemName, itemPosition)
+		if itemToTake != nil {
+			itemSource = "room"
+		}
+	}
+
+	if itemToTake == nil {
+		character.Player.ToPlayer <- "You can't find that item.\n\r"
+		return false
+	}
+
+	// Take the item
+	switch itemSource {
+	case "owned":
+		if itemToTake.IsWorn {
+			for _, location := range itemToTake.WornOn {
+				delete(character.Inventory, location)
+			}
+			itemToTake.IsWorn = false
+		} else {
+			// Remove from container if it's in one
+			for _, item := range character.Inventory {
+				if item.Container {
+					for i, containedItem := range item.Contents {
+						if containedItem == itemToTake {
+							item.Contents = append(item.Contents[:i], item.Contents[i+1:]...)
+							break
+						}
+					}
+				}
+			}
+		}
+	case "room":
+		character.Room.removeItem(itemToTake)
+	}
+
+	// Put the item in the character's hand
+	if !leftHandOccupied {
+		character.Inventory["left_hand"] = itemToTake
+	} else {
+		character.Inventory["right_hand"] = itemToTake
+	}
+
+	character.Player.ToPlayer <- fmt.Sprintf("You take %s.\n\r", itemToTake.Name)
+	return false
+}
+
 func executeHelpCommand(character *Character, tokens []string) bool {
 	helpMessage := "\n\rAvailable Commands:" +
 		"\n\rhelp - Display available commands" +
@@ -240,6 +321,7 @@ func executeHelpCommand(character *Character, tokens []string) bool {
 		"\n\rsay <message> - Say something to all players" +
 		"\n\rlook - Look around the room" +
 		"\n\rgo <direction> - Move in a direction" +
+		"\n\rtake <my | number position> <object> - Take an item from your inventory or the room" +
 		"\n\rwho - List all character online" +
 		"\n\rpassword <oldPassword> <newPassword> - Change your password" +
 		"\n\rquit - Quit the game\n\r"

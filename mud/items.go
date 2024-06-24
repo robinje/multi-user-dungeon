@@ -17,7 +17,7 @@ type Item struct {
 	Verbs       map[string]string
 	Overrides   map[string]string
 	Container   bool
-	Contents    []uint64
+	Contents    []*Item
 	IsPrototype bool
 	IsWorn      bool
 	CanPickUp   bool
@@ -106,16 +106,36 @@ func (k *KeyPair) LoadItem(indexKey uint64, isPrototype bool) (*Item, error) {
 		Verbs:       od.Verbs,
 		Overrides:   od.Overrides,
 		Container:   od.Container,
-		Contents:    od.Contents,
 		IsPrototype: od.IsPrototype,
 		IsWorn:      od.IsWorn,
 		CanPickUp:   od.CanPickUp,
+	}
+
+	// Load contents if the item is a container
+	if object.Container {
+		object.Contents = make([]*Item, 0, len(od.Contents))
+		for _, contentIndex := range od.Contents {
+			contentItem, err := k.LoadItem(contentIndex, false)
+			if err != nil {
+				return nil, fmt.Errorf("error loading content item %d: %v", contentIndex, err)
+			}
+			object.Contents = append(object.Contents, contentItem)
+		}
 	}
 
 	return object, nil
 }
 
 func (k *KeyPair) WriteItem(obj *Item) error {
+	contentIndices := make([]uint64, 0, len(obj.Contents))
+	for _, contentItem := range obj.Contents {
+		contentIndices = append(contentIndices, contentItem.Index)
+		// Recursively write contained items
+		if err := k.WriteItem(contentItem); err != nil {
+			return fmt.Errorf("error writing content item %d: %v", contentItem.Index, err)
+		}
+	}
+
 	objData := ItemData{
 		Index:       obj.Index,
 		Name:        obj.Name,
@@ -126,11 +146,12 @@ func (k *KeyPair) WriteItem(obj *Item) error {
 		Verbs:       obj.Verbs,
 		Overrides:   obj.Overrides,
 		Container:   obj.Container,
-		Contents:    obj.Contents,
+		Contents:    contentIndices,
 		IsPrototype: obj.IsPrototype,
 		IsWorn:      obj.IsWorn,
 		CanPickUp:   obj.CanPickUp,
 	}
+
 	serializedData, err := json.Marshal(objData)
 	if err != nil {
 		return fmt.Errorf("error marshalling object data: %v", err)
