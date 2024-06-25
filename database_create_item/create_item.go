@@ -17,7 +17,7 @@ type Room struct {
 	Title       string
 	Description string
 	Exits       map[string]*Exit
-	Objects     []int64 // Added to store object IDs in the room
+	Items       []int64 // Added to store object IDs in the room
 }
 
 type Exit struct {
@@ -52,6 +52,13 @@ func main() {
 	}
 	defer db.Close()
 
+	// Ensure all necessary buckets exist
+	err = initializeBuckets(db)
+	if err != nil {
+		fmt.Printf("Error initializing buckets: %v\n", err)
+		return
+	}
+
 	for {
 		rooms := loadRooms(db)
 		displayRooms(rooms)
@@ -68,6 +75,10 @@ func main() {
 		}
 
 		prototypes := loadPrototypes(db)
+		if len(prototypes) == 0 {
+			fmt.Println("No item prototypes found. Please add some prototypes first.")
+			continue
+		}
 		displayPrototypes(prototypes)
 
 		prototypeID := promptForPrototype()
@@ -81,15 +92,31 @@ func main() {
 			continue
 		}
 
-		addObjectToRoom(db, room, prototype)
+		addItemToRoom(db, room, prototype)
 		fmt.Printf("Added %s to room %d.\n", prototype.Name, room.RoomID)
 	}
+}
+
+func initializeBuckets(db *bolt.DB) error {
+	return db.Update(func(tx *bolt.Tx) error {
+		buckets := []string{"Rooms", "Items", "ItemPrototypes"}
+		for _, bucket := range buckets {
+			_, err := tx.CreateBucketIfNotExists([]byte(bucket))
+			if err != nil {
+				return fmt.Errorf("create bucket %s: %s", bucket, err)
+			}
+		}
+		return nil
+	})
 }
 
 func loadRooms(db *bolt.DB) map[int64]*Room {
 	rooms := make(map[int64]*Room)
 	db.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte("Rooms"))
+		if b == nil {
+			return nil // If the bucket doesn't exist, return an empty map
+		}
 		b.ForEach(func(k, v []byte) error {
 			var room Room
 			json.Unmarshal(v, &room)
@@ -99,6 +126,24 @@ func loadRooms(db *bolt.DB) map[int64]*Room {
 		return nil
 	})
 	return rooms
+}
+
+func loadPrototypes(db *bolt.DB) map[uint64]*Item {
+	prototypes := make(map[uint64]*Item)
+	db.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte("ItemPrototypes"))
+		if b == nil {
+			return nil // If the bucket doesn't exist, return an empty map
+		}
+		b.ForEach(func(k, v []byte) error {
+			var item Item
+			json.Unmarshal(v, &item)
+			prototypes[item.Index] = &item
+			return nil
+		})
+		return nil
+	})
+	return prototypes
 }
 
 func displayRooms(rooms map[int64]*Room) {
@@ -117,21 +162,6 @@ func promptForRoom() int64 {
 	return roomID
 }
 
-func loadPrototypes(db *bolt.DB) map[uint64]*Item {
-	prototypes := make(map[uint64]*Item)
-	db.View(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte("ItemPrototypes"))
-		b.ForEach(func(k, v []byte) error {
-			var item Item
-			json.Unmarshal(v, &item)
-			prototypes[item.Index] = &item
-			return nil
-		})
-		return nil
-	})
-	return prototypes
-}
-
 func displayPrototypes(prototypes map[uint64]*Item) {
 	fmt.Println("Available Prototypes:")
 	for _, prototype := range prototypes {
@@ -148,22 +178,40 @@ func promptForPrototype() uint64 {
 	return prototypeID
 }
 
-func addObjectToRoom(db *bolt.DB, room *Room, prototype *Item) {
-	db.Update(func(tx *bolt.Tx) error {
+func addItemToRoom(db *bolt.DB, room *Room, prototype *Item) error {
+	return db.Update(func(tx *bolt.Tx) error {
+		// Create new item from prototype
 		itemsBucket := tx.Bucket([]byte("Items"))
 		id, _ := itemsBucket.NextSequence()
 		newItem := *prototype
 		newItem.Index = uint64(id)
 		newItem.IsPrototype = false
 
-		itemData, _ := json.Marshal(newItem)
-		itemsBucket.Put([]byte(strconv.FormatUint(newItem.Index, 10)), itemData)
+		// Save new item to Items bucket
+		itemData, err := json.Marshal(newItem)
+		if err != nil {
+			return fmt.Errorf("error marshalling new item: %v", err)
+		}
+		err = itemsBucket.Put([]byte(strconv.FormatUint(newItem.Index, 10)), itemData)
+		if err != nil {
+			return fmt.Errorf("error saving new item: %v", err)
+		}
 
-		room.Objects = append(room.Objects, int64(newItem.Index))
-		roomData, _ := json.Marshal(room)
+		// Update room
+		room.Items = append(room.Items, int64(newItem.Index)) // Corrected line
+
+		// Save updated room to Rooms bucket
 		roomsBucket := tx.Bucket([]byte("Rooms"))
-		roomsBucket.Put([]byte(strconv.FormatInt(room.RoomID, 10)), roomData)
+		roomData, err := json.Marshal(room)
+		if err != nil {
+			return fmt.Errorf("error marshalling updated room: %v", err)
+		}
+		err = roomsBucket.Put([]byte(strconv.FormatInt(room.RoomID, 10)), roomData)
+		if err != nil {
+			return fmt.Errorf("error saving updated room: %v", err)
+		}
 
+		fmt.Printf("Added item %s (ID: %d) to room %d\n", newItem.Name, newItem.Index, room.RoomID)
 		return nil
 	})
 }

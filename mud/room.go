@@ -48,22 +48,46 @@ func (kp *KeyPair) LoadRooms() (map[int64]*Room, error) {
 
 		log.Printf("Using Exits bucket: %v", exitsBucket)
 
+		itemsBucket := tx.Bucket([]byte("Items"))
+		if itemsBucket == nil {
+			log.Printf("Items bucket not found, no items will be loaded")
+		} else {
+			log.Printf("Using Items bucket: %v", itemsBucket)
+		}
+
+		// Load rooms
 		err := roomsBucket.ForEach(func(k, v []byte) error {
-			var room Room
-			if err := json.Unmarshal(v, &room); err != nil {
+			var roomData struct {
+				Room
+				ItemIndices []uint64 `json:"items"`
+			}
+			if err := json.Unmarshal(v, &roomData); err != nil {
 				return fmt.Errorf("error unmarshalling room data for key %s: %w", k, err)
 			}
 
-			log.Printf("Loaded room %d: %s", room.RoomID, room.Title)
+			room := &roomData.Room
+			room.Items = make([]*Item, 0, len(roomData.ItemIndices))
+			rooms[room.RoomID] = room
 
-			rooms[room.RoomID] = &room
+			// Load items for this room
+			for _, itemIndex := range roomData.ItemIndices {
+				item, err := kp.LoadItem(itemIndex, false)
+				if err != nil {
+					log.Printf("Error loading item %d for room %d: %v", itemIndex, room.RoomID, err)
+					continue
+				}
+				room.Items = append(room.Items, item)
+			}
+
+			log.Printf("Loaded room %d: %s with %d items", room.RoomID, room.Title, len(room.Items))
 			return nil
 		})
 		if err != nil {
 			return err
 		}
 
-		return exitsBucket.ForEach(func(k, v []byte) error {
+		// Load exits
+		err = exitsBucket.ForEach(func(k, v []byte) error {
 			var exit Exit
 			if err := json.Unmarshal(v, &exit); err != nil {
 				return fmt.Errorf("error unmarshalling exit data for key %s: %w", k, err)
@@ -85,6 +109,11 @@ func (kp *KeyPair) LoadRooms() (map[int64]*Room, error) {
 			}
 			return nil
 		})
+		if err != nil {
+			return err
+		}
+
+		return nil
 	})
 
 	if err != nil {
@@ -210,7 +239,7 @@ func (r *Room) RoomInfo(character *Character) string {
 
 	// Display objects in the room
 	if len(r.Items) > 0 {
-		roomInfo += "Itemss in the room:\n\r"
+		roomInfo += "Items in the room:\n\r"
 		for _, obj := range r.Items {
 			roomInfo += "- " + obj.Name + "\n\r"
 		}
