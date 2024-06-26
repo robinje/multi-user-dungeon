@@ -44,6 +44,7 @@ The current implementation includes an SSH server for secure authentication and 
 - [ ] Add drop item command.
 - [ ] Add wear item command.
 - [ ] Add remove item command.
+- [x] Add inventory command.
 
 ## Deployment
 
