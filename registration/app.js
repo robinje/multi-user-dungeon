@@ -32,27 +32,19 @@ document.getElementById("confirmationForm").addEventListener("submit", function 
   confirmRegistration();
 });
 
-document.getElementById("passwordResetRequestForm").addEventListener("submit", function (event) {
-  event.preventDefault();
-  requestPasswordReset();
-});
-
-document.getElementById("passwordResetForm").addEventListener("submit", function (event) {
-  event.preventDefault();
-  resetPassword();
-});
-
 function registerPlayer() {
-  const username = document.getElementById("username").value;
   const email = document.getElementById("email").value;
   const password = document.getElementById("password").value;
+  const givenName = document.getElementById("givenName").value;
+  const familyName = document.getElementById("familyName").value;
 
   const attributeList = [
     new AmazonCognitoIdentity.CognitoUserAttribute({ Name: "email", Value: email }),
-    new AmazonCognitoIdentity.CognitoUserAttribute({ Name: "preferred_username", Value: username }),
+    new AmazonCognitoIdentity.CognitoUserAttribute({ Name: "given_name", Value: givenName }),
+    new AmazonCognitoIdentity.CognitoUserAttribute({ Name: "family_name", Value: familyName })
   ];
 
-  userPool.signUp(username, password, attributeList, null, (err, result) => {
+  userPool.signUp(email, password, attributeList, null, (err, result) => {
     if (err) {
       alert(err.message || JSON.stringify(err));
       return;
@@ -65,11 +57,11 @@ function registerPlayer() {
 }
 
 function confirmRegistration() {
-  const username = document.getElementById("username").value;
+  const email = document.getElementById("email").value;
   const confirmationCode = document.getElementById("confirmationCode").value;
 
   const userData = {
-    Username: username,
+    Username: email,
     Pool: userPool,
   };
 
@@ -85,43 +77,28 @@ function confirmRegistration() {
   });
 }
 
-function requestPasswordReset() {
-  const username = document.getElementById("resetUsername").value;
-  const userData = {
-    Username: username,
-    Pool: userPool,
-  };
+// Add password validation function
+function validatePassword(password) {
+  const minLength = 8;
+  const hasLowerCase = /[a-z]/.test(password);
+  const hasUpperCase = /[A-Z]/.test(password);
+  const hasNumber = /\d/.test(password);
+  const hasSymbol = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
 
-  const cognitoUser = new AmazonCognitoIdentity.CognitoUser(userData);
-  cognitoUser.forgotPassword({
-    onSuccess: function () {
-      console.log("Password reset request successful");
-      document.getElementById("passwordResetForm").style.display = "block";
-    },
-    onFailure: function (err) {
-      alert(err.message || JSON.stringify(err));
-    },
-  });
+  return password.length >= minLength && hasLowerCase && hasUpperCase && hasNumber && hasSymbol;
 }
 
-function resetPassword() {
-  const username = document.getElementById("resetUsername").value;
-  const verificationCode = document.getElementById("verificationCode").value;
-  const newPassword = document.getElementById("newPassword").value;
-
-  const userData = {
-    Username: username,
-    Pool: userPool,
-  };
-
-  const cognitoUser = new AmazonCognitoIdentity.CognitoUser(userData);
-  cognitoUser.confirmPassword(verificationCode, newPassword, {
-    onSuccess() {
-      console.log("Password reset successful");
-      alert("Password reset successful. You can now log in with your new password.");
-    },
-    onFailure(err) {
-      alert(err.message || JSON.stringify(err));
-    },
-  });
-}
+// Add event listener for password input
+document.getElementById("password").addEventListener("input", function (event) {
+  const password = event.target.value;
+  const isValid = validatePassword(password);
+  
+  const feedbackElement = document.getElementById("passwordFeedback");
+  if (isValid) {
+    feedbackElement.textContent = "Password meets requirements";
+    feedbackElement.style.color = "green";
+  } else {
+    feedbackElement.textContent = "Password must be at least 8 characters long and include lowercase, uppercase, number, and symbol";
+    feedbackElement.style.color = "red";
+  }
+});
