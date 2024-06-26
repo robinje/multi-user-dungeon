@@ -22,7 +22,7 @@ type Character struct {
 	Essence    float64
 	Health     float64
 	Room       *Room
-	Inventory  map[string]*Item
+	Inventory  map[string]*Item // Key is item name for held items, or locations for worn items
 	Server     *Server
 	Mutex      sync.Mutex
 }
@@ -485,3 +485,119 @@ func LoadArchetypes(db *bolt.DB) (*ArchetypesData, error) {
 
 	return archetypesData, nil
 }
+
+// WearItem moves an item from held inventory to a worn position
+func (c *Character) WearItem(item *Item) error {
+	c.Mutex.Lock()
+	defer c.Mutex.Unlock()
+
+	if !item.Wearable {
+		return fmt.Errorf("this item cannot be worn")
+	}
+
+	// Validate that all wear locations for the item are valid
+	for _, location := range item.WornOn {
+		if !WearLocationSet[location] {
+			return fmt.Errorf("invalid wear location: %s", location)
+		}
+	}
+
+	// Check if any of the required locations are already occupied
+	for _, location := range item.WornOn {
+		if _, exists := c.Inventory[location]; exists {
+			return fmt.Errorf("you are already wearing something on your %s", location)
+		}
+	}
+
+	// Remove from held inventory
+	delete(c.Inventory, item.Name)
+
+	// Add to worn inventory for each location
+	for _, location := range item.WornOn {
+		c.Inventory[location] = item
+	}
+
+	item.IsWorn = true
+
+	return nil
+}
+
+// RemoveWornItem removes a worn item and puts it back in held inventory
+func (c *Character) RemoveWornItem(location string) (*Item, error) {
+	c.Mutex.Lock()
+	defer c.Mutex.Unlock()
+
+	item, exists := c.Inventory[location]
+	if !exists {
+		return nil, fmt.Errorf("you are not wearing anything on your %s", location)
+	}
+
+	// Remove from all worn locations
+	for _, loc := range item.WornOn {
+		delete(c.Inventory, loc)
+	}
+
+	// Add back to held inventory
+	c.Inventory[item.Name] = item
+	item.IsWorn = false
+
+	return item, nil
+}
+
+// ListInventory returns a string representation of the character's inventory
+func (c *Character) ListInventory() string {
+	c.Mutex.Lock()
+	defer c.Mutex.Unlock()
+
+	var held, worn []string
+	wornItems := make(map[string]bool) // To avoid duplicates in worn items list
+
+	for _, item := range c.Inventory {
+		if item.IsWorn {
+			if !wornItems[item.Name] {
+				worn = append(worn, fmt.Sprintf("%s (worn on %s)", item.Name, strings.Join(item.WornOn, ", ")))
+				wornItems[item.Name] = true
+			}
+		} else {
+			held = append(held, item.Name)
+		}
+	}
+
+	result := "Inventory:\n\r"
+	if len(held) > 0 {
+		result += "Held items: " + strings.Join(held, ", ") + "\n\r"
+	}
+	if len(worn) > 0 {
+		result += "Worn items: " + strings.Join(worn, ", ") + "\n\r"
+	}
+	if len(held) == 0 && len(worn) == 0 {
+		result += "Your inventory is empty.\n\r"
+	}
+
+	return result
+}
+
+// func (c *Character) findOwnedItem(name string) *Item {
+// 	c.Mutex.Lock()
+// 	defer c.Mutex.Unlock()
+
+// 	// Check worn items and items in hands
+// 	for location, item := range c.Inventory {
+// 		if strings.EqualFold(item.Name, name) && (item.IsWorn || location == "left_hand" || location == "right_hand") {
+// 			return item
+// 		}
+// 	}
+
+// 	// Check items in containers
+// 	for _, item := range c.Inventory {
+// 		if item.Container {
+// 			for _, containedItem := range item.Contents {
+// 				if strings.EqualFold(containedItem.Name, name) {
+// 					return containedItem
+// 				}
+// 			}
+// 		}
+// 	}
+
+// 	return nil
+// }

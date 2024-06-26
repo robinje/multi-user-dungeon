@@ -1,4 +1,4 @@
-module github.com/robinje/multi-user-dungeon/database_utlity
+module github.com/robinje/multi-user-dungeon/database_create_item
 
 go 1.21
 

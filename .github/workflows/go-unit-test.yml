@@ -30,5 +30,7 @@ jobs:
           go test -v ./...
           cd ../database
           go vet .
-          cd ../database_utility
+          cd ../database_viewer
+          go vet .
+          cd ../database_create_item
           go vet .

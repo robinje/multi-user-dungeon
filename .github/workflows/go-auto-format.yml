@@ -35,7 +35,10 @@ jobs:
           cd ../database
           go fmt ./...
           go mod tidy
-          cd ../database_utility
+          cd ../database_viewer
+          go fmt ./...
+          go mod tidy
+          cd ../database_create_item
           go fmt ./...
           go mod tidy
           cd ..

@@ -21,9 +21,14 @@ var commandHandlers = map[string]CommandHandler{
 	"who":       executeWhoCommand,
 	"password":  executePasswordCommand,
 	"challenge": executeChallengeCommand,
-	"\"":        executeSayCommand,  // Allow for double quotes to be used as a shortcut for the say command
-	"'":         executeSayCommand,  // Allow for single quotes to be used as a shortcut for the say command
-	"q!":        executeQuitCommand, // Allow for q! to be used as a shortcut for the quit command
+	"take":      executeTakeCommand, // Add the new take command
+	"get":       executeTakeCommand, // Alias for take command
+	"inventory": executeInventoryCommand,
+	"i":         executeInventoryCommand, // Alias for inventory command
+	"inv":       executeInventoryCommand, // Alias for inventory command
+	"\"":        executeSayCommand,       // Allow for double quotes to be used as a shortcut for the say command
+	"'":         executeSayCommand,       // Allow for single quotes to be used as a shortcut for the say command
+	"q!":        executeQuitCommand,      // Allow for q! to be used as a shortcut for the quit command
 }
 
 func validateCommand(command string, commandHandlers map[string]CommandHandler) (string, []string, error) {
@@ -233,6 +238,67 @@ func executeShowCommand(character *Character, tokens []string) bool {
 	return false // Keep the command loop running
 }
 
+func executeTakeCommand(character *Character, tokens []string) bool {
+	if len(tokens) < 2 {
+		character.Player.ToPlayer <- "Usage: take <item name>\n\r"
+		return false
+	}
+
+	// Check if hands are full
+	_, leftHandOccupied := character.Inventory["left_hand"]
+	_, rightHandOccupied := character.Inventory["right_hand"]
+	if leftHandOccupied && rightHandOccupied {
+		character.Player.ToPlayer <- "Both of your hands are full. You need a free hand to take an item.\n\r"
+		return false
+	}
+
+	// Join all tokens after "take" to form the item name
+	itemName := strings.Join(tokens[1:], " ")
+
+	// Remove words like "the", "a", "an", "first", "second", etc. from the item name
+	itemName = strings.ToLower(itemName)
+	itemName = strings.TrimPrefix(itemName, "the ")
+	itemName = strings.TrimPrefix(itemName, "a ")
+	itemName = strings.TrimPrefix(itemName, "an ")
+	itemName = strings.TrimPrefix(itemName, "first ")
+	itemName = strings.TrimPrefix(itemName, "second ")
+	// Add more prefixes as needed
+
+	var itemToTake *Item
+
+	// Search for the item in the room
+	for _, item := range character.Room.Items {
+		if strings.Contains(strings.ToLower(item.Name), itemName) {
+			itemToTake = item
+			break
+		}
+	}
+
+	if itemToTake == nil {
+		character.Player.ToPlayer <- "You can't find that item.\n\r"
+		return false
+	}
+
+	// Remove the item from the room
+	character.Room.removeItem(itemToTake)
+
+	// Put the item in the character's hand
+	if !leftHandOccupied {
+		character.Inventory["left_hand"] = itemToTake
+	} else {
+		character.Inventory["right_hand"] = itemToTake
+	}
+
+	character.Player.ToPlayer <- fmt.Sprintf("\n\rYou take %s.\n\r", itemToTake.Name)
+	return false
+}
+
+func executeInventoryCommand(character *Character, tokens []string) bool {
+	inventoryList := character.ListInventory()
+	character.Player.ToPlayer <- inventoryList
+	return false
+}
+
 func executeHelpCommand(character *Character, tokens []string) bool {
 	helpMessage := "\n\rAvailable Commands:" +
 		"\n\rhelp - Display available commands" +
@@ -240,6 +306,8 @@ func executeHelpCommand(character *Character, tokens []string) bool {
 		"\n\rsay <message> - Say something to all players" +
 		"\n\rlook - Look around the room" +
 		"\n\rgo <direction> - Move in a direction" +
+		"\n\rtake <my | number position> <object> - Take an item from your inventory or the room" +
+		"\n\rinventory (or i) - Check your inventory" +
 		"\n\rwho - List all character online" +
 		"\n\rpassword <oldPassword> <newPassword> - Change your password" +
 		"\n\rquit - Quit the game\n\r"

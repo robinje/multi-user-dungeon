@@ -20,6 +20,7 @@ type Room struct {
 	Exits       map[string]*Exit
 	Characters  map[uint64]*Character
 	Mutex       sync.Mutex
+	ItemIDs     []uint64
 	Items       []*Item
 }
 
@@ -38,32 +39,66 @@ func (kp *KeyPair) LoadRooms() (map[int64]*Room, error) {
 		if roomsBucket == nil {
 			return fmt.Errorf("rooms bucket not found")
 		}
-
 		log.Printf("Using Rooms bucket: %v", roomsBucket)
 
 		exitsBucket := tx.Bucket([]byte("Exits"))
 		if exitsBucket == nil {
 			return fmt.Errorf("exits bucket not found")
 		}
-
 		log.Printf("Using Exits bucket: %v", exitsBucket)
 
+		itemsBucket := tx.Bucket([]byte("Items"))
+		if itemsBucket == nil {
+			log.Printf("Items bucket not found, no items will be loaded")
+		} else {
+			log.Printf("Using Items bucket: %v", itemsBucket)
+		}
+
+		// Load rooms
 		err := roomsBucket.ForEach(func(k, v []byte) error {
-			var room Room
-			if err := json.Unmarshal(v, &room); err != nil {
+			var roomData struct {
+				RoomID      int64            `json:"RoomID"`
+				Area        string           `json:"Area"`
+				Title       string           `json:"Title"`
+				Description string           `json:"Description"`
+				Exits       map[string]*Exit `json:"Exits"`
+				ItemIDs     []uint64         `json:"Items"`
+			}
+			if err := json.Unmarshal(v, &roomData); err != nil {
 				return fmt.Errorf("error unmarshalling room data for key %s: %w", k, err)
 			}
 
-			log.Printf("Loaded room %d: %s", room.RoomID, room.Title)
+			room := &Room{
+				RoomID:      roomData.RoomID,
+				Area:        roomData.Area,
+				Title:       roomData.Title,
+				Description: roomData.Description,
+				Exits:       roomData.Exits,
+				Characters:  make(map[uint64]*Character),
+				Mutex:       sync.Mutex{},
+				Items:       make([]*Item, 0, len(roomData.ItemIDs)),
+			}
+			rooms[room.RoomID] = room
 
-			rooms[room.RoomID] = &room
+			// Load items for this room
+			for _, itemID := range roomData.ItemIDs {
+				item, err := kp.LoadItem(itemID, false)
+				if err != nil {
+					log.Printf("Error loading item %d for room %d: %v", itemID, room.RoomID, err)
+					continue
+				}
+				room.Items = append(room.Items, item)
+			}
+
+			log.Printf("Loaded room %d: %s with %d items", room.RoomID, room.Title, len(room.Items))
 			return nil
 		})
 		if err != nil {
 			return err
 		}
 
-		return exitsBucket.ForEach(func(k, v []byte) error {
+		// Load exits
+		err = exitsBucket.ForEach(func(k, v []byte) error {
 			var exit Exit
 			if err := json.Unmarshal(v, &exit); err != nil {
 				return fmt.Errorf("error unmarshalling exit data for key %s: %w", k, err)
@@ -85,6 +120,11 @@ func (kp *KeyPair) LoadRooms() (map[int64]*Room, error) {
 			}
 			return nil
 		})
+		if err != nil {
+			return err
+		}
+
+		return nil
 	})
 
 	if err != nil {
@@ -210,11 +250,33 @@ func (r *Room) RoomInfo(character *Character) string {
 
 	// Display objects in the room
 	if len(r.Items) > 0 {
-		roomInfo += "Itemss in the room:\n\r"
+		roomInfo += "Items in the room:\n\r"
 		for _, obj := range r.Items {
 			roomInfo += "- " + obj.Name + "\n\r"
 		}
 	}
 
 	return roomInfo + displayExits.String()
+}
+
+// func (r *Room) findItemByPosition(name string, position int) *Item {
+// 	count := 0
+// 	for _, item := range r.Items {
+// 		if strings.EqualFold(item.Name, name) {
+// 			count++
+// 			if count == position {
+// 				return item
+// 			}
+// 		}
+// 	}
+// 	return nil
+// }
+
+func (r *Room) removeItem(item *Item) {
+	for i, roomItem := range r.Items {
+		if roomItem == item {
+			r.Items = append(r.Items[:i], r.Items[i+1:]...)
+			return
+		}
+	}
 }
