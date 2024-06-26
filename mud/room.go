@@ -20,6 +20,7 @@ type Room struct {
 	Exits       map[string]*Exit
 	Characters  map[uint64]*Character
 	Mutex       sync.Mutex
+	ItemIDs     []uint64
 	Items       []*Item
 }
 
@@ -38,14 +39,12 @@ func (kp *KeyPair) LoadRooms() (map[int64]*Room, error) {
 		if roomsBucket == nil {
 			return fmt.Errorf("rooms bucket not found")
 		}
-
 		log.Printf("Using Rooms bucket: %v", roomsBucket)
 
 		exitsBucket := tx.Bucket([]byte("Exits"))
 		if exitsBucket == nil {
 			return fmt.Errorf("exits bucket not found")
 		}
-
 		log.Printf("Using Exits bucket: %v", exitsBucket)
 
 		itemsBucket := tx.Bucket([]byte("Items"))
@@ -58,22 +57,34 @@ func (kp *KeyPair) LoadRooms() (map[int64]*Room, error) {
 		// Load rooms
 		err := roomsBucket.ForEach(func(k, v []byte) error {
 			var roomData struct {
-				Room
-				ItemIndices []uint64 `json:"items"`
+				RoomID      int64            `json:"RoomID"`
+				Area        string           `json:"Area"`
+				Title       string           `json:"Title"`
+				Description string           `json:"Description"`
+				Exits       map[string]*Exit `json:"Exits"`
+				ItemIDs     []uint64         `json:"Items"`
 			}
 			if err := json.Unmarshal(v, &roomData); err != nil {
 				return fmt.Errorf("error unmarshalling room data for key %s: %w", k, err)
 			}
 
-			room := &roomData.Room
-			room.Items = make([]*Item, 0, len(roomData.ItemIndices))
+			room := &Room{
+				RoomID:      roomData.RoomID,
+				Area:        roomData.Area,
+				Title:       roomData.Title,
+				Description: roomData.Description,
+				Exits:       roomData.Exits,
+				Characters:  make(map[uint64]*Character),
+				Mutex:       sync.Mutex{},
+				Items:       make([]*Item, 0, len(roomData.ItemIDs)),
+			}
 			rooms[room.RoomID] = room
 
 			// Load items for this room
-			for _, itemIndex := range roomData.ItemIndices {
-				item, err := kp.LoadItem(itemIndex, false)
+			for _, itemID := range roomData.ItemIDs {
+				item, err := kp.LoadItem(itemID, false)
 				if err != nil {
-					log.Printf("Error loading item %d for room %d: %v", itemIndex, room.RoomID, err)
+					log.Printf("Error loading item %d for room %d: %v", itemID, room.RoomID, err)
 					continue
 				}
 				room.Items = append(room.Items, item)
@@ -248,18 +259,18 @@ func (r *Room) RoomInfo(character *Character) string {
 	return roomInfo + displayExits.String()
 }
 
-func (r *Room) findItemByPosition(name string, position int) *Item {
-	count := 0
-	for _, item := range r.Items {
-		if strings.EqualFold(item.Name, name) {
-			count++
-			if count == position {
-				return item
-			}
-		}
-	}
-	return nil
-}
+// func (r *Room) findItemByPosition(name string, position int) *Item {
+// 	count := 0
+// 	for _, item := range r.Items {
+// 		if strings.EqualFold(item.Name, name) {
+// 			count++
+// 			if count == position {
+// 				return item
+// 			}
+// 		}
+// 	}
+// 	return nil
+// }
 
 func (r *Room) removeItem(item *Item) {
 	for i, roomItem := range r.Items {

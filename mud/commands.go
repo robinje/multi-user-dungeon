@@ -237,7 +237,7 @@ func executeShowCommand(character *Character, tokens []string) bool {
 
 func executeTakeCommand(character *Character, tokens []string) bool {
 	if len(tokens) < 2 {
-		character.Player.ToPlayer <- "Usage: take <my | number position> <object>\n\r"
+		character.Player.ToPlayer <- "Usage: take <item name>\n\r"
 		return false
 	}
 
@@ -249,27 +249,25 @@ func executeTakeCommand(character *Character, tokens []string) bool {
 		return false
 	}
 
-	var itemToTake *Item
-	var itemSource string
-	var itemPosition int
+	// Join all tokens after "take" to form the item name
+	itemName := strings.Join(tokens[1:], " ")
 
-	if tokens[1] == "my" {
-		itemName := strings.Join(tokens[2:], " ")
-		itemToTake = character.findOwnedItem(itemName)
-		if itemToTake != nil {
-			itemSource = "owned"
-		}
-	} else {
-		position, err := strconv.Atoi(tokens[1])
-		if err != nil {
-			character.Player.ToPlayer <- "Invalid position. Use a number or 'my'.\n\r"
-			return false
-		}
-		itemPosition = position
-		itemName := strings.Join(tokens[2:], " ")
-		itemToTake = character.Room.findItemByPosition(itemName, itemPosition)
-		if itemToTake != nil {
-			itemSource = "room"
+	// Remove words like "the", "a", "an", "first", "second", etc. from the item name
+	itemName = strings.ToLower(itemName)
+	itemName = strings.TrimPrefix(itemName, "the ")
+	itemName = strings.TrimPrefix(itemName, "a ")
+	itemName = strings.TrimPrefix(itemName, "an ")
+	itemName = strings.TrimPrefix(itemName, "first ")
+	itemName = strings.TrimPrefix(itemName, "second ")
+	// Add more prefixes as needed
+
+	var itemToTake *Item
+
+	// Search for the item in the room
+	for _, item := range character.Room.Items {
+		if strings.Contains(strings.ToLower(item.Name), itemName) {
+			itemToTake = item
+			break
 		}
 	}
 
@@ -278,30 +276,8 @@ func executeTakeCommand(character *Character, tokens []string) bool {
 		return false
 	}
 
-	// Take the item
-	switch itemSource {
-	case "owned":
-		if itemToTake.IsWorn {
-			for _, location := range itemToTake.WornOn {
-				delete(character.Inventory, location)
-			}
-			itemToTake.IsWorn = false
-		} else {
-			// Remove from container if it's in one
-			for _, item := range character.Inventory {
-				if item.Container {
-					for i, containedItem := range item.Contents {
-						if containedItem == itemToTake {
-							item.Contents = append(item.Contents[:i], item.Contents[i+1:]...)
-							break
-						}
-					}
-				}
-			}
-		}
-	case "room":
-		character.Room.removeItem(itemToTake)
-	}
+	// Remove the item from the room
+	character.Room.removeItem(itemToTake)
 
 	// Put the item in the character's hand
 	if !leftHandOccupied {
@@ -310,7 +286,7 @@ func executeTakeCommand(character *Character, tokens []string) bool {
 		character.Inventory["right_hand"] = itemToTake
 	}
 
-	character.Player.ToPlayer <- fmt.Sprintf("You take %s.\n\r", itemToTake.Name)
+	character.Player.ToPlayer <- fmt.Sprintf("\n\rYou take %s.\n\r", itemToTake.Name)
 	return false
 }
 

@@ -28,19 +28,19 @@ type Exit struct {
 }
 
 type Item struct {
-	Index       uint64
-	Name        string
-	Description string
-	Mass        float64
-	Wearable    bool
-	WornOn      []string
-	Verbs       map[string]string
-	Overrides   map[string]string
-	Container   bool
-	Contents    []*Item
-	IsPrototype bool
-	IsWorn      bool
-	CanPickUp   bool
+	Index       uint64            `json:"index"`
+	Name        string            `json:"name"`
+	Description string            `json:"description"`
+	Mass        float64           `json:"mass"`
+	Wearable    bool              `json:"wearable"`
+	WornOn      []string          `json:"worn_on"`
+	Verbs       map[string]string `json:"verbs"`
+	Overrides   map[string]string `json:"overrides"`
+	Container   bool              `json:"container"`
+	Contents    []*Item           `json:"contents,omitempty"`
+	IsPrototype bool              `json:"is_prototype"`
+	IsWorn      bool              `json:"is_worn"`
+	CanPickUp   bool              `json:"can_pick_up"`
 }
 
 func main() {
@@ -180,12 +180,47 @@ func promptForPrototype() uint64 {
 
 func addItemToRoom(db *bolt.DB, room *Room, prototype *Item) error {
 	return db.Update(func(tx *bolt.Tx) error {
-		// Create new item from prototype
-		itemsBucket := tx.Bucket([]byte("Items"))
-		id, _ := itemsBucket.NextSequence()
-		newItem := *prototype
-		newItem.Index = uint64(id)
-		newItem.IsPrototype = false
+		itemsBucket, err := tx.CreateBucketIfNotExists([]byte("Items"))
+		if err != nil {
+			return fmt.Errorf("failed to create items bucket: %v", err)
+		}
+
+		id, err := itemsBucket.NextSequence()
+		if err != nil {
+			return fmt.Errorf("failed to generate new item ID: %v", err)
+		}
+
+		// Create a deep copy of the prototype
+		newItem := &Item{
+			Index:       uint64(id),
+			Name:        prototype.Name,
+			Description: prototype.Description,
+			Mass:        prototype.Mass,
+			Wearable:    prototype.Wearable,
+			WornOn:      make([]string, len(prototype.WornOn)),
+			Verbs:       make(map[string]string),
+			Overrides:   make(map[string]string),
+			Container:   prototype.Container,
+			IsPrototype: false,
+			IsWorn:      false,
+			CanPickUp:   prototype.CanPickUp,
+			Contents:    make([]*Item, 0), // Initialize this for all items, not just containers
+		}
+
+		// Deep copy slices and maps
+		copy(newItem.WornOn, prototype.WornOn)
+		for k, v := range prototype.Verbs {
+			newItem.Verbs[k] = v
+		}
+		for k, v := range prototype.Overrides {
+			newItem.Overrides[k] = v // Corrected attribute name
+		}
+
+		if newItem.Container {
+			newItem.Contents = make([]*Item, 0)
+			// If the prototype has contents, you might want to create copies of those items as well
+			// This would require recursive item creation for each content item
+		}
 
 		// Save new item to Items bucket
 		itemData, err := json.Marshal(newItem)
@@ -198,10 +233,13 @@ func addItemToRoom(db *bolt.DB, room *Room, prototype *Item) error {
 		}
 
 		// Update room
-		room.Items = append(room.Items, int64(newItem.Index)) // Corrected line
+		room.Items = append(room.Items, int64(newItem.Index))
 
 		// Save updated room to Rooms bucket
 		roomsBucket := tx.Bucket([]byte("Rooms"))
+		if roomsBucket == nil {
+			return fmt.Errorf("rooms bucket not found")
+		}
 		roomData, err := json.Marshal(room)
 		if err != nil {
 			return fmt.Errorf("error marshalling updated room: %v", err)
