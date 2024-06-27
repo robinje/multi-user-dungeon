@@ -1,7 +1,7 @@
 {
-  "name": "registration-application",
+  "name": "player-registration-application",
   "version": "0.1.0",
-  "description": "A simple registration and password reset application using AWS Cognito",
+  "description": "A player registration and password reset application using AWS Cognito",
   "main": "app.js",
   "scripts": {
     "start": "node app.js",

@@ -1,87 +1,104 @@
 import * as AmazonCognitoIdentity from "amazon-cognito-identity-js";
 
-document.getElementById("registrationForm").addEventListener("submit", function (event) {
-  event.preventDefault();
-  registerUser();
-});
+let config;
 
-document.getElementById("passwordResetRequestForm").addEventListener("submit", function (event) {
-  event.preventDefault();
-  requestPasswordReset();
-});
+// Load the configuration file
+fetch('../mud/config.json')
+  .then(response => response.json())
+  .then(data => {
+    config = data;
+    initializeCognito();
+  })
+  .catch(error => console.error('Error loading config:', error));
 
-document.getElementById("passwordResetForm").addEventListener("submit", function (event) {
-  event.preventDefault();
-  resetPassword();
-});
+let userPool;
 
-var poolData = {
-  UserPoolId: "YOUR_COGNITO_USER_POOL_ID",
-  ClientId: "YOUR_COGNITO_CLIENT_ID",
-};
-
-var userPool = new AmazonCognitoIdentity.CognitoUserPool(poolData);
-
-function registerUser() {
-  var email = document.getElementById("email").value;
-  var password = document.getElementById("password").value;
-
-  var attributeList = [];
-
-  var dataEmail = {
-    Name: "email",
-    Value: email,
+function initializeCognito() {
+  const poolData = {
+    UserPoolId: config.UserPoolId,
+    ClientId: config.UserPoolClientId,
   };
 
-  var attributeEmail = new AmazonCognitoIdentity.CognitoUserAttribute(dataEmail);
-  attributeList.push(attributeEmail);
+  userPool = new AmazonCognitoIdentity.CognitoUserPool(poolData);
+}
 
-  userPool.signUp(email, password, attributeList, null, function (err, result) {
+document.getElementById("registrationForm").addEventListener("submit", function (event) {
+  event.preventDefault();
+  registerPlayer();
+});
+
+document.getElementById("confirmationForm").addEventListener("submit", function (event) {
+  event.preventDefault();
+  confirmRegistration();
+});
+
+function registerPlayer() {
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
+  const givenName = document.getElementById("givenName").value;
+  const familyName = document.getElementById("familyName").value;
+
+  const attributeList = [
+    new AmazonCognitoIdentity.CognitoUserAttribute({ Name: "email", Value: email }),
+    new AmazonCognitoIdentity.CognitoUserAttribute({ Name: "given_name", Value: givenName }),
+    new AmazonCognitoIdentity.CognitoUserAttribute({ Name: "family_name", Value: familyName })
+  ];
+
+  userPool.signUp(email, password, attributeList, null, (err, result) => {
     if (err) {
       alert(err.message || JSON.stringify(err));
       return;
     }
-    var cognitoUser = result.user;
-    console.log("User registration successful: " + cognitoUser.getUsername());
+    const cognitoUser = result.user;
+    console.log("Player registration successful. Username: " + cognitoUser.getUsername());
+    document.getElementById("confirmationForm").style.display = "block";
+    document.getElementById("registrationForm").style.display = "none";
   });
 }
 
-function requestPasswordReset() {
-  var email = document.getElementById("resetEmail").value;
-  var userData = {
+function confirmRegistration() {
+  const email = document.getElementById("email").value;
+  const confirmationCode = document.getElementById("confirmationCode").value;
+
+  const userData = {
     Username: email,
     Pool: userPool,
   };
 
-  var cognitoUser = new AmazonCognitoIdentity.CognitoUser(userData);
-  cognitoUser.forgotPassword({
-    onSuccess: function () {
-      console.log("Password reset request successful");
-      document.getElementById("passwordResetForm").style.display = "block";
-    },
-    onFailure: function (err) {
+  const cognitoUser = new AmazonCognitoIdentity.CognitoUser(userData);
+
+  cognitoUser.confirmRegistration(confirmationCode, true, (err, result) => {
+    if (err) {
       alert(err.message || JSON.stringify(err));
-    },
+      return;
+    }
+    console.log("Registration confirmed. Result: " + result);
+    alert("Registration confirmed successfully. You can now log in.");
   });
 }
 
-function resetPassword() {
-  var email = document.getElementById("resetEmail").value;
-  var verificationCode = document.getElementById("verificationCode").value;
-  var newPassword = document.getElementById("newPassword").value;
+// Add password validation function
+function validatePassword(password) {
+  const minLength = 8;
+  const hasLowerCase = /[a-z]/.test(password);
+  const hasUpperCase = /[A-Z]/.test(password);
+  const hasNumber = /\d/.test(password);
+  const hasSymbol = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
 
-  var userData = {
-    Username: email,
-    Pool: userPool,
-  };
-
-  var cognitoUser = new AmazonCognitoIdentity.CognitoUser(userData);
-  cognitoUser.confirmPassword(verificationCode, newPassword, {
-    onSuccess() {
-      console.log("Password reset successful");
-    },
-    onFailure(err) {
-      alert(err.message || JSON.stringify(err));
-    },
-  });
+  return password.length >= minLength && hasLowerCase && hasUpperCase && hasNumber && hasSymbol;
 }
+
+// Add event listener for password input
+document.getElementById("password").addEventListener("input", function (event) {
+  const password = event.target.value;
+  const isValid = validatePassword(password);
+  
+  const feedbackElement = document.getElementById("passwordFeedback");
+  if (isValid) {
+    feedbackElement.textContent = "Password meets requirements";
+    feedbackElement.style.color = "green";
+  } else {
+    feedbackElement.textContent = "Password must be at least 8 characters long and include lowercase, uppercase, number, and symbol";
+    feedbackElement.style.color = "red";
+  }
+});

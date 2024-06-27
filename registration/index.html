@@ -1,31 +1,30 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>User Registration and Password Reset</title>
+    <title>Player Registration and Confirmation</title>
+    <link rel="stylesheet" href="styles.css">
   </head>
   <body>
-    <h2>User Registration</h2>
+    <h2>Player Registration</h2>
     <form id="registrationForm">
-      <input type="text" id="email" placeholder="Email" required /><br />
-      <input type="password" id="password" placeholder="Password" required /><br />
+      <input type="email" id="email" placeholder="Email" required />
+      <input type="text" id="givenName" placeholder="First Name" />
+      <input type="text" id="familyName" placeholder="Last Name" />
+      <input type="password" id="password" placeholder="Password" required />
+      <div id="passwordFeedback"></div>
       <button type="submit">Register</button>
     </form>
 
-    <h2>Password Reset</h2>
-    <form id="passwordResetRequestForm">
-      <input type="text" id="resetEmail" placeholder="Email" required /><br />
-      <button type="submit">Request Password Reset</button>
-    </form>
-
-    <form id="passwordResetForm" style="display: none">
-      <input type="text" id="verificationCode" placeholder="Verification Code" required /><br />
-      <input type="password" id="newPassword" placeholder="New Password" required /><br />
-      <button type="submit">Reset Password</button>
+    <form id="confirmationForm" style="display: none">
+      <h2>Confirm Registration</h2>
+      <p>Please check your email for the confirmation code.</p>
+      <input type="text" id="confirmationCode" placeholder="Confirmation Code" required />
+      <button type="submit">Confirm Registration</button>
     </form>
 
     <script src="https://sdk.amazonaws.com/js/aws-sdk-2.283.1.min.js"></script>
-    <script src="app.js"></script>
+    <script src="app.js" type="module"></script>
   </body>
 </html>
