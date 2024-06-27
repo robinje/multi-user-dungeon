@@ -563,7 +563,7 @@ func (c *Character) ListInventory() string {
 		}
 	}
 
-	result := "Inventory:\n\r"
+	result := "\n\rInventory:\n\r"
 	if len(held) > 0 {
 		result += "Held items: " + strings.Join(held, ", ") + "\n\r"
 	}

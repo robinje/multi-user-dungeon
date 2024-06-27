@@ -240,7 +240,7 @@ func executeShowCommand(character *Character, tokens []string) bool {
 
 func executeTakeCommand(character *Character, tokens []string) bool {
 	if len(tokens) < 2 {
-		character.Player.ToPlayer <- "Usage: take <item name>\n\r"
+		character.Player.ToPlayer <- "\n\rUsage: take <item name>\n\r"
 		return false
 	}
 
@@ -248,7 +248,7 @@ func executeTakeCommand(character *Character, tokens []string) bool {
 	_, leftHandOccupied := character.Inventory["left_hand"]
 	_, rightHandOccupied := character.Inventory["right_hand"]
 	if leftHandOccupied && rightHandOccupied {
-		character.Player.ToPlayer <- "Both of your hands are full. You need a free hand to take an item.\n\r"
+		character.Player.ToPlayer <- "\n\rBoth of your hands are full. You need a free hand to take an item.\n\r"
 		return false
 	}
 
@@ -275,7 +275,7 @@ func executeTakeCommand(character *Character, tokens []string) bool {
 	}
 
 	if itemToTake == nil {
-		character.Player.ToPlayer <- "You can't find that item.\n\r"
+		character.Player.ToPlayer <- "\n\rYou can't find that item.\n\r"
 		return false
 	}
 
