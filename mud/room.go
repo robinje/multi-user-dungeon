@@ -160,7 +160,7 @@ func (c *Character) Move(direction string) {
 	defer c.Mutex.Unlock()
 
 	if c.Room == nil {
-		c.Player.ToPlayer <- "You are not in any room to move from.\n\r"
+		c.Player.ToPlayer <- "\n\rYou are not in any room to move from.\n\r"
 		return
 	}
 
@@ -168,13 +168,13 @@ func (c *Character) Move(direction string) {
 
 	selectedExit, exists := c.Room.Exits[direction]
 	if !exists {
-		c.Player.ToPlayer <- "You cannot go that way.\n\r"
+		c.Player.ToPlayer <- "\n\rYou cannot go that way.\n\r"
 		return
 	}
 
 	newRoom, exists := c.Server.Rooms[selectedExit.TargetRoom]
 	if !exists {
-		c.Player.ToPlayer <- "The path leads nowhere.\n\r"
+		c.Player.ToPlayer <- "\n\rThe path leads nowhere.\n\r"
 		return
 	}
 
