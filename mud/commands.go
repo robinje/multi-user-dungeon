@@ -275,6 +275,9 @@ func executeTakeCommand(character *Character, tokens []string) bool {
 	// Remove the item from the room
 	character.Room.removeItem(itemToTake)
 
+	// Send a message to the room
+	character.Room.SendRoomMessage(fmt.Sprintf("\n\r%s picks up %s.\n\r", character.Name, itemToTake.Name))
+
 	// Put the item in the character's hand
 	if !leftHandOccupied {
 		character.Inventory["left_hand"] = itemToTake

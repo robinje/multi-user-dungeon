@@ -21,6 +21,7 @@ The current implementation includes an SSH server for secure authentication and 
 - [ ] Build a direct messaging system.
 - [ ] Create AI-controlled NPCs.
 - [ ] Implement a dynamic content updating system.
+- [ ] Build an interactive password change system.
 
 ## TODO
 

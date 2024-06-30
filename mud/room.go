@@ -331,19 +331,6 @@ func (r *Room) RoomInfo(character *Character) string {
 	return roomInfo + displayExits.String()
 }
 
-// func (r *Room) findItemByPosition(name string, position int) *Item {
-// 	count := 0
-// 	for _, item := range r.Items {
-// 		if strings.EqualFold(item.Name, name) {
-// 			count++
-// 			if count == position {
-// 				return item
-// 			}
-// 		}
-// 	}
-// 	return nil
-// }
-
 func (r *Room) removeItem(item *Item) {
 	for i, roomItem := range r.Items {
 		if roomItem == item {
