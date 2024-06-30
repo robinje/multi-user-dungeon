@@ -201,6 +201,78 @@ func (c *Character) Move(direction string) {
 	executeLookCommand(c, []string{})
 }
 
+func (kp *KeyPair) WriteRoom(room *Room) error {
+	// Create a serializable version of the room data
+	roomData := struct {
+		RoomID      int64            `json:"RoomID"`
+		Area        string           `json:"Area"`
+		Title       string           `json:"Title"`
+		Description string           `json:"Description"`
+		Exits       map[string]*Exit `json:"Exits"`
+		ItemIDs     []uint64         `json:"Items"`
+	}{
+		RoomID:      room.RoomID,
+		Area:        room.Area,
+		Title:       room.Title,
+		Description: room.Description,
+		Exits:       room.Exits,
+		ItemIDs:     make([]uint64, 0, len(room.Items)),
+	}
+
+	// Collect item IDs
+	for _, item := range room.Items {
+		roomData.ItemIDs = append(roomData.ItemIDs, item.Index)
+	}
+
+	// Serialize the room data
+	serializedRoom, err := json.Marshal(roomData)
+	if err != nil {
+		return fmt.Errorf("error serializing room data: %w", err)
+	}
+
+	// Write the room data to the database
+	err = kp.db.Update(func(tx *bolt.Tx) error {
+		roomsBucket, err := tx.CreateBucketIfNotExists([]byte("Rooms"))
+		if err != nil {
+			return fmt.Errorf("error creating/accessing Rooms bucket: %w", err)
+		}
+
+		roomKey := strconv.FormatInt(room.RoomID, 10)
+		err = roomsBucket.Put([]byte(roomKey), serializedRoom)
+		if err != nil {
+			return fmt.Errorf("error writing room data: %w", err)
+		}
+
+		// Write exits separately
+		exitsBucket, err := tx.CreateBucketIfNotExists([]byte("Exits"))
+		if err != nil {
+			return fmt.Errorf("error creating/accessing Exits bucket: %w", err)
+		}
+
+		for direction, exit := range room.Exits {
+			exitKey := fmt.Sprintf("%d_%s", room.RoomID, direction)
+			serializedExit, err := json.Marshal(exit)
+			if err != nil {
+				return fmt.Errorf("error serializing exit data: %w", err)
+			}
+
+			err = exitsBucket.Put([]byte(exitKey), serializedExit)
+			if err != nil {
+				return fmt.Errorf("error writing exit data: %w", err)
+			}
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return fmt.Errorf("database transaction failed: %w", err)
+	}
+
+	log.Printf("Successfully wrote room %d to database", room.RoomID)
+	return nil
+}
+
 func (r *Room) SendRoomMessage(message string) {
 
 	for _, character := range r.Characters {
@@ -279,4 +351,17 @@ func (r *Room) removeItem(item *Item) {
 			return
 		}
 	}
+}
+
+func (s *Server) SaveActiveRooms() error {
+	s.Mutex.Lock()
+	defer s.Mutex.Unlock()
+
+	for _, room := range s.Rooms {
+		if err := s.Database.WriteRoom(room); err != nil {
+			return fmt.Errorf("error saving room %d: %w", room.RoomID, err)
+		}
+	}
+
+	return nil
 }

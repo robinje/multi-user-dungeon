@@ -179,3 +179,34 @@ func (k *KeyPair) WriteItem(obj *Item) error {
 
 	return err
 }
+
+func (s *Server) SaveActiveItems() error {
+	s.Mutex.Lock()
+	defer s.Mutex.Unlock()
+
+	// Collect all items from rooms and characters
+	itemsToSave := make(map[uint64]*Item)
+
+	// Items in rooms
+	for _, room := range s.Rooms {
+		for _, item := range room.Items {
+			itemsToSave[item.Index] = item
+		}
+	}
+
+	// Items in character inventories
+	for _, character := range s.Characters {
+		for _, item := range character.Inventory {
+			itemsToSave[item.Index] = item
+		}
+	}
+
+	// Save all collected items
+	for _, item := range itemsToSave {
+		if err := s.Database.WriteItem(item); err != nil {
+			return fmt.Errorf("error saving item %s (ID: %d): %w", item.Name, item.Index, err)
+		}
+	}
+
+	return nil
+}
