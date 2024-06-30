@@ -23,6 +23,7 @@ var commandHandlers = map[string]CommandHandler{
 	"challenge": executeChallengeCommand,
 	"take":      executeTakeCommand, // Add the new take command
 	"get":       executeTakeCommand, // Alias for take command
+	"drop":      executeDropCommand,
 	"inventory": executeInventoryCommand,
 	"i":         executeInventoryCommand, // Alias for inventory command
 	"inv":       executeInventoryCommand, // Alias for inventory command
@@ -295,6 +296,54 @@ func executeInventoryCommand(character *Character, tokens []string) bool {
 	return false
 }
 
+func executeDropCommand(character *Character, tokens []string) bool {
+	character.Mutex.Lock()
+	defer character.Mutex.Unlock()
+
+	// Check if the player is holding anything
+	if len(character.Inventory) == 0 {
+		character.Player.ToPlayer <- "\n\rYou have nothing to drop.\n\r"
+		return false
+	}
+
+	var itemToDrop *Item
+	var itemLocation string
+
+	// If an item is specified
+	if len(tokens) > 1 {
+		itemName := strings.ToLower(strings.Join(tokens[1:], " "))
+		for location, item := range character.Inventory {
+			if strings.ToLower(item.Name) == itemName {
+				itemToDrop = item
+				itemLocation = location
+				break
+			}
+		}
+		if itemToDrop == nil {
+			character.Player.ToPlayer <- fmt.Sprintf("\n\rYou are not holding %s.\n\r", itemName)
+			return false
+		}
+	} else {
+		// No item specified, drop from right hand, then left hand
+		if item, exists := character.Inventory["right_hand"]; exists {
+			itemToDrop = item
+			itemLocation = "right_hand"
+		} else if item, exists := character.Inventory["left_hand"]; exists {
+			itemToDrop = item
+			itemLocation = "left_hand"
+		}
+	}
+
+	// Drop the item
+	delete(character.Inventory, itemLocation)
+	character.Room.addItem(itemToDrop)
+
+	character.Player.ToPlayer <- fmt.Sprintf("\n\rYou drop %s.\n\r", itemToDrop.Name)
+	character.Room.SendRoomMessage(fmt.Sprintf("\n\r%s drops %s.\n\r", character.Name, itemToDrop.Name))
+
+	return false
+}
+
 func executeHelpCommand(character *Character, tokens []string) bool {
 	helpMessage := "\n\rAvailable Commands:" +
 		"\n\rhelp - Display available commands" +
@@ -303,6 +352,7 @@ func executeHelpCommand(character *Character, tokens []string) bool {
 		"\n\rlook - Look around the room" +
 		"\n\rgo <direction> - Move in a direction" +
 		"\n\rtake <my | number position> <object> - Take an item from your inventory or the room" +
+		"\n\rdrop [item] - Drop a held items" +
 		"\n\rinventory (or i) - Check your inventory" +
 		"\n\rwho - List all character online" +
 		"\n\rpassword <oldPassword> <newPassword> - Change your password" +

@@ -332,12 +332,31 @@ func (r *Room) RoomInfo(character *Character) string {
 }
 
 func (r *Room) removeItem(item *Item) {
+	r.Mutex.Lock()
+	defer r.Mutex.Unlock()
+
 	for i, roomItem := range r.Items {
 		if roomItem == item {
+			// Remove the item from the Items slice
 			r.Items = append(r.Items[:i], r.Items[i+1:]...)
+
+			// Also remove the item's ID from the ItemIDs slice
+			for j, id := range r.ItemIDs {
+				if id == item.Index {
+					r.ItemIDs = append(r.ItemIDs[:j], r.ItemIDs[j+1:]...)
+					break
+				}
+			}
 			return
 		}
 	}
+}
+
+func (r *Room) addItem(item *Item) {
+	r.Mutex.Lock()
+	defer r.Mutex.Unlock()
+	r.Items = append(r.Items, item)
+	r.ItemIDs = append(r.ItemIDs, item.Index)
 }
 
 func (s *Server) SaveActiveRooms() error {
