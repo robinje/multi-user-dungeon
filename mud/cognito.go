@@ -8,6 +8,7 @@ import (
 	"log"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/cognitoidentityprovider"
 )
@@ -23,7 +24,6 @@ func calculateSecretHash(cognitoAppClientID, clientSecret, email string) string 
 }
 
 func SignInUser(email, password string, config Configuration) (*cognitoidentityprovider.InitiateAuthOutput, error) {
-	// Create New Session with AWS Config
 	sess, err := session.NewSession(&aws.Config{Region: aws.String(config.UserPoolRegion)})
 	if err != nil {
 		log.Printf("Error creating AWS session for sign-in: %v", err)
@@ -45,8 +45,27 @@ func SignInUser(email, password string, config Configuration) (*cognitoidentityp
 
 	authOutput, err := cognitoClient.InitiateAuth(authInput)
 	if err != nil {
-		log.Printf("Error during user %s sign-in with Cognito: %v", email, err)
-		return nil, fmt.Errorf("authentication failed, please check your credentials")
+		if awsErr, ok := err.(awserr.Error); ok {
+			switch awsErr.Code() {
+			case cognitoidentityprovider.ErrCodeNotAuthorizedException:
+				return nil, fmt.Errorf("incorrect username or password")
+			case cognitoidentityprovider.ErrCodeUserNotConfirmedException:
+				return nil, fmt.Errorf("user is not confirmed")
+			case cognitoidentityprovider.ErrCodePasswordResetRequiredException:
+				return nil, fmt.Errorf("password reset required")
+			default:
+				log.Printf("Error during user %s sign-in with Cognito: %v", email, awsErr)
+				return nil, fmt.Errorf("authentication failed: %v", awsErr)
+			}
+		}
+		// If it's not an AWS error, return a generic error message
+		log.Printf("Unexpected error during user %s sign-in: %v", email, err)
+		return nil, fmt.Errorf("authentication failed due to an unexpected error")
+	}
+
+	if authOutput.AuthenticationResult == nil {
+		log.Printf("Authentication successful for user %s, but no AuthenticationResult returned", email)
+		return authOutput, nil
 	}
 
 	return authOutput, nil
@@ -126,43 +145,97 @@ func GetUserData(accessToken string, config Configuration) (*cognitoidentityprov
 	return userOutput, nil
 }
 
-// ChangeUserPassword changes the password of a user in AWS Cognito.
-// Returns true if the password was successfully changed.
-func ChangeUserPassword(username, currentPassword, newPassword string, config Configuration) (bool, error) {
-	signInOutput, err := SignInUser(username, currentPassword, config)
+func (s *Server) ChangePassword(username, oldPassword, newPassword string) error {
+	log.Printf("Attempting to change password for user: %s", username)
+
+	// Step 1: Authenticate the user
+	log.Printf("Step 1: Authenticating user %s", username)
+	signInOutput, err := SignInUser(username, oldPassword, s.Config)
 	if err != nil {
-		// If there's an error signing in, it means the current password might be wrong or the user doesn't exist.
-		return false, fmt.Errorf("failed to sign in user: %v", err)
+		log.Printf("Authentication failed for user %s: %v", username, err)
+		return fmt.Errorf("authentication failed: %v", err)
+	}
+	log.Printf("Authentication successful for user %s", username)
+	log.Printf("SignInOutput for user %s: %+v", username, signInOutput)
+
+	// Step 2: Handle NEW_PASSWORD_REQUIRED challenge if present
+	if signInOutput.ChallengeName != nil && *signInOutput.ChallengeName == cognitoidentityprovider.ChallengeNameTypeNewPasswordRequired {
+		log.Printf("NEW_PASSWORD_REQUIRED challenge detected for user %s", username)
+
+		// Create a new AWS session
+		sess, err := session.NewSession(&aws.Config{
+			Region: aws.String(s.Config.UserPoolRegion),
+		})
+		if err != nil {
+			log.Printf("Failed to create AWS session for user %s: %v", username, err)
+			return fmt.Errorf("failed to create AWS session: %v", err)
+		}
+
+		// Create Cognito Identity Provider client
+		cognitoClient := cognitoidentityprovider.New(sess)
+
+		// Calculate SECRET_HASH
+		secretHash := calculateSecretHash(s.Config.ClientID, s.Config.ClientSecret, username)
+
+		// Respond to the NEW_PASSWORD_REQUIRED challenge
+		challengeResponseInput := &cognitoidentityprovider.RespondToAuthChallengeInput{
+			ChallengeName: aws.String(cognitoidentityprovider.ChallengeNameTypeNewPasswordRequired),
+			ClientId:      aws.String(s.Config.ClientID),
+			ChallengeResponses: map[string]*string{
+				"USERNAME":     aws.String(username),
+				"NEW_PASSWORD": aws.String(newPassword),
+				"SECRET_HASH":  aws.String(secretHash),
+			},
+			Session: signInOutput.Session,
+		}
+
+		log.Printf("Sending challenge response for user %s", username)
+		challengeResponse, err := cognitoClient.RespondToAuthChallenge(challengeResponseInput)
+		if err != nil {
+			log.Printf("Failed to respond to NEW_PASSWORD_REQUIRED challenge for user %s: %v", username, err)
+			return fmt.Errorf("failed to set new password: %v", err)
+		}
+
+		log.Printf("Successfully responded to NEW_PASSWORD_REQUIRED challenge for user %s", username)
+		log.Printf("Challenge response: %+v", challengeResponse)
+
+		// Password has been changed successfully
+		return nil
 	}
 
-	// Ensure the signInOutput contains the necessary information to proceed.
-	if signInOutput.AuthenticationResult == nil {
-		return false, fmt.Errorf("authentication result is missing, cannot proceed with password change")
+	// If we're here, it means there was no NEW_PASSWORD_REQUIRED challenge
+	// In this case, we need to use the ChangePassword API as before
+
+	if signInOutput.AuthenticationResult == nil || signInOutput.AuthenticationResult.AccessToken == nil {
+		log.Printf("No valid access token for user %s", username)
+		return fmt.Errorf("no valid access token available")
 	}
 
+	// Create a new AWS session
 	sess, err := session.NewSession(&aws.Config{
-		Region: aws.String(config.UserPoolRegion),
+		Region: aws.String(s.Config.UserPoolRegion),
 	})
 	if err != nil {
-		return false, fmt.Errorf("failed to create AWS session: %v", err)
+		log.Printf("Failed to create AWS session for user %s: %v", username, err)
+		return fmt.Errorf("failed to create AWS session: %v", err)
 	}
 
-	// Create a new Cognito Identity Provider client.
+	// Create Cognito Identity Provider client
 	cognitoClient := cognitoidentityprovider.New(sess)
 
-	// Prepare the ChangePassword request.
-	changePasswordInput := &cognitoidentityprovider.ChangePasswordInput{
-		PreviousPassword: aws.String(currentPassword),                   // The current password.
-		ProposedPassword: aws.String(newPassword),                       // The new password.
-		AccessToken:      signInOutput.AuthenticationResult.AccessToken, // The access token obtained after successful sign-in.
+	// Perform the change password operation
+	input := &cognitoidentityprovider.ChangePasswordInput{
+		PreviousPassword: aws.String(oldPassword),
+		ProposedPassword: aws.String(newPassword),
+		AccessToken:      signInOutput.AuthenticationResult.AccessToken,
 	}
 
-	// Attempt to change the password.
-	_, err = cognitoClient.ChangePassword(changePasswordInput)
+	_, err = cognitoClient.ChangePassword(input)
 	if err != nil {
-		// If there's an error, it could be due to various reasons such as token expiration or password policy violation.
-		return false, fmt.Errorf("failed to change password: %v", err)
+		log.Printf("Failed to change password for user %s: %v", username, err)
+		return fmt.Errorf("failed to change password: %v", err)
 	}
 
-	return true, nil
+	log.Printf("Password successfully changed for user %s", username)
+	return nil
 }
