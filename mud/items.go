@@ -13,11 +13,14 @@ type Item struct {
 	Description string
 	Mass        float64
 	Wearable    bool
+	WornOn      []string
 	Verbs       map[string]string
 	Overrides   map[string]string
 	Container   bool
-	Contents    []uint64
+	Contents    []*Item
 	IsPrototype bool
+	IsWorn      bool
+	CanPickUp   bool
 }
 
 type ItemData struct {
@@ -26,11 +29,41 @@ type ItemData struct {
 	Description string            `json:"description"`
 	Mass        float64           `json:"mass"`
 	Wearable    bool              `json:"wearable"`
+	WornOn      []string          `json:"worn_on"`
 	Verbs       map[string]string `json:"verbs"`
 	Overrides   map[string]string `json:"overrides"`
 	Container   bool              `json:"container"`
 	Contents    []uint64          `json:"contents"`
 	IsPrototype bool              `json:"is_prototype"`
+	IsWorn      bool              `json:"is_worn"`
+	CanPickUp   bool              `json:"can_pick_up"`
+}
+
+// WearLocations defines all possible locations where an item can be worn
+var WearLocations = []string{
+	"head",
+	"neck",
+	"shoulders",
+	"chest",
+	"back",
+	"arms",
+	"hands",
+	"waist",
+	"legs",
+	"feet",
+	"left_finger",
+	"right_finger",
+	"left_wrist",
+	"right_wrist",
+}
+
+// WearLocationSet is a map for quick lookup of valid wear locations
+var WearLocationSet = make(map[string]bool)
+
+func init() {
+	for _, loc := range WearLocations {
+		WearLocationSet[loc] = true
+	}
 }
 
 func (k *KeyPair) LoadItem(indexKey uint64, isPrototype bool) (*Item, error) {
@@ -68,29 +101,57 @@ func (k *KeyPair) LoadItem(indexKey uint64, isPrototype bool) (*Item, error) {
 		Name:        od.Name,
 		Description: od.Description,
 		Mass:        od.Mass,
+		Wearable:    od.Wearable,
+		WornOn:      od.WornOn,
 		Verbs:       od.Verbs,
 		Overrides:   od.Overrides,
 		Container:   od.Container,
-		Contents:    od.Contents,
 		IsPrototype: od.IsPrototype,
+		IsWorn:      od.IsWorn,
+		CanPickUp:   od.CanPickUp,
+	}
+
+	// Load contents if the item is a container
+	if object.Container {
+		object.Contents = make([]*Item, 0, len(od.Contents))
+		for _, contentIndex := range od.Contents {
+			contentItem, err := k.LoadItem(contentIndex, false)
+			if err != nil {
+				return nil, fmt.Errorf("error loading content item %d: %v", contentIndex, err)
+			}
+			object.Contents = append(object.Contents, contentItem)
+		}
 	}
 
 	return object, nil
 }
 
 func (k *KeyPair) WriteItem(obj *Item) error {
-	// First, serialize the Items to JSON
+	contentIndices := make([]uint64, 0, len(obj.Contents))
+	for _, contentItem := range obj.Contents {
+		contentIndices = append(contentIndices, contentItem.Index)
+		// Recursively write contained items
+		if err := k.WriteItem(contentItem); err != nil {
+			return fmt.Errorf("error writing content item %d: %v", contentItem.Index, err)
+		}
+	}
+
 	objData := ItemData{
 		Index:       obj.Index,
 		Name:        obj.Name,
 		Description: obj.Description,
 		Mass:        obj.Mass,
+		Wearable:    obj.Wearable,
+		WornOn:      obj.WornOn,
 		Verbs:       obj.Verbs,
 		Overrides:   obj.Overrides,
 		Container:   obj.Container,
-		Contents:    obj.Contents,
+		Contents:    contentIndices,
 		IsPrototype: obj.IsPrototype,
+		IsWorn:      obj.IsWorn,
+		CanPickUp:   obj.CanPickUp,
 	}
+
 	serializedData, err := json.Marshal(objData)
 	if err != nil {
 		return fmt.Errorf("error marshalling object data: %v", err)
@@ -101,18 +162,13 @@ func (k *KeyPair) WriteItem(obj *Item) error {
 		bucketName = "ItemPrototypes"
 	}
 
-	// Write serialized data to the database
 	err = k.db.Update(func(tx *bolt.Tx) error {
-		// Ensure the appropriate bucket exists
 		bucket, err := tx.CreateBucketIfNotExists([]byte(bucketName))
 		if err != nil {
 			return fmt.Errorf("create bucket: %s", err)
 		}
 
-		// Use the object's Index as the key for the database entry
 		indexKey := fmt.Sprintf("%d", obj.Index)
-
-		// Store the serialized object data in the bucket
 		err = bucket.Put([]byte(indexKey), serializedData)
 		if err != nil {
 			return fmt.Errorf("failed to write object data: %v", err)
@@ -122,4 +178,35 @@ func (k *KeyPair) WriteItem(obj *Item) error {
 	})
 
 	return err
+}
+
+func (s *Server) SaveActiveItems() error {
+	s.Mutex.Lock()
+	defer s.Mutex.Unlock()
+
+	// Collect all items from rooms and characters
+	itemsToSave := make(map[uint64]*Item)
+
+	// Items in rooms
+	for _, room := range s.Rooms {
+		for _, item := range room.Items {
+			itemsToSave[item.Index] = item
+		}
+	}
+
+	// Items in character inventories
+	for _, character := range s.Characters {
+		for _, item := range character.Inventory {
+			itemsToSave[item.Index] = item
+		}
+	}
+
+	// Save all collected items
+	for _, item := range itemsToSave {
+		if err := s.Database.WriteItem(item); err != nil {
+			return fmt.Errorf("error saving item %s (ID: %d): %w", item.Name, item.Index, err)
+		}
+	}
+
+	return nil
 }

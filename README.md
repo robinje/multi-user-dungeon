@@ -12,16 +12,16 @@ The current implementation includes an SSH server for secure authentication and 
 - [x] Implement a database for the game.
 - [x] Implement a character creation system.
 - [x] Implement a text colorization system.
-- [ ] Define Item taxonomy.
-- [ ] Build a direct messaging system.
-- [ ] Develop game mechanics.
-- [ ] Implement a world creation system.
-- [ ] Design a quest system.
 - [ ] Construct the item system.
+- [ ] Develop game mechanics.
+- [ ] Design an ecenomic framework.
+- [ ] Implement a world creation system.
 - [ ] Develop simple Non-Player Characters (NPCs).
+- [ ] Design a quest system.
+- [ ] Build a direct messaging system.
 - [ ] Create AI-controlled NPCs.
 - [ ] Implement a dynamic content updating system.
-- [ ] Design an ecenomic framework.
+- [ ] Build an interactive password change system.
 
 ## TODO
 
@@ -32,6 +32,9 @@ The current implementation includes an SSH server for secure authentication and 
 - [x] Add a character list command.
 - [x] Allow users to change their passwords.
 - [x] Expand the character creation process.
+- [x] Add take item command.
+- [x] Add inventory command.
+- [x] Add drop item command.
 - [ ] Add a Message of the Day (MOTD) command.
 - [ ] Implement Persistent Logging.
 - [ ] Add the ability to delete characters.
@@ -40,6 +43,10 @@ The current implementation includes an SSH server for secure authentication and 
 - [ ] Validate graph of loaded rooms and exits.
 - [ ] Load item prototypes at start.
 - [ ] Create function for creating items from prototypes.
+- [ ] Add wear item command.
+- [ ] Add remove item command.
+- [ ] Add look at item command.
+- [ ] Add examine item command.
 
 ## Deployment
 
@@ -58,7 +65,9 @@ Deploying the server involves several steps, from setting up your environment to
 
 5. **Install Go Dependencies**: Before starting the server, you need to install the necessary Go dependencies. In the root directory of the project, run `go mod download` to fetch all required packages.
 
-6. **Start the Server**: Finally, you can start the server by running `go run .` from the root directory of the project. This command compiles and runs the Go application, starting up your MUD server.
+6. **Initalize the Database**: The server uses a BoltDB database for the world data. You can initialize the database by running the `data_loader.go` script located in the `database` directory. Run the script using the command `go run .`. The output will be the `test_data.bolt` file, which contains the initial world data. Copy this file to the `mud` directory.
+
+7. **Start the Server**: Finally, you can start the server by running `go run .` from the root directory of the project. This command compiles and runs the Go application, starting up your MUD server.
 
 Ensure all steps are completed without errors before trying to connect to the server. If you encounter any issues during deployment, refer to the specific tool's documentation for troubleshooting advice.
 

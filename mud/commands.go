@@ -21,9 +21,15 @@ var commandHandlers = map[string]CommandHandler{
 	"who":       executeWhoCommand,
 	"password":  executePasswordCommand,
 	"challenge": executeChallengeCommand,
-	"\"":        executeSayCommand,  // Allow for double quotes to be used as a shortcut for the say command
-	"'":         executeSayCommand,  // Allow for single quotes to be used as a shortcut for the say command
-	"q!":        executeQuitCommand, // Allow for q! to be used as a shortcut for the quit command
+	"take":      executeTakeCommand, // Add the new take command
+	"get":       executeTakeCommand, // Alias for take command
+	"drop":      executeDropCommand,
+	"inventory": executeInventoryCommand,
+	"i":         executeInventoryCommand, // Alias for inventory command
+	"inv":       executeInventoryCommand, // Alias for inventory command
+	"\"":        executeSayCommand,       // Allow for double quotes to be used as a shortcut for the say command
+	"'":         executeSayCommand,       // Allow for single quotes to be used as a shortcut for the say command
+	"q!":        executeQuitCommand,      // Allow for q! to be used as a shortcut for the quit command
 }
 
 func validateCommand(command string, commandHandlers map[string]CommandHandler) (string, []string, error) {
@@ -185,21 +191,14 @@ func executePasswordCommand(character *Character, tokens []string) bool {
 	oldPassword := tokens[1]
 	newPassword := tokens[2]
 
-	// Call the Server's method to change the password
-	success, err := ChangeUserPassword(character.Player.Name, oldPassword, newPassword, character.Server.Config)
+	err := character.Server.ChangePassword(character.Player.Name, oldPassword, newPassword)
 	if err != nil {
 		log.Printf("Failed to change password for user %s: %v", character.Player.Name, err)
 		character.Player.ToPlayer <- "\n\rFailed to change password. Please try again.\n\r"
 		return false
 	}
 
-	if success {
-		character.Player.ToPlayer <- "\n\rPassword changed successfully.\n\r"
-	} else {
-		// This path might be redundant, as an error should already indicate failure
-		character.Player.ToPlayer <- "\n\rFailed to change password for an unknown reason.\n\r"
-	}
-
+	character.Player.ToPlayer <- "\n\rPassword changed successfully.\n\r"
 	return false // Keep the command loop running
 }
 
@@ -233,6 +232,118 @@ func executeShowCommand(character *Character, tokens []string) bool {
 	return false // Keep the command loop running
 }
 
+func executeTakeCommand(character *Character, tokens []string) bool {
+	if len(tokens) < 2 {
+		character.Player.ToPlayer <- "\n\rUsage: take <item name>\n\r"
+		return false
+	}
+
+	// Check if hands are full
+	_, leftHandOccupied := character.Inventory["left_hand"]
+	_, rightHandOccupied := character.Inventory["right_hand"]
+	if leftHandOccupied && rightHandOccupied {
+		character.Player.ToPlayer <- "\n\rBoth of your hands are full. You need a free hand to take an item.\n\r"
+		return false
+	}
+
+	// Join all tokens after "take" to form the item name
+	itemName := strings.Join(tokens[1:], " ")
+
+	// Remove words like "the", "a", "an", "first", "second", etc. from the item name
+	itemName = strings.ToLower(itemName)
+	itemName = strings.TrimPrefix(itemName, "the ")
+	itemName = strings.TrimPrefix(itemName, "a ")
+	itemName = strings.TrimPrefix(itemName, "an ")
+	itemName = strings.TrimPrefix(itemName, "first ")
+	itemName = strings.TrimPrefix(itemName, "second ")
+	// Add more prefixes as needed
+
+	var itemToTake *Item
+
+	// Search for the item in the room
+	for _, item := range character.Room.Items {
+		if strings.Contains(strings.ToLower(item.Name), itemName) {
+			itemToTake = item
+			break
+		}
+	}
+
+	if itemToTake == nil {
+		character.Player.ToPlayer <- "\n\rYou can't find that item.\n\r"
+		return false
+	}
+
+	// Remove the item from the room
+	character.Room.removeItem(itemToTake)
+
+	// Send a message to the room
+	character.Room.SendRoomMessage(fmt.Sprintf("\n\r%s picks up %s.\n\r", character.Name, itemToTake.Name))
+
+	// Put the item in the character's hand
+	if !leftHandOccupied {
+		character.Inventory["left_hand"] = itemToTake
+	} else {
+		character.Inventory["right_hand"] = itemToTake
+	}
+
+	character.Player.ToPlayer <- fmt.Sprintf("\n\rYou take %s.\n\r", itemToTake.Name)
+	return false
+}
+
+func executeInventoryCommand(character *Character, tokens []string) bool {
+	inventoryList := character.ListInventory()
+	character.Player.ToPlayer <- inventoryList
+	return false
+}
+
+func executeDropCommand(character *Character, tokens []string) bool {
+	character.Mutex.Lock()
+	defer character.Mutex.Unlock()
+
+	// Check if the player is holding anything
+	if len(character.Inventory) == 0 {
+		character.Player.ToPlayer <- "\n\rYou have nothing to drop.\n\r"
+		return false
+	}
+
+	var itemToDrop *Item
+	var itemLocation string
+
+	// If an item is specified
+	if len(tokens) > 1 {
+		itemName := strings.ToLower(strings.Join(tokens[1:], " "))
+		for location, item := range character.Inventory {
+			if strings.ToLower(item.Name) == itemName {
+				itemToDrop = item
+				itemLocation = location
+				break
+			}
+		}
+		if itemToDrop == nil {
+			character.Player.ToPlayer <- fmt.Sprintf("\n\rYou are not holding %s.\n\r", itemName)
+			return false
+		}
+	} else {
+		// No item specified, drop from right hand, then left hand
+		if item, exists := character.Inventory["right_hand"]; exists {
+			itemToDrop = item
+			itemLocation = "right_hand"
+		} else if item, exists := character.Inventory["left_hand"]; exists {
+			itemToDrop = item
+			itemLocation = "left_hand"
+		}
+	}
+
+	// Drop the item
+	delete(character.Inventory, itemLocation)
+	character.Room.addItem(itemToDrop)
+
+	character.Player.ToPlayer <- fmt.Sprintf("\n\rYou drop %s.\n\r", itemToDrop.Name)
+	character.Room.SendRoomMessage(fmt.Sprintf("\n\r%s drops %s.\n\r", character.Name, itemToDrop.Name))
+
+	return false
+}
+
 func executeHelpCommand(character *Character, tokens []string) bool {
 	helpMessage := "\n\rAvailable Commands:" +
 		"\n\rhelp - Display available commands" +
@@ -240,6 +351,9 @@ func executeHelpCommand(character *Character, tokens []string) bool {
 		"\n\rsay <message> - Say something to all players" +
 		"\n\rlook - Look around the room" +
 		"\n\rgo <direction> - Move in a direction" +
+		"\n\rtake <my | number position> <object> - Take an item from your inventory or the room" +
+		"\n\rdrop [item] - Drop a held items" +
+		"\n\rinventory (or i) - Check your inventory" +
 		"\n\rwho - List all character online" +
 		"\n\rpassword <oldPassword> <newPassword> - Change your password" +
 		"\n\rquit - Quit the game\n\r"
