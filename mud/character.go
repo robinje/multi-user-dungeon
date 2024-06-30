@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 
 	bolt "go.etcd.io/bbolt"
 )
@@ -49,18 +48,6 @@ type Archetype struct {
 
 type ArchetypesData struct {
 	Archetypes map[string]Archetype `json:"archetypes"`
-}
-
-func AutoSaveCharacters(server *Server) {
-	for {
-		// Sleep for the configured duration
-		time.Sleep(time.Duration(server.AutoSave) * time.Minute)
-
-		// Save the characters to the database
-		if err := server.SaveActiveCharacters(); err != nil {
-			log.Printf("Failed to save characters: %v", err)
-		}
-	}
 }
 
 // Converts a Character to CharacterData for serialization

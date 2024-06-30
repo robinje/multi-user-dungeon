@@ -123,7 +123,7 @@ func main() {
 	}
 
 	// Start the auto-save routine
-	go AutoSaveCharacters(server)
+	go AutoSave(server)
 
 	// Start the server
 	if err := server.StartSSHServer(); err != nil {
@@ -165,5 +165,37 @@ func (i *Index) SetID(id uint64) {
 	defer i.mu.Unlock()
 	if id > i.IndexID {
 		i.IndexID = id
+	}
+}
+
+func AutoSave(server *Server) {
+	for {
+		// Sleep for the configured duration
+		time.Sleep(time.Duration(server.AutoSave) * time.Minute)
+
+		log.Println("Starting auto-save process...")
+
+		// Save active characters
+		if err := server.SaveActiveCharacters(); err != nil {
+			log.Printf("Failed to save characters: %v", err)
+		} else {
+			log.Println("Active characters saved successfully")
+		}
+
+		// Save active rooms
+		if err := server.SaveActiveRooms(); err != nil {
+			log.Printf("Failed to save rooms: %v", err)
+		} else {
+			log.Println("Active rooms saved successfully")
+		}
+
+		// Save active items
+		if err := server.SaveActiveItems(); err != nil {
+			log.Printf("Failed to save items: %v", err)
+		} else {
+			log.Println("Active items saved successfully")
+		}
+
+		log.Println("Auto-save process completed")
 	}
 }

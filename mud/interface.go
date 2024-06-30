@@ -30,6 +30,7 @@ type Player struct {
 	CharacterList map[string]uint64
 	Character     *Character
 	LoginTime     time.Time
+	PasswordHash  string
 }
 
 func Authenticate(username, password string, config Configuration) bool {
