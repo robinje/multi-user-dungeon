@@ -17,10 +17,13 @@ The current implementation includes an SSH server for secure authentication and 
 - [ ] Design an ecenomic framework.
 - [ ] Implement a world creation system.
 - [ ] Develop simple Non-Player Characters (NPCs).
-- [ ] Design a quest system.
+- [ ] Design and implement a quest system.
 - [ ] Build a direct messaging system.
-- [ ] Create AI-controlled NPCs.
+- [ ] Develop more complex Non-Player Characters (NPCs) with basic AI.
 - [ ] Implement a dynamic content updating system.
+- [ ] Build an interactive password change system.
+- [ ] Implement a player-to-player trading system.
+- [ ] Develop more complex Non-Player Characters (NPCs) with basic AI.
 - [ ] Build an interactive password change system.
 
 ## TODO
@@ -37,6 +40,7 @@ The current implementation includes an SSH server for secure authentication and 
 - [x] Add drop item command.
 - [x] Add wear item command.
 - [x] Add remove item command.
+- [x] Add examine item command.
 - [ ] Add a Message of the Day (MOTD) command.
 - [ ] Implement Persistent Logging.
 - [ ] Add the ability to delete characters.
@@ -46,7 +50,7 @@ The current implementation includes an SSH server for secure authentication and 
 - [ ] Load item prototypes at start.
 - [ ] Create function for creating items from prototypes.
 - [ ] Add look at item command.
-- [ ] Add examine item command.
+
 
 ## Deployment
 
