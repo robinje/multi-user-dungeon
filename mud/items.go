@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 
 	bolt "go.etcd.io/bbolt"
 )
@@ -209,4 +210,54 @@ func (s *Server) SaveActiveItems() error {
 	}
 
 	return nil
+}
+
+func (s *Server) CreateItemFromPrototype(prototypeIndex uint64) (*Item, error) {
+	prototype, err := s.Database.LoadItem(prototypeIndex, true)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load item prototype: %w", err)
+	}
+
+	if !prototype.IsPrototype {
+		return nil, fmt.Errorf("item with index %d is not a prototype", prototypeIndex)
+	}
+
+	itemIndex, err := s.Database.NextIndex("Items")
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate item index: %w", err)
+	}
+
+	newItem := &Item{
+		Index:       itemIndex,
+		Name:        prototype.Name,
+		Description: prototype.Description,
+		Mass:        prototype.Mass,
+		Wearable:    prototype.Wearable,
+		WornOn:      prototype.WornOn,
+		Verbs:       prototype.Verbs,
+		Overrides:   prototype.Overrides,
+		Container:   prototype.Container,
+		IsPrototype: false,
+		IsWorn:      false,
+		CanPickUp:   prototype.CanPickUp,
+	}
+
+	if newItem.Container {
+		newItem.Contents = make([]*Item, 0, len(prototype.Contents))
+		for _, contentItem := range prototype.Contents {
+			newContentItem, err := s.CreateItemFromPrototype(contentItem.Index)
+			if err != nil {
+				log.Printf("Error creating content item from prototype %d: %v", contentItem.Index, err)
+				continue
+			}
+			newItem.Contents = append(newItem.Contents, newContentItem)
+		}
+	}
+
+	if err := s.Database.WriteItem(newItem); err != nil {
+		return nil, fmt.Errorf("failed to write new item to database: %w", err)
+	}
+
+	log.Printf("Created new item %s (ID: %d) from prototype %d", newItem.Name, newItem.Index, prototypeIndex)
+	return newItem, nil
 }

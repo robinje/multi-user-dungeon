@@ -509,28 +509,6 @@ func (c *Character) WearItem(item *Item) error {
 	return nil
 }
 
-// RemoveWornItem removes a worn item and puts it back in held inventory
-func (c *Character) RemoveWornItem(location string) (*Item, error) {
-	c.Mutex.Lock()
-	defer c.Mutex.Unlock()
-
-	item, exists := c.Inventory[location]
-	if !exists {
-		return nil, fmt.Errorf("you are not wearing anything on your %s", location)
-	}
-
-	// Remove from all worn locations
-	for _, loc := range item.WornOn {
-		delete(c.Inventory, loc)
-	}
-
-	// Add back to held inventory
-	c.Inventory[item.Name] = item
-	item.IsWorn = false
-
-	return item, nil
-}
-
 // ListInventory returns a string representation of the character's inventory
 func (c *Character) ListInventory() string {
 	c.Mutex.Lock()
@@ -588,3 +566,102 @@ func (c *Character) ListInventory() string {
 
 // 	return nil
 // }
+
+// AddToInventory adds an item to the character's inventory
+func (c *Character) AddToInventory(item *Item) {
+	c.Mutex.Lock()
+	defer c.Mutex.Unlock()
+
+	// If the item is wearable and has wear locations, add it to those locations
+	if item.Wearable && len(item.WornOn) > 0 {
+		for _, location := range item.WornOn {
+			c.Inventory[location] = item
+		}
+		item.IsWorn = true
+	} else {
+		// Otherwise, add it to the inventory by its name
+		c.Inventory[item.Name] = item
+	}
+}
+
+// FindInInventory searches for an item in the character's inventory by name
+func (c *Character) FindInInventory(itemName string) *Item {
+	c.Mutex.Lock()
+	defer c.Mutex.Unlock()
+
+	lowercaseName := strings.ToLower(itemName)
+
+	for _, item := range c.Inventory {
+		if strings.Contains(strings.ToLower(item.Name), lowercaseName) {
+			return item
+		}
+	}
+
+	return nil
+}
+
+// RemoveFromInventory removes an item from the character's inventory
+func (c *Character) RemoveFromInventory(item *Item) {
+	c.Mutex.Lock()
+	defer c.Mutex.Unlock()
+
+	if item.IsWorn {
+		// If the item is worn, remove it from all wear locations
+		for _, location := range item.WornOn {
+			delete(c.Inventory, location)
+		}
+		item.IsWorn = false
+	} else {
+		// If it's not worn, remove it by its name
+		delete(c.Inventory, item.Name)
+	}
+}
+
+// CanCarryItem checks if the character can carry more items
+// This is a placeholder implementation
+func (c *Character) CanCarryItem(item *Item) bool {
+
+	return true // Placeholder: always returns true
+}
+
+// It can be called with either a location string or an Item pointer
+func (c *Character) RemoveWornItem(itemOrLocation interface{}) (*Item, error) {
+	c.Mutex.Lock()
+	defer c.Mutex.Unlock()
+
+	var itemToRemove *Item
+	var exists bool
+
+	switch v := itemOrLocation.(type) {
+	case string:
+		// Remove by location
+		itemToRemove, exists = c.Inventory[v]
+		if !exists {
+			return nil, fmt.Errorf("you are not wearing anything on your %s", v)
+		}
+	case *Item:
+		// Remove by item reference
+		if !v.IsWorn {
+			return nil, fmt.Errorf("the item %s is not being worn", v.Name)
+		}
+		itemToRemove = v
+	default:
+		return nil, fmt.Errorf("invalid argument type for RemoveWornItem")
+	}
+
+	// Remove from all worn locations
+	for _, loc := range itemToRemove.WornOn {
+		if c.Inventory[loc] == itemToRemove {
+			delete(c.Inventory, loc)
+		}
+	}
+
+	// Only add back to held inventory if it's not already there
+	if _, exists := c.Inventory[itemToRemove.Name]; !exists {
+		c.Inventory[itemToRemove.Name] = itemToRemove
+	}
+
+	itemToRemove.IsWorn = false
+
+	return itemToRemove, nil
+}
