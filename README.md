@@ -35,6 +35,8 @@ The current implementation includes an SSH server for secure authentication and 
 - [x] Add take item command.
 - [x] Add inventory command.
 - [x] Add drop item command.
+- [x] Add wear item command.
+- [x] Add remove item command.
 - [ ] Add a Message of the Day (MOTD) command.
 - [ ] Implement Persistent Logging.
 - [ ] Add the ability to delete characters.
@@ -43,8 +45,6 @@ The current implementation includes an SSH server for secure authentication and 
 - [ ] Validate graph of loaded rooms and exits.
 - [ ] Load item prototypes at start.
 - [ ] Create function for creating items from prototypes.
-- [ ] Add wear item command.
-- [ ] Add remove item command.
 - [ ] Add look at item command.
 - [ ] Add examine item command.
 
