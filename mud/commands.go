@@ -27,6 +27,7 @@ var commandHandlers = map[string]CommandHandler{
 	"inventory": executeInventoryCommand,
 	"wear":      executeWearCommand,
 	"remove":    executeRemoveCommand,
+	"examine":   executeExamineCommand,
 	"i":         executeInventoryCommand, // Alias for inventory command
 	"inv":       executeInventoryCommand, // Alias for inventory command
 	"\"":        executeSayCommand,       // Allow for double quotes to be used as a shortcut for the say command
@@ -360,6 +361,66 @@ func executeRemoveCommand(character *Character, tokens []string) bool {
 	return false
 }
 
+func executeExamineCommand(character *Character, tokens []string) bool {
+	if len(tokens) < 2 {
+		character.Player.ToPlayer <- "\n\rUsage: examine <item name>\n\r"
+		return false
+	}
+
+	itemName := strings.ToLower(strings.Join(tokens[1:], " "))
+
+	// Check inventory first
+	item := character.FindInInventory(itemName)
+
+	// If not in inventory, check room
+	if item == nil {
+		for _, roomItem := range character.Room.Items {
+			if strings.Contains(strings.ToLower(roomItem.Name), itemName) {
+				item = roomItem
+				break
+			}
+		}
+	}
+
+	if item == nil {
+		character.Player.ToPlayer <- "\n\rYou don't see that item here.\n\r"
+		return false
+	}
+
+	description := fmt.Sprintf("\n\rItem: %s\n\r", item.Name)
+	description += fmt.Sprintf("Description: %s\n\r", item.Description)
+	description += fmt.Sprintf("Mass: %.2f\n\r", item.Mass)
+
+	if item.Wearable {
+		description += fmt.Sprintf("Wearable on: %s\n\r", strings.Join(item.WornOn, ", "))
+		if item.IsWorn {
+			description += "This item is currently being worn.\n\r"
+		}
+	}
+
+	if item.Container {
+		description += "This is a container.\n\r"
+		if len(item.Contents) > 0 {
+			description += "It contains:\n\r"
+			for _, contentItem := range item.Contents {
+				description += fmt.Sprintf("  - %s\n\r", contentItem.Name)
+			}
+		} else {
+			description += "It is empty.\n\r"
+		}
+	}
+
+	if len(item.Verbs) > 0 {
+		description += "Special actions:\n\r"
+		for verb, action := range item.Verbs {
+			description += fmt.Sprintf("  %s: %s\n\r", verb, action)
+		}
+	}
+
+	character.Player.ToPlayer <- description
+	return false
+}
+
 func executeHelpCommand(character *Character, tokens []string) bool {
 	helpMessage := "\n\rAvailable Commands:" +
 		"\n\rhelp - Display available commands" +
@@ -371,6 +432,7 @@ func executeHelpCommand(character *Character, tokens []string) bool {
 		"\n\rdrop <item> - Drop a held item" +
 		"\n\rwear <item> - Wear an item from your inventory" +
 		"\n\rremove <item> - Remove a worn item" +
+		"\n\rexamine <item> - Get detailed information about an item" +
 		"\n\rinventory (or i) - Check your inventory" +
 		"\n\rwho - List all characters online" +
 		"\n\rpassword <oldPassword> <newPassword> - Change your password" +
