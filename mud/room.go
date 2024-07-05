@@ -20,8 +20,8 @@ type Room struct {
 	Exits       map[string]*Exit
 	Characters  map[uint64]*Character
 	Mutex       sync.Mutex
-	ItemIDs     []string // Changed to []string for UUID storage
-	Items       []*Item
+	ItemIDs     []string // Stores UUID strings
+	Items       []*Item  // Keeps the original slice structure
 }
 
 type Exit struct {
@@ -39,6 +39,7 @@ func (kp *KeyPair) LoadRooms() (map[int64]*Room, error) {
 		if roomsBucket == nil {
 			return fmt.Errorf("rooms bucket not found")
 		}
+
 		log.Printf("Using Rooms bucket: %v", roomsBucket)
 
 		exitsBucket := tx.Bucket([]byte("Exits"))
@@ -62,7 +63,7 @@ func (kp *KeyPair) LoadRooms() (map[int64]*Room, error) {
 				Title       string           `json:"Title"`
 				Description string           `json:"Description"`
 				Exits       map[string]*Exit `json:"Exits"`
-				ItemIDs     []string         `json:"Items"` // Changed to []string
+				ItemIDs     []string         `json:"Items"`
 			}
 			if err := json.Unmarshal(v, &roomData); err != nil {
 				return fmt.Errorf("error unmarshalling room data for key %s: %w", k, err)
@@ -98,7 +99,32 @@ func (kp *KeyPair) LoadRooms() (map[int64]*Room, error) {
 			return err
 		}
 
-		// ... [Load exits remains unchanged] ...
+		// Load exits
+		err = exitsBucket.ForEach(func(k, v []byte) error {
+			var exit Exit
+			if err := json.Unmarshal(v, &exit); err != nil {
+				return fmt.Errorf("error unmarshalling exit data for key %s: %w", k, err)
+			}
+
+			keyParts := strings.SplitN(string(k), "_", 2)
+			if len(keyParts) != 2 {
+				return fmt.Errorf("invalid exit key format: %s", k)
+			}
+			roomID, err := strconv.ParseInt(keyParts[0], 10, 64)
+			if err != nil {
+				return fmt.Errorf("error parsing room ID from key %s: %w", k, err)
+			}
+
+			if room, exists := rooms[roomID]; exists {
+				room.Exits[exit.Direction] = &exit
+			} else {
+				return fmt.Errorf("room not found for exit key %s", k)
+			}
+			return nil
+		})
+		if err != nil {
+			return err
+		}
 
 		return nil
 	})
@@ -120,6 +146,7 @@ func NewRoom(RoomID int64, Area string, Title string, Description string) *Room 
 		Characters:  make(map[uint64]*Character),
 		Mutex:       sync.Mutex{},
 		Items:       make([]*Item, 0),
+		ItemIDs:     make([]string, 0),
 	}
 
 	log.Printf("Created room %s with ID %d", room.Title, room.RoomID)
@@ -185,7 +212,7 @@ func (kp *KeyPair) WriteRoom(room *Room) error {
 		Title       string           `json:"Title"`
 		Description string           `json:"Description"`
 		Exits       map[string]*Exit `json:"Exits"`
-		ItemIDs     []string         `json:"Items"` // Changed to []string
+		ItemIDs     []string         `json:"Items"`
 	}{
 		RoomID:      room.RoomID,
 		Area:        room.Area,
@@ -196,9 +223,7 @@ func (kp *KeyPair) WriteRoom(room *Room) error {
 	}
 
 	// Collect item IDs
-	for _, item := range room.Items {
-		roomData.ItemIDs = append(roomData.ItemIDs, item.ID.String())
-	}
+	roomData.ItemIDs = append(roomData.ItemIDs, room.ItemIDs...)
 
 	// Serialize the room data
 	serializedRoom, err := json.Marshal(roomData)
@@ -300,7 +325,7 @@ func (r *Room) RoomInfo(character *Character) string {
 	if len(r.Items) > 0 {
 		roomInfo += "Items in the room:\n\r"
 		for _, obj := range r.Items {
-			roomInfo += "- " + obj.Name + "\n\r"
+			roomInfo += fmt.Sprintf("- %s (ID: %s)\n\r", obj.Name, obj.ID)
 		}
 	}
 
@@ -312,18 +337,18 @@ func (r *Room) removeItem(item *Item) {
 	defer r.Mutex.Unlock()
 
 	for i, roomItem := range r.Items {
-		if roomItem == item {
+		if roomItem.ID == item.ID {
 			// Remove the item from the Items slice
 			r.Items = append(r.Items[:i], r.Items[i+1:]...)
+			break
+		}
+	}
 
-			// Also remove the item's ID from the ItemIDs slice
-			for j, id := range r.ItemIDs {
-				if id == item.ID.String() {
-					r.ItemIDs = append(r.ItemIDs[:j], r.ItemIDs[j+1:]...)
-					break
-				}
-			}
-			return
+	// Remove the item's ID from the ItemIDs slice
+	for i, id := range r.ItemIDs {
+		if id == item.ID.String() {
+			r.ItemIDs = append(r.ItemIDs[:i], r.ItemIDs[i+1:]...)
+			break
 		}
 	}
 }
@@ -331,6 +356,7 @@ func (r *Room) removeItem(item *Item) {
 func (r *Room) addItem(item *Item) {
 	r.Mutex.Lock()
 	defer r.Mutex.Unlock()
+
 	r.Items = append(r.Items, item)
 	r.ItemIDs = append(r.ItemIDs, item.ID.String())
 }
