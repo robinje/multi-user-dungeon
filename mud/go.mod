@@ -4,6 +4,7 @@ go 1.21
 
 require (
 	github.com/aws/aws-sdk-go v1.54.6
+	github.com/google/uuid v1.6.0
 	go.etcd.io/bbolt v1.3.10
 	golang.org/x/crypto v0.24.0
 )

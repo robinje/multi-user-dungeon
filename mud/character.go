@@ -36,7 +36,7 @@ type CharacterData struct {
 	Essence    float64            `json:"essence"`
 	Health     float64            `json:"health"`
 	RoomID     int64              `json:"roomID"`
-	Inventory  map[string]uint64  `json:"inventory"`
+	Inventory  map[string]string  `json:"inventory"` // Changed to map[string]string for UUIDs
 }
 
 type Archetype struct {
@@ -52,10 +52,9 @@ type ArchetypesData struct {
 
 // Converts a Character to CharacterData for serialization
 func (c *Character) ToData() *CharacterData {
-
-	inventoryIDs := make(map[string]uint64, len(c.Inventory))
+	inventoryIDs := make(map[string]string, len(c.Inventory))
 	for name, obj := range c.Inventory {
-		inventoryIDs[name] = obj.Index
+		inventoryIDs[name] = obj.ID.String()
 	}
 
 	return &CharacterData{
@@ -89,14 +88,14 @@ func (c *Character) FromData(cd *CharacterData) error {
 
 	// Load items from the character's inventory
 	c.Inventory = make(map[string]*Item, len(cd.Inventory))
-	for _, objIndex := range cd.Inventory {
-		obj, err := c.Server.Database.LoadItem(objIndex, false)
+	for key, objID := range cd.Inventory {
+		obj, err := c.Server.Database.LoadItem(objID, false)
 		if err != nil {
-			log.Printf("Error loading object %d for character %s: %v", objIndex, c.Name, err)
+			log.Printf("Error loading object %s for character %s: %v", objID, c.Name, err)
 			continue
 		}
 		// Use obj.Name or another unique identifier as the map key
-		c.Inventory[obj.Name] = obj
+		c.Inventory[key] = obj
 	}
 
 	return nil

@@ -5,39 +5,52 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/google/uuid"
 	bolt "go.etcd.io/bbolt"
 )
 
 type Item struct {
-	Index       uint64
+	ID          uuid.UUID
 	Name        string
 	Description string
 	Mass        float64
+	Value       uint64
+	Stackable   bool
+	MaxStack    uint32
+	Quantity    uint32
 	Wearable    bool
 	WornOn      []string
 	Verbs       map[string]string
 	Overrides   map[string]string
+	TraitMods   map[string]int8
 	Container   bool
 	Contents    []*Item
 	IsPrototype bool
 	IsWorn      bool
 	CanPickUp   bool
+	Metadata    map[string]string
 }
 
 type ItemData struct {
-	Index       uint64            `json:"index"`
+	ID          string            `json:"id"`
 	Name        string            `json:"name"`
 	Description string            `json:"description"`
 	Mass        float64           `json:"mass"`
+	Value       uint64            `json:"value"`
+	Stackable   bool              `json:"stackable"`
+	MaxStack    uint32            `json:"max_stack"`
+	Quantity    uint32            `json:"quantity"`
 	Wearable    bool              `json:"wearable"`
 	WornOn      []string          `json:"worn_on"`
 	Verbs       map[string]string `json:"verbs"`
 	Overrides   map[string]string `json:"overrides"`
+	TraitMods   map[string]int8   `json:"trait_mods"`
 	Container   bool              `json:"container"`
-	Contents    []uint64          `json:"contents"`
+	Contents    []string          `json:"contents"`
 	IsPrototype bool              `json:"is_prototype"`
 	IsWorn      bool              `json:"is_worn"`
 	CanPickUp   bool              `json:"can_pick_up"`
+	Metadata    map[string]string `json:"metadata"`
 }
 
 type PrototypesData struct {
@@ -46,7 +59,7 @@ type PrototypesData struct {
 
 func protoDisplay(prototypes *PrototypesData) {
 	for _, prototype := range prototypes.ItemPrototypes {
-		fmt.Println(prototype)
+		fmt.Printf("ID: %s, Name: %s, Description: %s\n", prototype.ID, prototype.Name, prototype.Description)
 	}
 }
 
@@ -84,13 +97,12 @@ func protoWriteBolt(prototypes *PrototypesData, dbPath string) error {
 		}
 
 		for _, prototype := range prototypes.ItemPrototypes {
-			fmt.Println("Writing", prototype)
+			fmt.Println("Writing", prototype.Name)
 			data, err := json.Marshal(prototype)
 			if err != nil {
 				return err
 			}
-			key := []byte(fmt.Sprintf("%d", prototype.Index))
-			if err := bucket.Put(key, data); err != nil {
+			if err := bucket.Put([]byte(prototype.ID), data); err != nil {
 				return err
 			}
 		}
@@ -119,32 +131,12 @@ func protoLoadBolt(dbPath string) (*PrototypesData, error) {
 				return err
 			}
 
-			item := &Item{
-				Index:       itemData.Index,
-				Name:        itemData.Name,
-				Description: itemData.Description,
-				Mass:        itemData.Mass,
-				Wearable:    itemData.Wearable,
-				WornOn:      itemData.WornOn,
-				Verbs:       itemData.Verbs,
-				Overrides:   itemData.Overrides,
-				Container:   itemData.Container,
-				IsPrototype: itemData.IsPrototype,
-				IsWorn:      itemData.IsWorn,
-				CanPickUp:   itemData.CanPickUp,
+			// Validate UUID
+			if _, err := uuid.Parse(itemData.ID); err != nil {
+				return fmt.Errorf("invalid UUID for item %s: %v", itemData.Name, err)
 			}
 
-			if item.Container {
-				item.Contents = make([]*Item, 0, len(itemData.Contents))
-				for _, contentIndex := range itemData.Contents {
-					// Note: This is a simplified version. You might need to implement
-					// a recursive loading mechanism for nested items.
-					contentItem := &Item{Index: contentIndex}
-					item.Contents = append(item.Contents, contentItem)
-				}
-			}
-
-			fmt.Println("Reading", item)
+			fmt.Printf("Reading %s (ID: %s)\n", itemData.Name, itemData.ID)
 			prototypesData.ItemPrototypes = append(prototypesData.ItemPrototypes, itemData)
 			return nil
 		})

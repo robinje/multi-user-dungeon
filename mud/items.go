@@ -5,39 +5,52 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/google/uuid"
 	bolt "go.etcd.io/bbolt"
 )
 
 type Item struct {
-	Index       uint64
+	ID          uuid.UUID
 	Name        string
 	Description string
 	Mass        float64
+	Value       uint64
+	Stackable   bool
+	MaxStack    uint32
+	Quantity    uint32
 	Wearable    bool
 	WornOn      []string
 	Verbs       map[string]string
 	Overrides   map[string]string
+	TraitMods   map[string]int8
 	Container   bool
 	Contents    []*Item
 	IsPrototype bool
 	IsWorn      bool
 	CanPickUp   bool
+	Metadata    map[string]string
 }
 
 type ItemData struct {
-	Index       uint64            `json:"index"`
+	ID          string            `json:"id"`
 	Name        string            `json:"name"`
 	Description string            `json:"description"`
 	Mass        float64           `json:"mass"`
+	Value       uint64            `json:"value"`
+	Stackable   bool              `json:"stackable"`
+	MaxStack    uint32            `json:"max_stack"`
+	Quantity    uint32            `json:"quantity"`
 	Wearable    bool              `json:"wearable"`
 	WornOn      []string          `json:"worn_on"`
 	Verbs       map[string]string `json:"verbs"`
 	Overrides   map[string]string `json:"overrides"`
+	TraitMods   map[string]int8   `json:"trait_mods"`
 	Container   bool              `json:"container"`
-	Contents    []uint64          `json:"contents"`
+	Contents    []string          `json:"contents"`
 	IsPrototype bool              `json:"is_prototype"`
 	IsWorn      bool              `json:"is_worn"`
 	CanPickUp   bool              `json:"can_pick_up"`
+	Metadata    map[string]string `json:"metadata"`
 }
 
 // WearLocations defines all possible locations where an item can be worn
@@ -67,7 +80,7 @@ func init() {
 	}
 }
 
-func (k *KeyPair) LoadItem(indexKey uint64, isPrototype bool) (*Item, error) {
+func (k *KeyPair) LoadItem(id string, isPrototype bool) (*Item, error) {
 	var objectData []byte
 	bucketName := "Items"
 	if isPrototype {
@@ -79,8 +92,7 @@ func (k *KeyPair) LoadItem(indexKey uint64, isPrototype bool) (*Item, error) {
 		if bucket == nil {
 			return fmt.Errorf("%s bucket not found", bucketName)
 		}
-		indexKey := fmt.Sprintf("%d", indexKey)
-		objectData = bucket.Get([]byte(indexKey))
+		objectData = bucket.Get([]byte(id))
 		return nil
 	})
 
@@ -97,28 +109,39 @@ func (k *KeyPair) LoadItem(indexKey uint64, isPrototype bool) (*Item, error) {
 		return nil, fmt.Errorf("error unmarshalling object data: %v", err)
 	}
 
+	itemID, err := uuid.Parse(od.ID)
+	if err != nil {
+		return nil, fmt.Errorf("error parsing item ID: %v", err)
+	}
+
 	object := &Item{
-		Index:       od.Index,
+		ID:          itemID,
 		Name:        od.Name,
 		Description: od.Description,
 		Mass:        od.Mass,
+		Value:       od.Value,
+		Stackable:   od.Stackable,
+		MaxStack:    od.MaxStack,
+		Quantity:    od.Quantity,
 		Wearable:    od.Wearable,
 		WornOn:      od.WornOn,
 		Verbs:       od.Verbs,
 		Overrides:   od.Overrides,
+		TraitMods:   od.TraitMods,
 		Container:   od.Container,
 		IsPrototype: od.IsPrototype,
 		IsWorn:      od.IsWorn,
 		CanPickUp:   od.CanPickUp,
+		Metadata:    od.Metadata,
 	}
 
 	// Load contents if the item is a container
 	if object.Container {
 		object.Contents = make([]*Item, 0, len(od.Contents))
-		for _, contentIndex := range od.Contents {
-			contentItem, err := k.LoadItem(contentIndex, false)
+		for _, contentID := range od.Contents {
+			contentItem, err := k.LoadItem(contentID, false)
 			if err != nil {
-				return nil, fmt.Errorf("error loading content item %d: %v", contentIndex, err)
+				return nil, fmt.Errorf("error loading content item %s: %v", contentID, err)
 			}
 			object.Contents = append(object.Contents, contentItem)
 		}
@@ -128,29 +151,35 @@ func (k *KeyPair) LoadItem(indexKey uint64, isPrototype bool) (*Item, error) {
 }
 
 func (k *KeyPair) WriteItem(obj *Item) error {
-	contentIndices := make([]uint64, 0, len(obj.Contents))
+	contentIDs := make([]string, 0, len(obj.Contents))
 	for _, contentItem := range obj.Contents {
-		contentIndices = append(contentIndices, contentItem.Index)
+		contentIDs = append(contentIDs, contentItem.ID.String())
 		// Recursively write contained items
 		if err := k.WriteItem(contentItem); err != nil {
-			return fmt.Errorf("error writing content item %d: %v", contentItem.Index, err)
+			return fmt.Errorf("error writing content item %s: %v", contentItem.ID, err)
 		}
 	}
 
 	objData := ItemData{
-		Index:       obj.Index,
+		ID:          obj.ID.String(),
 		Name:        obj.Name,
 		Description: obj.Description,
 		Mass:        obj.Mass,
+		Value:       obj.Value,
+		Stackable:   obj.Stackable,
+		MaxStack:    obj.MaxStack,
+		Quantity:    obj.Quantity,
 		Wearable:    obj.Wearable,
 		WornOn:      obj.WornOn,
 		Verbs:       obj.Verbs,
 		Overrides:   obj.Overrides,
+		TraitMods:   obj.TraitMods,
 		Container:   obj.Container,
-		Contents:    contentIndices,
+		Contents:    contentIDs,
 		IsPrototype: obj.IsPrototype,
 		IsWorn:      obj.IsWorn,
 		CanPickUp:   obj.CanPickUp,
+		Metadata:    obj.Metadata,
 	}
 
 	serializedData, err := json.Marshal(objData)
@@ -169,8 +198,7 @@ func (k *KeyPair) WriteItem(obj *Item) error {
 			return fmt.Errorf("create bucket: %s", err)
 		}
 
-		indexKey := fmt.Sprintf("%d", obj.Index)
-		err = bucket.Put([]byte(indexKey), serializedData)
+		err = bucket.Put([]byte(obj.ID.String()), serializedData)
 		if err != nil {
 			return fmt.Errorf("failed to write object data: %v", err)
 		}
@@ -186,68 +214,77 @@ func (s *Server) SaveActiveItems() error {
 	defer s.Mutex.Unlock()
 
 	// Collect all items from rooms and characters
-	itemsToSave := make(map[uint64]*Item)
+	itemsToSave := make(map[uuid.UUID]*Item)
 
 	// Items in rooms
 	for _, room := range s.Rooms {
 		for _, item := range room.Items {
-			itemsToSave[item.Index] = item
+			itemsToSave[item.ID] = item
 		}
 	}
 
 	// Items in character inventories
 	for _, character := range s.Characters {
 		for _, item := range character.Inventory {
-			itemsToSave[item.Index] = item
+			itemsToSave[item.ID] = item
 		}
 	}
 
 	// Save all collected items
 	for _, item := range itemsToSave {
 		if err := s.Database.WriteItem(item); err != nil {
-			return fmt.Errorf("error saving item %s (ID: %d): %w", item.Name, item.Index, err)
+			return fmt.Errorf("error saving item %s (ID: %s): %w", item.Name, item.ID, err)
 		}
 	}
 
 	return nil
 }
 
-func (s *Server) CreateItemFromPrototype(prototypeIndex uint64) (*Item, error) {
-	prototype, err := s.Database.LoadItem(prototypeIndex, true)
+func (s *Server) CreateItemFromPrototype(prototypeID string) (*Item, error) {
+	prototype, err := s.Database.LoadItem(prototypeID, true)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load item prototype: %w", err)
 	}
 
 	if !prototype.IsPrototype {
-		return nil, fmt.Errorf("item with index %d is not a prototype", prototypeIndex)
-	}
-
-	itemIndex, err := s.Database.NextIndex("Items")
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate item index: %w", err)
+		return nil, fmt.Errorf("item with ID %s is not a prototype", prototypeID)
 	}
 
 	newItem := &Item{
-		Index:       itemIndex,
+		ID:          uuid.New(),
 		Name:        prototype.Name,
 		Description: prototype.Description,
 		Mass:        prototype.Mass,
+		Value:       prototype.Value,
+		Stackable:   prototype.Stackable,
+		MaxStack:    prototype.MaxStack,
+		Quantity:    prototype.Quantity,
 		Wearable:    prototype.Wearable,
 		WornOn:      prototype.WornOn,
 		Verbs:       prototype.Verbs,
 		Overrides:   prototype.Overrides,
+		TraitMods:   make(map[string]int8),
 		Container:   prototype.Container,
 		IsPrototype: false,
 		IsWorn:      false,
 		CanPickUp:   prototype.CanPickUp,
+		Metadata:    make(map[string]string),
+	}
+
+	for k, v := range prototype.TraitMods {
+		newItem.TraitMods[k] = v
+	}
+
+	for k, v := range prototype.Metadata {
+		newItem.Metadata[k] = v
 	}
 
 	if newItem.Container {
 		newItem.Contents = make([]*Item, 0, len(prototype.Contents))
 		for _, contentItem := range prototype.Contents {
-			newContentItem, err := s.CreateItemFromPrototype(contentItem.Index)
+			newContentItem, err := s.CreateItemFromPrototype(contentItem.ID.String())
 			if err != nil {
-				log.Printf("Error creating content item from prototype %d: %v", contentItem.Index, err)
+				log.Printf("Error creating content item from prototype %s: %v", contentItem.ID, err)
 				continue
 			}
 			newItem.Contents = append(newItem.Contents, newContentItem)
@@ -258,6 +295,6 @@ func (s *Server) CreateItemFromPrototype(prototypeIndex uint64) (*Item, error) {
 		return nil, fmt.Errorf("failed to write new item to database: %w", err)
 	}
 
-	log.Printf("Created new item %s (ID: %d) from prototype %d", newItem.Name, newItem.Index, prototypeIndex)
+	log.Printf("Created new item %s (ID: %s) from prototype %s", newItem.Name, newItem.ID, prototypeID)
 	return newItem, nil
 }

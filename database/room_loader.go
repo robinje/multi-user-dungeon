@@ -61,6 +61,7 @@ type Room struct {
 	Title       string
 	Description string
 	Exits       map[string]*Exit
+	ItemIDs     []string
 }
 
 func roomDisplay(rooms map[int64]*Room) {
@@ -81,9 +82,10 @@ func roomLoadJSON(rooms map[int64]*Room, fileName string) (map[int64]*Room, erro
 
 	var data struct {
 		Rooms map[string]struct {
-			Area      string `json:"area"`
-			Title     string `json:"title"`
-			Narrative string `json:"description"`
+			Area      string   `json:"area"`
+			Title     string   `json:"title"`
+			Narrative string   `json:"description"`
+			ItemIDs   []string `json:"items"` // Added this field
 			Exits     []struct {
 				ExitName     string `json:"direction"`
 				Visible      bool   `json:"visible"`
@@ -110,6 +112,7 @@ func roomLoadJSON(rooms map[int64]*Room, fileName string) (map[int64]*Room, erro
 			Title:       roomData.Title,
 			Description: roomData.Narrative,
 			Exits:       make(map[string]*Exit),
+			ItemIDs:     roomData.ItemIDs,
 		}
 
 		rooms[roomID] = room
@@ -163,7 +166,6 @@ func roomLoadBolt(rooms map[int64]*Room, fileName string) (map[int64]*Room, erro
 				return fmt.Errorf("error unmarshalling room data: %w", err)
 			}
 			rooms[room.RoomID] = &room
-			// fmt.Printf("Loaded Room %d: %+v\n", room.RoomID, room)
 			return nil
 		})
 		if err != nil {

@@ -387,9 +387,14 @@ func executeExamineCommand(character *Character, tokens []string) bool {
 		return false
 	}
 
-	description := fmt.Sprintf("\n\rItem: %s\n\r", item.Name)
+	description := fmt.Sprintf("\n\rItem: %s (ID: %s)\n\r", item.Name, item.ID)
 	description += fmt.Sprintf("Description: %s\n\r", item.Description)
 	description += fmt.Sprintf("Mass: %.2f\n\r", item.Mass)
+	description += fmt.Sprintf("Value: %d\n\r", item.Value)
+	description += fmt.Sprintf("Stackable: %v\n\r", item.Stackable)
+	if item.Stackable {
+		description += fmt.Sprintf("Quantity: %d/%d\n\r", item.Quantity, item.MaxStack)
+	}
 
 	if item.Wearable {
 		description += fmt.Sprintf("Wearable on: %s\n\r", strings.Join(item.WornOn, ", "))
@@ -403,7 +408,7 @@ func executeExamineCommand(character *Character, tokens []string) bool {
 		if len(item.Contents) > 0 {
 			description += "It contains:\n\r"
 			for _, contentItem := range item.Contents {
-				description += fmt.Sprintf("  - %s\n\r", contentItem.Name)
+				description += fmt.Sprintf("  - %s (ID: %s)\n\r", contentItem.Name, contentItem.ID)
 			}
 		} else {
 			description += "It is empty.\n\r"
@@ -414,6 +419,20 @@ func executeExamineCommand(character *Character, tokens []string) bool {
 		description += "Special actions:\n\r"
 		for verb, action := range item.Verbs {
 			description += fmt.Sprintf("  %s: %s\n\r", verb, action)
+		}
+	}
+
+	if len(item.TraitMods) > 0 {
+		description += "Trait Modifications:\n\r"
+		for trait, mod := range item.TraitMods {
+			description += fmt.Sprintf("  %s: %d\n\r", trait, mod)
+		}
+	}
+
+	if len(item.Metadata) > 0 {
+		description += "Additional Information:\n\r"
+		for key, value := range item.Metadata {
+			description += fmt.Sprintf("  %s: %s\n\r", key, value)
 		}
 	}
 
