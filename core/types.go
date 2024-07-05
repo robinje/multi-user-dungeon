@@ -114,6 +114,32 @@ type Item struct {
 	Metadata    map[string]string
 }
 
+type ItemData struct {
+	ID          string            `json:"id"`
+	Name        string            `json:"name"`
+	Description string            `json:"description"`
+	Mass        float64           `json:"mass"`
+	Value       uint64            `json:"value"`
+	Stackable   bool              `json:"stackable"`
+	MaxStack    uint32            `json:"max_stack"`
+	Quantity    uint32            `json:"quantity"`
+	Wearable    bool              `json:"wearable"`
+	WornOn      []string          `json:"worn_on"`
+	Verbs       map[string]string `json:"verbs"`
+	Overrides   map[string]string `json:"overrides"`
+	TraitMods   map[string]int8   `json:"trait_mods"`
+	Container   bool              `json:"container"`
+	Contents    []string          `json:"contents"`
+	IsPrototype bool              `json:"is_prototype"`
+	IsWorn      bool              `json:"is_worn"`
+	CanPickUp   bool              `json:"can_pick_up"`
+	Metadata    map[string]string `json:"metadata"`
+}
+
+type PrototypesData struct {
+	ItemPrototypes []ItemData `json:"itemPrototypes"`
+}
+
 type Player struct {
 	PlayerID      string
 	Index         uint64
