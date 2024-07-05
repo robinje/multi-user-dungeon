@@ -1,6 +1,6 @@
 module github.com/robinje/multi-user-dungeon/database_viewer
 
-go 1.21
+go 1.22
 
 require go.etcd.io/bbolt v1.3.8
 
