@@ -3,6 +3,7 @@ package core
 import (
 	"fmt"
 	"log"
+	"strings"
 	"sync"
 
 	bolt "go.etcd.io/bbolt"
@@ -98,4 +99,25 @@ func (k *KeyPair) NextIndex(bucketName string) (uint64, error) {
 	}
 
 	return nextIndex, nil
+}
+
+func (k *KeyPair) ViewAllBuckets() error {
+	return k.db.View(func(tx *bolt.Tx) error {
+		return tx.ForEach(func(name []byte, b *bolt.Bucket) error {
+			fmt.Printf("\nBucket: %s\n", name)
+			fmt.Println(strings.Repeat("-", 30))
+
+			count := 0
+			err := b.ForEach(func(k, v []byte) error {
+				fmt.Printf("  Key:   %s\n", k)
+				fmt.Printf("  Value: %s\n", v)
+				fmt.Println()
+				count++
+				return nil
+			})
+
+			fmt.Printf("Total entries in bucket: %d\n", count)
+			return err
+		})
+	})
 }
