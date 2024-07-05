@@ -20,8 +20,7 @@ type Room struct {
 	Exits       map[string]*Exit
 	Characters  map[uint64]*Character
 	Mutex       sync.Mutex
-	ItemIDs     []string // Stores UUID strings
-	Items       []*Item  // Keeps the original slice structure
+	Items       map[string]*Item // Change to map for efficient lookups
 }
 
 type Exit struct {
@@ -31,31 +30,21 @@ type Exit struct {
 	Direction  string
 }
 
-func (kp *KeyPair) LoadRooms() (map[int64]*Room, error) {
+func (k *KeyPair) LoadRooms() (map[int64]*Room, error) {
 	rooms := make(map[int64]*Room)
 
-	err := kp.db.View(func(tx *bolt.Tx) error {
+	err := k.db.View(func(tx *bolt.Tx) error {
 		roomsBucket := tx.Bucket([]byte("Rooms"))
 		if roomsBucket == nil {
 			return fmt.Errorf("rooms bucket not found")
 		}
 
-		log.Printf("Using Rooms bucket: %v", roomsBucket)
-
-		exitsBucket := tx.Bucket([]byte("Exits"))
-		if exitsBucket == nil {
-			return fmt.Errorf("exits bucket not found")
-		}
-		log.Printf("Using Exits bucket: %v", exitsBucket)
-
 		itemsBucket := tx.Bucket([]byte("Items"))
 		if itemsBucket == nil {
-			log.Printf("Items bucket not found, no items will be loaded")
-		} else {
-			log.Printf("Using Items bucket: %v", itemsBucket)
+			return fmt.Errorf("items bucket not found")
 		}
 
-		// Load rooms
+		// Load all rooms
 		err := roomsBucket.ForEach(func(k, v []byte) error {
 			var roomData struct {
 				RoomID      int64            `json:"RoomID"`
@@ -63,7 +52,7 @@ func (kp *KeyPair) LoadRooms() (map[int64]*Room, error) {
 				Title       string           `json:"Title"`
 				Description string           `json:"Description"`
 				Exits       map[string]*Exit `json:"Exits"`
-				ItemIDs     []string         `json:"Items"`
+				ItemIDs     []string         `json:"ItemIDs"` // List of item IDs in the room
 			}
 			if err := json.Unmarshal(v, &roomData); err != nil {
 				return fmt.Errorf("error unmarshalling room data for key %s: %w", k, err)
@@ -74,54 +63,44 @@ func (kp *KeyPair) LoadRooms() (map[int64]*Room, error) {
 				Area:        roomData.Area,
 				Title:       roomData.Title,
 				Description: roomData.Description,
-				Exits:       roomData.Exits,
+				Exits:       make(map[string]*Exit),
 				Characters:  make(map[uint64]*Character),
+				Items:       make(map[string]*Item),
 				Mutex:       sync.Mutex{},
-				Items:       make([]*Item, 0, len(roomData.ItemIDs)),
-				ItemIDs:     roomData.ItemIDs,
 			}
-			rooms[room.RoomID] = room
+
+			// Load exits
+			for direction, exitData := range roomData.Exits {
+				exit := &Exit{
+					ExitID:     exitData.ExitID,
+					TargetRoom: exitData.TargetRoom,
+					Visible:    exitData.Visible,
+					Direction:  exitData.Direction,
+				}
+				room.Exits[direction] = exit
+			}
 
 			// Load items for this room
 			for _, itemID := range roomData.ItemIDs {
-				item, err := kp.LoadItem(itemID, false)
-				if err != nil {
-					log.Printf("Error loading item %s for room %d: %v", itemID, room.RoomID, err)
+				itemData := itemsBucket.Get([]byte(itemID))
+				if itemData == nil {
+					log.Printf("Item %s not found for room %d", itemID, room.RoomID)
 					continue
 				}
-				room.Items = append(room.Items, item)
+
+				var item Item
+				if err := json.Unmarshal(itemData, &item); err != nil {
+					log.Printf("Error unmarshalling item %s: %v", itemID, err)
+					continue
+				}
+
+				room.Items[itemID] = &item
 			}
 
-			log.Printf("Loaded room %d: %s with %d items", room.RoomID, room.Title, len(room.Items))
+			rooms[room.RoomID] = room
 			return nil
 		})
-		if err != nil {
-			return err
-		}
 
-		// Load exits
-		err = exitsBucket.ForEach(func(k, v []byte) error {
-			var exit Exit
-			if err := json.Unmarshal(v, &exit); err != nil {
-				return fmt.Errorf("error unmarshalling exit data for key %s: %w", k, err)
-			}
-
-			keyParts := strings.SplitN(string(k), "_", 2)
-			if len(keyParts) != 2 {
-				return fmt.Errorf("invalid exit key format: %s", k)
-			}
-			roomID, err := strconv.ParseInt(keyParts[0], 10, 64)
-			if err != nil {
-				return fmt.Errorf("error parsing room ID from key %s: %w", k, err)
-			}
-
-			if room, exists := rooms[roomID]; exists {
-				room.Exits[exit.Direction] = &exit
-			} else {
-				return fmt.Errorf("room not found for exit key %s", k)
-			}
-			return nil
-		})
 		if err != nil {
 			return err
 		}
@@ -131,6 +110,12 @@ func (kp *KeyPair) LoadRooms() (map[int64]*Room, error) {
 
 	if err != nil {
 		return nil, fmt.Errorf("error reading from BoltDB: %w", err)
+	}
+
+	// Log room information
+	for _, room := range rooms {
+		log.Printf("Loaded room %d: %s with %d exits and %d items",
+			room.RoomID, room.Title, len(room.Exits), len(room.Items))
 	}
 
 	return rooms, nil
@@ -144,9 +129,8 @@ func NewRoom(RoomID int64, Area string, Title string, Description string) *Room 
 		Description: Description,
 		Exits:       make(map[string]*Exit),
 		Characters:  make(map[uint64]*Character),
+		Items:       make(map[string]*Item),
 		Mutex:       sync.Mutex{},
-		Items:       make([]*Item, 0),
-		ItemIDs:     make([]string, 0),
 	}
 
 	log.Printf("Created room %s with ID %d", room.Title, room.RoomID)
@@ -212,7 +196,7 @@ func (kp *KeyPair) WriteRoom(room *Room) error {
 		Title       string           `json:"Title"`
 		Description string           `json:"Description"`
 		Exits       map[string]*Exit `json:"Exits"`
-		ItemIDs     []string         `json:"Items"`
+		ItemIDs     []string         `json:"ItemIDs"`
 	}{
 		RoomID:      room.RoomID,
 		Area:        room.Area,
@@ -223,7 +207,9 @@ func (kp *KeyPair) WriteRoom(room *Room) error {
 	}
 
 	// Collect item IDs
-	roomData.ItemIDs = append(roomData.ItemIDs, room.ItemIDs...)
+	for itemID := range room.Items {
+		roomData.ItemIDs = append(roomData.ItemIDs, itemID)
+	}
 
 	// Serialize the room data
 	serializedRoom, err := json.Marshal(roomData)
@@ -242,25 +228,6 @@ func (kp *KeyPair) WriteRoom(room *Room) error {
 		err = roomsBucket.Put([]byte(roomKey), serializedRoom)
 		if err != nil {
 			return fmt.Errorf("error writing room data: %w", err)
-		}
-
-		// Write exits separately
-		exitsBucket, err := tx.CreateBucketIfNotExists([]byte("Exits"))
-		if err != nil {
-			return fmt.Errorf("error creating/accessing Exits bucket: %w", err)
-		}
-
-		for direction, exit := range room.Exits {
-			exitKey := fmt.Sprintf("%d_%s", room.RoomID, direction)
-			serializedExit, err := json.Marshal(exit)
-			if err != nil {
-				return fmt.Errorf("error serializing exit data: %w", err)
-			}
-
-			err = exitsBucket.Put([]byte(exitKey), serializedExit)
-			if err != nil {
-				return fmt.Errorf("error writing exit data: %w", err)
-			}
 		}
 
 		return nil
@@ -308,6 +275,7 @@ func (r *Room) RoomInfo(character *Character) string {
 		displayExits.WriteString("\n\r")
 	}
 
+	// Display characters in the room
 	var charactersInRoom strings.Builder
 	for _, c := range r.Characters {
 		if c != character {
@@ -321,44 +289,27 @@ func (r *Room) RoomInfo(character *Character) string {
 		roomInfo += "You are alone.\n\r"
 	}
 
-	// Display objects in the room
+	// Display items in the room
 	if len(r.Items) > 0 {
 		roomInfo += "Items in the room:\n\r"
-		for _, obj := range r.Items {
-			roomInfo += fmt.Sprintf("- %s (ID: %s)\n\r", obj.Name, obj.ID)
+		for _, item := range r.Items {
+			roomInfo += fmt.Sprintf("- %s\n\r", item.Name)
 		}
 	}
 
 	return roomInfo + displayExits.String()
 }
 
-func (r *Room) removeItem(item *Item) {
+func (r *Room) RemoveItem(item *Item) {
 	r.Mutex.Lock()
 	defer r.Mutex.Unlock()
-
-	for i, roomItem := range r.Items {
-		if roomItem.ID == item.ID {
-			// Remove the item from the Items slice
-			r.Items = append(r.Items[:i], r.Items[i+1:]...)
-			break
-		}
-	}
-
-	// Remove the item's ID from the ItemIDs slice
-	for i, id := range r.ItemIDs {
-		if id == item.ID.String() {
-			r.ItemIDs = append(r.ItemIDs[:i], r.ItemIDs[i+1:]...)
-			break
-		}
-	}
+	delete(r.Items, item.ID.String())
 }
 
-func (r *Room) addItem(item *Item) {
+func (r *Room) AddItem(item *Item) {
 	r.Mutex.Lock()
 	defer r.Mutex.Unlock()
-
-	r.Items = append(r.Items, item)
-	r.ItemIDs = append(r.ItemIDs, item.ID.String())
+	r.Items[item.ID.String()] = item
 }
 
 func (s *Server) SaveActiveRooms() error {

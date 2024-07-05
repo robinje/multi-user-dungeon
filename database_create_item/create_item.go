@@ -18,7 +18,7 @@ type Room struct {
 	Title       string
 	Description string
 	Exits       map[string]*Exit
-	ItemIDs     []string // Changed to store UUIDs as strings
+	Items       map[string]*Item // Changed to store items directly
 }
 
 type Exit struct {
@@ -126,6 +126,9 @@ func loadRooms(db *bolt.DB) map[int64]*Room {
 		b.ForEach(func(k, v []byte) error {
 			var room Room
 			json.Unmarshal(v, &room)
+			if room.Items == nil {
+				room.Items = make(map[string]*Item)
+			}
 			rooms[room.RoomID] = &room
 			return nil
 		})
@@ -259,7 +262,10 @@ func addItemToRoom(db *bolt.DB, room *Room, prototype *Item) error {
 		}
 
 		// Update room
-		room.ItemIDs = append(room.ItemIDs, newItem.ID.String())
+		if room.Items == nil {
+			room.Items = make(map[string]*Item)
+		}
+		room.Items[newItem.ID.String()] = newItem
 
 		// Save updated room to Rooms bucket
 		roomsBucket := tx.Bucket([]byte("Rooms"))

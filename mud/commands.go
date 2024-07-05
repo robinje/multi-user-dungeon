@@ -261,7 +261,7 @@ func executeTakeCommand(character *Character, tokens []string) bool {
 		return false
 	}
 
-	character.Room.removeItem(itemToTake)
+	character.Room.RemoveItem(itemToTake)
 	character.AddToInventory(itemToTake)
 
 	character.Room.SendRoomMessage(fmt.Sprintf("\n\r%s picks up %s.\n\r", character.Name, itemToTake.Name))
@@ -290,7 +290,7 @@ func executeDropCommand(character *Character, tokens []string) bool {
 	}
 
 	character.RemoveFromInventory(itemToDrop)
-	character.Room.addItem(itemToDrop)
+	character.Room.AddItem(itemToDrop)
 
 	character.Player.ToPlayer <- fmt.Sprintf("\n\rYou drop %s.\n\r", itemToDrop.Name)
 	character.Room.SendRoomMessage(fmt.Sprintf("\n\r%s drops %s.\n\r", character.Name, itemToDrop.Name))
