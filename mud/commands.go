@@ -25,6 +25,9 @@ var commandHandlers = map[string]CommandHandler{
 	"get":       executeTakeCommand, // Alias for take command
 	"drop":      executeDropCommand,
 	"inventory": executeInventoryCommand,
+	"wear":      executeWearCommand,
+	"remove":    executeRemoveCommand,
+	"examine":   executeExamineCommand,
 	"i":         executeInventoryCommand, // Alias for inventory command
 	"inv":       executeInventoryCommand, // Alias for inventory command
 	"\"":        executeSayCommand,       // Allow for double quotes to be used as a shortcut for the say command
@@ -238,54 +241,30 @@ func executeTakeCommand(character *Character, tokens []string) bool {
 		return false
 	}
 
-	// Check if hands are full
-	_, leftHandOccupied := character.Inventory["left_hand"]
-	_, rightHandOccupied := character.Inventory["right_hand"]
-	if leftHandOccupied && rightHandOccupied {
-		character.Player.ToPlayer <- "\n\rBoth of your hands are full. You need a free hand to take an item.\n\r"
-		return false
-	}
-
-	// Join all tokens after "take" to form the item name
-	itemName := strings.Join(tokens[1:], " ")
-
-	// Remove words like "the", "a", "an", "first", "second", etc. from the item name
-	itemName = strings.ToLower(itemName)
-	itemName = strings.TrimPrefix(itemName, "the ")
-	itemName = strings.TrimPrefix(itemName, "a ")
-	itemName = strings.TrimPrefix(itemName, "an ")
-	itemName = strings.TrimPrefix(itemName, "first ")
-	itemName = strings.TrimPrefix(itemName, "second ")
-	// Add more prefixes as needed
-
+	itemName := strings.ToLower(strings.Join(tokens[1:], " "))
 	var itemToTake *Item
 
-	// Search for the item in the room
 	for _, item := range character.Room.Items {
-		if strings.Contains(strings.ToLower(item.Name), itemName) {
+		if strings.Contains(strings.ToLower(item.Name), itemName) && item.CanPickUp {
 			itemToTake = item
 			break
 		}
 	}
 
 	if itemToTake == nil {
-		character.Player.ToPlayer <- "\n\rYou can't find that item.\n\r"
+		character.Player.ToPlayer <- "\n\rYou can't find that item or it can't be picked up.\n\r"
 		return false
 	}
 
-	// Remove the item from the room
-	character.Room.removeItem(itemToTake)
-
-	// Send a message to the room
-	character.Room.SendRoomMessage(fmt.Sprintf("\n\r%s picks up %s.\n\r", character.Name, itemToTake.Name))
-
-	// Put the item in the character's hand
-	if !leftHandOccupied {
-		character.Inventory["left_hand"] = itemToTake
-	} else {
-		character.Inventory["right_hand"] = itemToTake
+	if !character.CanCarryItem(itemToTake) {
+		character.Player.ToPlayer <- "\n\rYou can't carry any more items.\n\r"
+		return false
 	}
 
+	character.Room.removeItem(itemToTake)
+	character.AddToInventory(itemToTake)
+
+	character.Room.SendRoomMessage(fmt.Sprintf("\n\r%s picks up %s.\n\r", character.Name, itemToTake.Name))
 	character.Player.ToPlayer <- fmt.Sprintf("\n\rYou take %s.\n\r", itemToTake.Name)
 	return false
 }
@@ -297,50 +276,148 @@ func executeInventoryCommand(character *Character, tokens []string) bool {
 }
 
 func executeDropCommand(character *Character, tokens []string) bool {
-	character.Mutex.Lock()
-	defer character.Mutex.Unlock()
-
-	// Check if the player is holding anything
-	if len(character.Inventory) == 0 {
-		character.Player.ToPlayer <- "\n\rYou have nothing to drop.\n\r"
+	if len(tokens) < 2 {
+		character.Player.ToPlayer <- "\n\rUsage: drop <item name>\n\r"
 		return false
 	}
 
-	var itemToDrop *Item
-	var itemLocation string
+	itemName := strings.ToLower(strings.Join(tokens[1:], " "))
+	itemToDrop := character.FindInInventory(itemName)
 
-	// If an item is specified
-	if len(tokens) > 1 {
-		itemName := strings.ToLower(strings.Join(tokens[1:], " "))
-		for location, item := range character.Inventory {
-			if strings.ToLower(item.Name) == itemName {
-				itemToDrop = item
-				itemLocation = location
-				break
-			}
-		}
-		if itemToDrop == nil {
-			character.Player.ToPlayer <- fmt.Sprintf("\n\rYou are not holding %s.\n\r", itemName)
-			return false
-		}
-	} else {
-		// No item specified, drop from right hand, then left hand
-		if item, exists := character.Inventory["right_hand"]; exists {
-			itemToDrop = item
-			itemLocation = "right_hand"
-		} else if item, exists := character.Inventory["left_hand"]; exists {
-			itemToDrop = item
-			itemLocation = "left_hand"
-		}
+	if itemToDrop == nil {
+		character.Player.ToPlayer <- "\n\rYou don't have that item.\n\r"
+		return false
 	}
 
-	// Drop the item
-	delete(character.Inventory, itemLocation)
+	character.RemoveFromInventory(itemToDrop)
 	character.Room.addItem(itemToDrop)
 
 	character.Player.ToPlayer <- fmt.Sprintf("\n\rYou drop %s.\n\r", itemToDrop.Name)
 	character.Room.SendRoomMessage(fmt.Sprintf("\n\r%s drops %s.\n\r", character.Name, itemToDrop.Name))
+	return false
+}
 
+func executeWearCommand(character *Character, tokens []string) bool {
+	if len(tokens) < 2 {
+		character.Player.ToPlayer <- "\n\rUsage: wear <item name>\n\r"
+		return false
+	}
+
+	itemName := strings.ToLower(strings.Join(tokens[1:], " "))
+	itemToWear := character.FindInInventory(itemName)
+
+	if itemToWear == nil {
+		character.Player.ToPlayer <- "\n\rYou don't have that item.\n\r"
+		return false
+	}
+
+	if !itemToWear.Wearable {
+		character.Player.ToPlayer <- "\n\rYou can't wear that.\n\r"
+		return false
+	}
+
+	if itemToWear.IsWorn {
+		character.Player.ToPlayer <- "\n\rYou're already wearing that.\n\r"
+		return false
+	}
+
+	if err := character.WearItem(itemToWear); err != nil {
+		character.Player.ToPlayer <- fmt.Sprintf("\n\r%s\n\r", err.Error())
+		return false
+	}
+
+	character.Player.ToPlayer <- fmt.Sprintf("\n\rYou wear %s.\n\r", itemToWear.Name)
+	character.Room.SendRoomMessage(fmt.Sprintf("\n\r%s wears %s.\n\r", character.Name, itemToWear.Name))
+	return false
+}
+
+func executeRemoveCommand(character *Character, tokens []string) bool {
+	if len(tokens) < 2 {
+		character.Player.ToPlayer <- "\n\rUsage: remove <item name>\n\r"
+		return false
+	}
+
+	itemName := strings.ToLower(strings.Join(tokens[1:], " "))
+	itemToRemove := character.FindInInventory(itemName)
+
+	if itemToRemove == nil {
+		character.Player.ToPlayer <- "\n\rYou don't have that item.\n\r"
+		return false
+	}
+
+	if !itemToRemove.IsWorn {
+		character.Player.ToPlayer <- "\n\rYou're not wearing that.\n\r"
+		return false
+	}
+
+	removedItem, err := character.RemoveWornItem(itemToRemove)
+	if err != nil {
+		character.Player.ToPlayer <- fmt.Sprintf("\n\r%s\n\r", err.Error())
+		return false
+	}
+
+	character.Player.ToPlayer <- fmt.Sprintf("\n\rYou remove %s.\n\r", removedItem.Name)
+	character.Room.SendRoomMessage(fmt.Sprintf("\n\r%s removes %s.\n\r", character.Name, removedItem.Name))
+	return false
+}
+
+func executeExamineCommand(character *Character, tokens []string) bool {
+	if len(tokens) < 2 {
+		character.Player.ToPlayer <- "\n\rUsage: examine <item name>\n\r"
+		return false
+	}
+
+	itemName := strings.ToLower(strings.Join(tokens[1:], " "))
+
+	// Check inventory first
+	item := character.FindInInventory(itemName)
+
+	// If not in inventory, check room
+	if item == nil {
+		for _, roomItem := range character.Room.Items {
+			if strings.Contains(strings.ToLower(roomItem.Name), itemName) {
+				item = roomItem
+				break
+			}
+		}
+	}
+
+	if item == nil {
+		character.Player.ToPlayer <- "\n\rYou don't see that item here.\n\r"
+		return false
+	}
+
+	description := fmt.Sprintf("\n\rItem: %s\n\r", item.Name)
+	description += fmt.Sprintf("Description: %s\n\r", item.Description)
+	description += fmt.Sprintf("Mass: %.2f\n\r", item.Mass)
+
+	if item.Wearable {
+		description += fmt.Sprintf("Wearable on: %s\n\r", strings.Join(item.WornOn, ", "))
+		if item.IsWorn {
+			description += "This item is currently being worn.\n\r"
+		}
+	}
+
+	if item.Container {
+		description += "This is a container.\n\r"
+		if len(item.Contents) > 0 {
+			description += "It contains:\n\r"
+			for _, contentItem := range item.Contents {
+				description += fmt.Sprintf("  - %s\n\r", contentItem.Name)
+			}
+		} else {
+			description += "It is empty.\n\r"
+		}
+	}
+
+	if len(item.Verbs) > 0 {
+		description += "Special actions:\n\r"
+		for verb, action := range item.Verbs {
+			description += fmt.Sprintf("  %s: %s\n\r", verb, action)
+		}
+	}
+
+	character.Player.ToPlayer <- description
 	return false
 }
 
@@ -351,10 +428,13 @@ func executeHelpCommand(character *Character, tokens []string) bool {
 		"\n\rsay <message> - Say something to all players" +
 		"\n\rlook - Look around the room" +
 		"\n\rgo <direction> - Move in a direction" +
-		"\n\rtake <my | number position> <object> - Take an item from your inventory or the room" +
-		"\n\rdrop [item] - Drop a held items" +
+		"\n\rtake <item> - Take an item from the room" +
+		"\n\rdrop <item> - Drop a held item" +
+		"\n\rwear <item> - Wear an item from your inventory" +
+		"\n\rremove <item> - Remove a worn item" +
+		"\n\rexamine <item> - Get detailed information about an item" +
 		"\n\rinventory (or i) - Check your inventory" +
-		"\n\rwho - List all character online" +
+		"\n\rwho - List all characters online" +
 		"\n\rpassword <oldPassword> <newPassword> - Change your password" +
 		"\n\rquit - Quit the game\n\r"
 
