@@ -9,64 +9,26 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
-	bolt "go.etcd.io/bbolt"
+	"github.com/robinje/multi-user-dungeon/core"
 )
-
-type Room struct {
-	RoomID      int64
-	Area        string
-	Title       string
-	Description string
-	Exits       map[string]*Exit
-	Items       map[string]*Item // Changed to store items directly
-}
-
-type Exit struct {
-	ExitID     int64
-	TargetRoom int64
-	Visible    bool
-	Direction  string
-}
-
-type Item struct {
-	ID          uuid.UUID         `json:"id"`
-	Name        string            `json:"name"`
-	Description string            `json:"description"`
-	Mass        float64           `json:"mass"`
-	Value       uint64            `json:"value"`
-	Stackable   bool              `json:"stackable"`
-	MaxStack    uint32            `json:"max_stack"`
-	Quantity    uint32            `json:"quantity"`
-	Wearable    bool              `json:"wearable"`
-	WornOn      []string          `json:"worn_on"`
-	Verbs       map[string]string `json:"verbs"`
-	Overrides   map[string]string `json:"overrides"`
-	TraitMods   map[string]int8   `json:"trait_mods"`
-	Container   bool              `json:"container"`
-	Contents    []string          `json:"contents,omitempty"`
-	IsPrototype bool              `json:"is_prototype"`
-	IsWorn      bool              `json:"is_worn"`
-	CanPickUp   bool              `json:"can_pick_up"`
-	Metadata    map[string]string `json:"metadata"`
-}
 
 func main() {
 	dbPath := "../mud/data.bolt"
-	db, err := bolt.Open(dbPath, 0600, nil)
+	kp, err := core.NewKeyPair(dbPath)
 	if err != nil {
 		fmt.Printf("Error opening database: %v\n", err)
 		return
 	}
-	defer db.Close()
+	defer kp.Close()
 
-	err = initializeBuckets(db)
+	err = initializeBuckets(kp)
 	if err != nil {
 		fmt.Printf("Error initializing buckets: %v\n", err)
 		return
 	}
 
 	for {
-		rooms := loadRooms(db)
+		rooms := loadRooms(kp)
 		displayRooms(rooms)
 
 		roomID := promptForRoom()
@@ -80,7 +42,7 @@ func main() {
 			continue
 		}
 
-		prototypes := loadPrototypes(db)
+		prototypes := loadPrototypes(kp)
 		if len(prototypes) == 0 {
 			fmt.Println("No item prototypes found. Please add some prototypes first.")
 			continue
@@ -98,65 +60,44 @@ func main() {
 			continue
 		}
 
-		addItemToRoom(db, room, prototype)
+		addItemToRoom(kp, room, prototype)
 		fmt.Printf("Added %s to room %d.\n", prototype.Name, room.RoomID)
 	}
 }
 
-func initializeBuckets(db *bolt.DB) error {
-	return db.Update(func(tx *bolt.Tx) error {
-		buckets := []string{"Rooms", "Items", "ItemPrototypes"}
-		for _, bucket := range buckets {
-			_, err := tx.CreateBucketIfNotExists([]byte(bucket))
-			if err != nil {
-				return fmt.Errorf("create bucket %s: %s", bucket, err)
-			}
+func initializeBuckets(kp *core.KeyPair) error {
+	buckets := []string{"Rooms", "Items", "ItemPrototypes"}
+	for _, bucket := range buckets {
+		err := kp.Put(bucket, []byte("init"), []byte("init"))
+		if err != nil {
+			return fmt.Errorf("create bucket %s: %s", bucket, err)
 		}
-		return nil
-	})
+		kp.Delete(bucket, []byte("init"))
+	}
+	return nil
 }
 
-func loadRooms(db *bolt.DB) map[int64]*Room {
-	rooms := make(map[int64]*Room)
-	db.View(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte("Rooms"))
-		if b == nil {
-			return nil // If the bucket doesn't exist, return an empty map
-		}
-		b.ForEach(func(k, v []byte) error {
-			var room Room
-			json.Unmarshal(v, &room)
-			if room.Items == nil {
-				room.Items = make(map[string]*Item)
-			}
-			rooms[room.RoomID] = &room
-			return nil
-		})
-		return nil
-	})
+func loadRooms(kp *core.KeyPair) map[int64]*core.Room {
+	rooms := make(map[int64]*core.Room)
+	roomsData, err := kp.Get("Rooms", nil)
+	if err != nil {
+		return rooms
+	}
+	json.Unmarshal(roomsData, &rooms)
 	return rooms
 }
 
-func loadPrototypes(db *bolt.DB) map[string]*Item {
-	prototypes := make(map[string]*Item)
-	db.View(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte("ItemPrototypes"))
-		if b == nil {
-			return nil
-		}
-		return b.ForEach(func(k, v []byte) error {
-			var item Item
-			if err := json.Unmarshal(v, &item); err != nil {
-				return err
-			}
-			prototypes[item.ID.String()] = &item
-			return nil
-		})
-	})
+func loadPrototypes(kp *core.KeyPair) map[string]*core.Item {
+	prototypes := make(map[string]*core.Item)
+	prototypesData, err := kp.Get("ItemPrototypes", nil)
+	if err != nil {
+		return prototypes
+	}
+	json.Unmarshal(prototypesData, &prototypes)
 	return prototypes
 }
 
-func displayRooms(rooms map[int64]*Room) {
+func displayRooms(rooms map[int64]*core.Room) {
 	fmt.Println("Available Rooms:")
 	for _, room := range rooms {
 		fmt.Printf("%d: %s\n", room.RoomID, room.Title)
@@ -172,14 +113,13 @@ func promptForRoom() int64 {
 	return roomID
 }
 
-func displayPrototypes(prototypes map[string]*Item) {
+func displayPrototypes(prototypes map[string]*core.Item) {
 	fmt.Println("Available Prototypes:")
 	for id, prototype := range prototypes {
 		fmt.Printf("%s: %s\n", id, prototype.Name)
 	}
 }
 
-// TODO: Index the prototypes by an Integer value for easier selection
 func promptForPrototype() string {
 	reader := bufio.NewReader(os.Stdin)
 	fmt.Print("Enter prototype ID (empty to cancel): ")
@@ -187,126 +127,41 @@ func promptForPrototype() string {
 	return strings.TrimSpace(input)
 }
 
-func addItemToRoom(db *bolt.DB, room *Room, prototype *Item) error {
-	return db.Update(func(tx *bolt.Tx) error {
-		itemsBucket, err := tx.CreateBucketIfNotExists([]byte("Items"))
-		if err != nil {
-			return fmt.Errorf("failed to create items bucket: %v", err)
-		}
+func addItemToRoom(kp *core.KeyPair, room *core.Room, prototype *core.Item) error {
+	newItem := createNewItemFromPrototype(prototype)
 
-		newItem := &Item{
-			ID:          uuid.New(),
-			Name:        prototype.Name,
-			Description: prototype.Description,
-			Mass:        prototype.Mass,
-			Value:       prototype.Value,
-			Stackable:   prototype.Stackable,
-			MaxStack:    prototype.MaxStack,
-			Quantity:    1, // Start with quantity 1 for new items
-			Wearable:    prototype.Wearable,
-			WornOn:      make([]string, len(prototype.WornOn)),
-			Verbs:       make(map[string]string),
-			Overrides:   make(map[string]string),
-			TraitMods:   make(map[string]int8),
-			Container:   prototype.Container,
-			IsPrototype: false,
-			IsWorn:      false,
-			CanPickUp:   prototype.CanPickUp,
-			Contents:    make([]string, 0),
-			Metadata:    make(map[string]string),
-		}
+	// Save new item to Items bucket
+	itemData, err := json.Marshal(newItem)
+	if err != nil {
+		return fmt.Errorf("error marshalling new item: %v", err)
+	}
+	err = kp.Put("Items", []byte(newItem.ID.String()), itemData)
+	if err != nil {
+		return fmt.Errorf("error saving new item: %v", err)
+	}
 
-		// Deep copy slices and maps
-		copy(newItem.WornOn, prototype.WornOn)
-		for k, v := range prototype.Verbs {
-			newItem.Verbs[k] = v
-		}
-		for k, v := range prototype.Overrides {
-			newItem.Overrides[k] = v
-		}
-		for k, v := range prototype.TraitMods {
-			newItem.TraitMods[k] = v
-		}
-		for k, v := range prototype.Metadata {
-			newItem.Metadata[k] = v
-		}
+	// Update room
+	if room.Items == nil {
+		room.Items = make(map[string]*core.Item)
+	}
+	room.Items[newItem.ID.String()] = newItem
 
-		if newItem.Container && len(prototype.Contents) > 0 {
-			// Handle contents for container items
-			for _, contentID := range prototype.Contents {
-				// Load the content item prototype
-				contentPrototype, err := loadItemPrototype(tx, contentID)
-				if err != nil {
-					return fmt.Errorf("error loading content item prototype: %v", err)
-				}
+	// Save updated room to Rooms bucket
+	roomData, err := json.Marshal(room)
+	if err != nil {
+		return fmt.Errorf("error marshalling updated room: %v", err)
+	}
+	err = kp.Put("Rooms", []byte(strconv.FormatInt(room.RoomID, 10)), roomData)
+	if err != nil {
+		return fmt.Errorf("error saving updated room: %v", err)
+	}
 
-				// Create a new item based on the content prototype
-				newContentItem, err := createNewItemFromPrototype(tx, contentPrototype)
-				if err != nil {
-					return fmt.Errorf("error creating new content item: %v", err)
-				}
-
-				// Add the new content item's ID to the container's contents
-				newItem.Contents = append(newItem.Contents, newContentItem.ID.String())
-			}
-		}
-
-		// Save new item to Items bucket
-		itemData, err := json.Marshal(newItem)
-		if err != nil {
-			return fmt.Errorf("error marshalling new item: %v", err)
-		}
-		err = itemsBucket.Put([]byte(newItem.ID.String()), itemData)
-		if err != nil {
-			return fmt.Errorf("error saving new item: %v", err)
-		}
-
-		// Update room
-		if room.Items == nil {
-			room.Items = make(map[string]*Item)
-		}
-		room.Items[newItem.ID.String()] = newItem
-
-		// Save updated room to Rooms bucket
-		roomsBucket := tx.Bucket([]byte("Rooms"))
-		if roomsBucket == nil {
-			return fmt.Errorf("rooms bucket not found")
-		}
-		roomData, err := json.Marshal(room)
-		if err != nil {
-			return fmt.Errorf("error marshalling updated room: %v", err)
-		}
-		err = roomsBucket.Put([]byte(strconv.FormatInt(room.RoomID, 10)), roomData)
-		if err != nil {
-			return fmt.Errorf("error saving updated room: %v", err)
-		}
-
-		fmt.Printf("Added item %s (ID: %s) to room %d\n", newItem.Name, newItem.ID, room.RoomID)
-		return nil
-	})
+	fmt.Printf("Added item %s (ID: %s) to room %d\n", newItem.Name, newItem.ID, room.RoomID)
+	return nil
 }
 
-func loadItemPrototype(tx *bolt.Tx, id string) (*Item, error) {
-	prototypesBucket := tx.Bucket([]byte("ItemPrototypes"))
-	if prototypesBucket == nil {
-		return nil, fmt.Errorf("item prototypes bucket not found")
-	}
-
-	prototypeData := prototypesBucket.Get([]byte(id))
-	if prototypeData == nil {
-		return nil, fmt.Errorf("item prototype with ID %s not found", id)
-	}
-
-	var prototype Item
-	if err := json.Unmarshal(prototypeData, &prototype); err != nil {
-		return nil, fmt.Errorf("error unmarshalling item prototype: %v", err)
-	}
-
-	return &prototype, nil
-}
-
-func createNewItemFromPrototype(tx *bolt.Tx, prototype *Item) (*Item, error) {
-	newItem := &Item{
+func createNewItemFromPrototype(prototype *core.Item) *core.Item {
+	newItem := &core.Item{
 		ID:          uuid.New(),
 		Name:        prototype.Name,
 		Description: prototype.Description,
@@ -324,7 +179,7 @@ func createNewItemFromPrototype(tx *bolt.Tx, prototype *Item) (*Item, error) {
 		IsPrototype: false,
 		IsWorn:      false,
 		CanPickUp:   prototype.CanPickUp,
-		Contents:    make([]string, 0),
+		Contents:    make([]*core.Item, 0),
 		Metadata:    make(map[string]string),
 	}
 
@@ -343,21 +198,5 @@ func createNewItemFromPrototype(tx *bolt.Tx, prototype *Item) (*Item, error) {
 		newItem.Metadata[k] = v
 	}
 
-	// Save the new item
-	itemsBucket, err := tx.CreateBucketIfNotExists([]byte("Items"))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create or access items bucket: %v", err)
-	}
-
-	itemData, err := json.Marshal(newItem)
-	if err != nil {
-		return nil, fmt.Errorf("error marshalling new item: %v", err)
-	}
-
-	err = itemsBucket.Put([]byte(newItem.ID.String()), itemData)
-	if err != nil {
-		return nil, fmt.Errorf("error saving new item: %v", err)
-	}
-
-	return newItem, nil
+	return newItem
 }
