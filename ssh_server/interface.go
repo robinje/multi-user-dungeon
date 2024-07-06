@@ -172,30 +172,6 @@ func parseDims(b []byte) (width, height int) {
 	return width, height
 }
 
-// ColorMap maps color names to ANSI color codes.
-var ColorMap = map[string]string{
-	"black":   "30",
-	"red":     "31",
-	"green":   "32",
-	"yellow":  "33",
-	"blue":    "34",
-	"magenta": "35",
-	"cyan":    "36",
-	"white":   "37",
-}
-
-// ApplyColor applies the specified color to the text if the color exists in ColorMap.
-func ApplyColor(colorName, text string) string {
-
-	log.Printf("Applying color %s to text: %s", colorName, text)
-
-	if colorCode, exists := ColorMap[colorName]; exists {
-		return fmt.Sprintf("\033[%sm%s\033[0m", colorCode, text)
-	}
-	// Return the original text if colorName is not found
-	return text
-}
-
 // HandleSSHRequests handles SSH requests from the client
 func HandleSSHRequests(player *core.Player, requests <-chan *ssh.Request) {
 
@@ -291,7 +267,7 @@ func InputLoop(c *core.Character) {
 	log.Printf("Starting input loop for character %s", c.Name)
 
 	// Initially execute the look command with no additional tokens
-	executeLookCommand(c, []string{}) // Adjusted to include the tokens parameter
+	core.ExecuteLookCommand(c, []string{}) // Adjusted to include the tokens parameter
 
 	// Send initial prompt to player
 	c.Player.ToPlayer <- c.Player.Prompt
@@ -309,7 +285,7 @@ func InputLoop(c *core.Character) {
 		inputLine = strings.Replace(inputLine, "\n", "\n\r", -1)
 
 		// Process the command
-		verb, tokens, err := validateCommand(strings.TrimSpace(inputLine), commandHandlers)
+		verb, tokens, err := core.ValidateCommand(strings.TrimSpace(inputLine))
 		if err != nil {
 			c.Player.ToPlayer <- err.Error() + "\n\r"
 			c.Player.ToPlayer <- c.Player.Prompt
@@ -317,7 +293,7 @@ func InputLoop(c *core.Character) {
 		}
 
 		// Execute the command
-		if executeCommand(c, verb, tokens) {
+		if core.ExecuteCommand(c, verb, tokens) {
 			// If command execution indicates to exit (or similar action), break the loop
 			// Note: Adjust logic as per your executeCommand's design to handle such conditions
 			break

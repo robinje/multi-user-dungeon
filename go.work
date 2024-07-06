@@ -2,7 +2,7 @@ go 1.22
 
 use (
     ./core
-    ./mud
+    ./ssh_server
     ./database
     ./database_viewer
     ./database_create_item

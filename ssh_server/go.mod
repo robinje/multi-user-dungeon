@@ -1,4 +1,4 @@
-module github.com/robinje/multi-user-dungeon/mud
+module github.com/robinje/multi-user-dungeon/ssh_server
 
 go 1.22
 
