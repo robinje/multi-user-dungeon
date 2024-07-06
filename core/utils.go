@@ -1,3 +1,5 @@
+package core
+
 import (
 	"math"
 	"math/rand"

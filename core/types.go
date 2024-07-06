@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	bolt "go.etcd.io/bbolt"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -28,6 +29,12 @@ type Configuration struct {
 	Health         uint16  `json:"StartingHealth"`
 }
 
+type KeyPair struct {
+	db    *bolt.DB
+	file  string
+	Mutex sync.Mutex // Mutex to synchronize write access
+}
+
 type Server struct {
 	Port            uint16
 	Listener        net.Listener
@@ -48,6 +55,30 @@ type Server struct {
 	Essence         uint16
 	Items           map[uint64]*Item
 	ItemPrototypes  map[uint64]*Item
+}
+
+type Player struct {
+	PlayerID      string
+	Index         uint64
+	Name          string
+	ToPlayer      chan string
+	FromPlayer    chan string
+	PlayerError   chan error
+	Echo          bool
+	Prompt        string
+	Connection    net.Conn
+	Server        *Server
+	ConsoleWidth  int
+	ConsoleHeight int
+	CharacterList map[string]uint64
+	Character     *Character
+	LoginTime     time.Time
+	PasswordHash  string
+}
+
+type PlayerData struct {
+	Name          string
+	CharacterList map[string]uint64
 }
 
 type Room struct {
@@ -152,23 +183,4 @@ type ItemData struct {
 
 type PrototypesData struct {
 	ItemPrototypes []ItemData `json:"itemPrototypes"`
-}
-
-type Player struct {
-	PlayerID      string
-	Index         uint64
-	Name          string
-	ToPlayer      chan string
-	FromPlayer    chan string
-	PlayerError   chan error
-	Echo          bool
-	Prompt        string
-	Connection    net.Conn
-	Server        *Server
-	ConsoleWidth  int
-	ConsoleHeight int
-	CharacterList map[string]uint64
-	Character     *Character
-	LoginTime     time.Time
-	PasswordHash  string
 }

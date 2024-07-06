@@ -4,16 +4,9 @@ import (
 	"fmt"
 	"log"
 	"strings"
-	"sync"
 
 	bolt "go.etcd.io/bbolt"
 )
-
-type KeyPair struct {
-	db    *bolt.DB
-	file  string
-	Mutex sync.Mutex // Mutex to synchronize write access
-}
 
 func NewKeyPair(file string) (*KeyPair, error) {
 	db, err := bolt.Open(file, 0600, nil)
