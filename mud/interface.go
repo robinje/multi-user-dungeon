@@ -9,31 +9,12 @@ import (
 	"net"
 	"os"
 	"strings"
-	"time"
 
+	"github.com/robinje/multi-user-dungeon/core"
 	"golang.org/x/crypto/ssh"
 )
 
-type Player struct {
-	PlayerID      string
-	Index         uint64
-	Name          string
-	ToPlayer      chan string
-	FromPlayer    chan string
-	PlayerError   chan error
-	Echo          bool
-	Prompt        string
-	Connection    ssh.Channel
-	Server        *Server
-	ConsoleWidth  int
-	ConsoleHeight int
-	CharacterList map[string]uint64
-	Character     *Character
-	LoginTime     time.Time
-	PasswordHash  string
-}
-
-func Authenticate(username, password string, config Configuration) bool {
+func Authenticate(username, password string, config core.Configuration) bool {
 	_, err := SignInUser(username, password, config)
 	if err != nil {
 		log.Printf("Authentication attempt failed for user %s: %v", username, err)
@@ -42,7 +23,7 @@ func Authenticate(username, password string, config Configuration) bool {
 	return true
 }
 
-func (s *Server) StartSSHServer() error {
+func StartSSHServer(server *core.Server) error {
 	// Read the private key from disk
 	privateBytes, err := os.ReadFile("./server.key")
 	if err != nil {
@@ -53,10 +34,10 @@ func (s *Server) StartSSHServer() error {
 		return fmt.Errorf("failed to parse private key: %v", err)
 	}
 
-	s.SSHConfig = &ssh.ServerConfig{
+	server.SSHConfig = &ssh.ServerConfig{
 		PasswordCallback: func(conn ssh.ConnMetadata, password []byte) (*ssh.Permissions, error) {
 			// Authenticate the player
-			authenticated := Authenticate(conn.User(), string(password), s.Config)
+			authenticated := Authenticate(conn.User(), string(password), server.Config)
 			if authenticated {
 				log.Printf("Player %s authenticated", conn.User())
 				return nil, nil
@@ -66,25 +47,25 @@ func (s *Server) StartSSHServer() error {
 		},
 	}
 
-	s.SSHConfig.AddHostKey(private)
+	server.SSHConfig.AddHostKey(private)
 
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", s.Port))
+	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", server.Port))
 	if err != nil {
-		return fmt.Errorf("failed to listen on port %d: %v", s.Port, err)
+		return fmt.Errorf("failed to listen on port %d: %v", server.Port, err)
 	}
 
-	s.Listener = listener
+	server.Listener = listener
 
-	log.Printf("SSH server listening on port %d", s.Port)
+	log.Printf("SSH server listening on port %d", server.Port)
 
 	for {
-		conn, err := s.Listener.Accept()
+		conn, err := server.Listener.Accept()
 		if err != nil {
 			log.Printf("Error accepting connection: %v", err)
 			continue
 		}
 
-		sshConn, chans, reqs, err := ssh.NewServerConn(conn, s.SSHConfig)
+		sshConn, chans, reqs, err := ssh.NewServerConn(conn, server.SSHConfig)
 		if err != nil {
 			log.Printf("Failed to handshake: %v", err)
 			continue
@@ -92,11 +73,11 @@ func (s *Server) StartSSHServer() error {
 
 		go ssh.DiscardRequests(reqs)
 
-		go s.handleChannels(sshConn, chans)
+		go handleChannels(server, sshConn, chans)
 	}
 }
 
-func (s *Server) handleChannels(sshConn *ssh.ServerConn, channels <-chan ssh.NewChannel) {
+func handleChannels(server *core.Server, sshConn *ssh.ServerConn, channels <-chan ssh.NewChannel) {
 	log.Printf("New connection from %s (%s)", sshConn.User(), sshConn.RemoteAddr())
 
 	for newChannel := range channels {
@@ -107,16 +88,16 @@ func (s *Server) handleChannels(sshConn *ssh.ServerConn, channels <-chan ssh.New
 		}
 
 		playerName := sshConn.User()
-		playerIndex := s.PlayerIndex.GetID()
+		playerIndex := server.PlayerIndex.GetID()
 
 		// Attempt to read the player from the database
-		_, characterList, err := s.Database.ReadPlayer(playerName)
+		_, characterList, err := server.Database.ReadPlayer(playerName)
 		if err != nil {
 			// If the player does not exist, create a new record
 			if err.Error() == "player not found" {
 				log.Printf("Creating new player record for %s", playerName)
 				characterList = make(map[string]uint64) // Initialize an empty character list for new players
-				err = s.Database.WritePlayer(&Player{
+				err = server.Database.WritePlayer(&core.Player{
 					Name:          playerName,
 					CharacterList: characterList,
 				})
@@ -131,7 +112,7 @@ func (s *Server) handleChannels(sshConn *ssh.ServerConn, channels <-chan ssh.New
 		}
 
 		// Create the Player struct with data from the database or as a new player
-		player := &Player{
+		player := &core.Player{
 			Name:          playerName,
 			Index:         playerIndex,
 			ToPlayer:      make(chan string),
@@ -140,19 +121,19 @@ func (s *Server) handleChannels(sshConn *ssh.ServerConn, channels <-chan ssh.New
 			Echo:          true,
 			Prompt:        "> ",
 			Connection:    channel,
-			Server:        s,
+			Server:        server,
 			CharacterList: characterList,
 		}
 
 		// Handle SSH requests (pty-req, shell, window-change)
-		go player.HandleSSHRequests(requests)
+		go HandleSSHRequests(player, requests)
 
 		// Start the goroutine responsible for player I/O
-		go player.PlayerInput()
-		go player.PlayerOutput()
+		go PlayerInput(player)
+		go PlayerOutput(player)
 
 		// Initialize player
-		go func(p *Player) {
+		go func(p *core.Player) {
 			defer p.Connection.Close()
 
 			log.Printf("Player %s connected", p.Name)
@@ -161,13 +142,13 @@ func (s *Server) handleChannels(sshConn *ssh.ServerConn, channels <-chan ssh.New
 			p.ToPlayer <- fmt.Sprintf("Welcome to the game, %s!\n\r", p.Name)
 
 			// Character Selection Dialog
-			character, _ := SelectCharacter(p, s)
+			character, _ := SelectCharacter(p, server)
 
-			character.InputLoop()
+			InputLoop(character)
 
 			close(player.ToPlayer)
 
-			WriteCharacter(character, s.Database.db)
+			server.Database.WriteCharacter(character)
 
 			log.Printf("Player %s disconnected", p.Name)
 			player = nil
@@ -206,7 +187,7 @@ func ApplyColor(colorName, text string) string {
 }
 
 // HandleSSHRequests handles SSH requests from the client
-func (p *Player) HandleSSHRequests(requests <-chan *ssh.Request) {
+func HandleSSHRequests(player *core.Player, requests <-chan *ssh.Request) {
 	for req := range requests {
 		switch req.Type {
 		case "shell":
@@ -214,16 +195,16 @@ func (p *Player) HandleSSHRequests(requests <-chan *ssh.Request) {
 		case "pty-req":
 			termLen := req.Payload[3]
 			w, h := parseDims(req.Payload[termLen+4:])
-			p.ConsoleWidth, p.ConsoleHeight = w, h
+			player.ConsoleWidth, player.ConsoleHeight = w, h
 			req.Reply(true, nil)
 		case "window-change":
 			w, h := parseDims(req.Payload)
-			p.ConsoleWidth, p.ConsoleHeight = w, h
+			player.ConsoleWidth, player.ConsoleHeight = w, h
 		}
 	}
 }
 
-func (p *Player) PlayerInput() {
+func PlayerInput(p *core.Player) {
 
 	var inputBuffer bytes.Buffer
 
@@ -272,7 +253,7 @@ func (p *Player) PlayerInput() {
 	close(p.FromPlayer)
 }
 
-func (p *Player) PlayerOutput() {
+func PlayerOutput(p *core.Player) {
 	for message := range p.ToPlayer {
 		// Append carriage return and newline for SSH protocol compatibility
 		messageToSend := message
@@ -287,7 +268,7 @@ func (p *Player) PlayerOutput() {
 	log.Printf("Message channel closed for player %s", p.Name)
 }
 
-func (c *Character) InputLoop() {
+func InputLoop(c *core.Character) {
 	// Initially execute the look command with no additional tokens
 	executeLookCommand(c, []string{}) // Adjusted to include the tokens parameter
 
@@ -343,7 +324,7 @@ func (c *Character) InputLoop() {
 	c.Server.Mutex.Unlock()
 
 	// Save the character to the database
-	err := WriteCharacter(c, c.Server.Database.db)
+	err := c.Server.Database.WriteCharacter(c)
 	if err != nil {
 		log.Printf("Error saving character %s: %v", c.Name, err)
 	}

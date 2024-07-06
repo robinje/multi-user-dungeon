@@ -7,9 +7,11 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/robinje/multi-user-dungeon/core"
 )
 
-type CommandHandler func(character *Character, tokens []string) bool
+type CommandHandler func(character *core.Character, tokens []string) bool
 
 var commandHandlers = map[string]CommandHandler{
 	"quit":      executeQuitCommand,
@@ -51,7 +53,7 @@ func validateCommand(command string, commandHandlers map[string]CommandHandler) 
 	return verb, tokens, nil
 }
 
-func executeCommand(character *Character, verb string, tokens []string) bool {
+func executeCommand(character *core.Character, verb string, tokens []string) bool {
 	handler, ok := commandHandlers[verb]
 	if !ok {
 		character.Player.ToPlayer <- "\n\rCommand not yet implemented or recognized.\n\r"
@@ -60,7 +62,7 @@ func executeCommand(character *Character, verb string, tokens []string) bool {
 	return handler(character, tokens)
 }
 
-func executeQuitCommand(character *Character, tokens []string) bool {
+func executeQuitCommand(character *core.Character, tokens []string) bool {
 	log.Printf("Player %s is quitting", character.Player.Name)
 	character.Player.ToPlayer <- "\n\rGoodbye!"
 	character.Room.SendRoomMessage(fmt.Sprintf("\n\r%s has left the game.\n\r", character.Name))
@@ -68,7 +70,7 @@ func executeQuitCommand(character *Character, tokens []string) bool {
 	return true // Indicate that the loop should be exited
 }
 
-func executeSayCommand(character *Character, tokens []string) bool {
+func executeSayCommand(character *core.Character, tokens []string) bool {
 	if len(tokens) < 2 {
 		character.Player.ToPlayer <- "\n\rWhat do you want to say?\n\r"
 		return false
@@ -93,13 +95,13 @@ func executeSayCommand(character *Character, tokens []string) bool {
 	return false
 }
 
-func executeLookCommand(character *Character, tokens []string) bool {
+func executeLookCommand(character *core.Character, tokens []string) bool {
 	room := character.Room
 	character.Player.ToPlayer <- room.RoomInfo(character)
 	return false
 }
 
-func executeGoCommand(character *Character, tokens []string) bool {
+func executeGoCommand(character *core.Character, tokens []string) bool {
 	if len(tokens) < 2 {
 		character.Player.ToPlayer <- "\n\rWhich direction do you want to go?\n\r"
 		return false
@@ -110,7 +112,7 @@ func executeGoCommand(character *Character, tokens []string) bool {
 	return false
 }
 
-func executeChallengeCommand(character *Character, tokens []string) bool {
+func executeChallengeCommand(character *core.Character, tokens []string) bool {
 	// Ensure the correct number of arguments are provided
 	if len(tokens) < 3 {
 		character.Player.ToPlayer <- "\n\rUsage: challenge <attackerScore> <defenderScore>\n\r"
@@ -140,7 +142,7 @@ func executeChallengeCommand(character *Character, tokens []string) bool {
 	return false
 }
 
-func executeWhoCommand(character *Character, tokens []string) bool {
+func executeWhoCommand(character *core.Character, tokens []string) bool {
 	// Retrieve the server instance from the character
 	server := character.Server
 
@@ -185,7 +187,7 @@ func executeWhoCommand(character *Character, tokens []string) bool {
 	return false
 }
 
-func executePasswordCommand(character *Character, tokens []string) bool {
+func executePasswordCommand(character *core.Character, tokens []string) bool {
 	if len(tokens) != 3 {
 		character.Player.ToPlayer <- "\n\rUsage: password <oldPassword> <newPassword>\n\r"
 		return false
@@ -205,7 +207,7 @@ func executePasswordCommand(character *Character, tokens []string) bool {
 	return false // Keep the command loop running
 }
 
-func executeShowCommand(character *Character, tokens []string) bool {
+func executeShowCommand(character *core.Character, tokens []string) bool {
 	player := character.Player
 	var output strings.Builder
 
@@ -235,7 +237,7 @@ func executeShowCommand(character *Character, tokens []string) bool {
 	return false // Keep the command loop running
 }
 
-func executeTakeCommand(character *Character, tokens []string) bool {
+func executeTakeCommand(character *core.Character, tokens []string) bool {
 	if len(tokens) < 2 {
 		character.Player.ToPlayer <- "\n\rUsage: take <item name>\n\r"
 		return false
@@ -269,13 +271,13 @@ func executeTakeCommand(character *Character, tokens []string) bool {
 	return false
 }
 
-func executeInventoryCommand(character *Character, tokens []string) bool {
+func executeInventoryCommand(character *core.Character, tokens []string) bool {
 	inventoryList := character.ListInventory()
 	character.Player.ToPlayer <- inventoryList
 	return false
 }
 
-func executeDropCommand(character *Character, tokens []string) bool {
+func executeDropCommand(character *core.Character, tokens []string) bool {
 	if len(tokens) < 2 {
 		character.Player.ToPlayer <- "\n\rUsage: drop <item name>\n\r"
 		return false
@@ -297,7 +299,7 @@ func executeDropCommand(character *Character, tokens []string) bool {
 	return false
 }
 
-func executeWearCommand(character *Character, tokens []string) bool {
+func executeWearCommand(character *core.Character, tokens []string) bool {
 	if len(tokens) < 2 {
 		character.Player.ToPlayer <- "\n\rUsage: wear <item name>\n\r"
 		return false
@@ -331,7 +333,7 @@ func executeWearCommand(character *Character, tokens []string) bool {
 	return false
 }
 
-func executeRemoveCommand(character *Character, tokens []string) bool {
+func executeRemoveCommand(character *core.Character, tokens []string) bool {
 	if len(tokens) < 2 {
 		character.Player.ToPlayer <- "\n\rUsage: remove <item name>\n\r"
 		return false
@@ -361,7 +363,7 @@ func executeRemoveCommand(character *Character, tokens []string) bool {
 	return false
 }
 
-func executeExamineCommand(character *Character, tokens []string) bool {
+func executeExamineCommand(character *core.Character, tokens []string) bool {
 	if len(tokens) < 2 {
 		character.Player.ToPlayer <- "\n\rUsage: examine <item name>\n\r"
 		return false
@@ -440,7 +442,7 @@ func executeExamineCommand(character *Character, tokens []string) bool {
 	return false
 }
 
-func executeHelpCommand(character *Character, tokens []string) bool {
+func executeHelpCommand(character *core.Character, tokens []string) bool {
 	helpMessage := "\n\rAvailable Commands:" +
 		"\n\rhelp - Display available commands" +
 		"\n\rshow - Display character information" +

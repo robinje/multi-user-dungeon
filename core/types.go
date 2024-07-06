@@ -9,6 +9,7 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
+// The Index struct is to be depricated in favor of UUIDs
 type Index struct {
 	IndexID uint64
 	mu      sync.Mutex
@@ -67,17 +68,6 @@ type Exit struct {
 	Direction  string
 }
 
-type Archetype struct {
-	Name        string             `json:"name"`
-	Description string             `json:"description"`
-	Attributes  map[string]float64 `json:"Attributes"`
-	Abilities   map[string]float64 `json:"Abilities"`
-}
-
-type ArchetypesData struct {
-	Archetypes map[string]Archetype `json:"archetypes"`
-}
-
 type Character struct {
 	Index      uint64
 	Player     *Player
@@ -90,6 +80,30 @@ type Character struct {
 	Inventory  map[string]*Item
 	Server     *Server
 	Mutex      sync.Mutex
+}
+
+// CharacterData for unmarshalling character.
+type CharacterData struct {
+	Index      uint64             `json:"index"`
+	PlayerID   string             `json:"playerID"`
+	Name       string             `json:"name"`
+	Attributes map[string]float64 `json:"attributes"`
+	Abilities  map[string]float64 `json:"abilities"`
+	Essence    float64            `json:"essence"`
+	Health     float64            `json:"health"`
+	RoomID     int64              `json:"roomID"`
+	Inventory  map[string]string  `json:"inventory"` // Changed to map[string]string for UUIDs
+}
+
+type Archetype struct {
+	Name        string             `json:"name"`
+	Description string             `json:"description"`
+	Attributes  map[string]float64 `json:"Attributes"`
+	Abilities   map[string]float64 `json:"Abilities"`
+}
+
+type ArchetypesData struct {
+	Archetypes map[string]Archetype `json:"archetypes"`
 }
 
 type Item struct {

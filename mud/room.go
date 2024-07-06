@@ -12,24 +12,6 @@ import (
 	bolt "go.etcd.io/bbolt"
 )
 
-type Room struct {
-	RoomID      int64
-	Area        string
-	Title       string
-	Description string
-	Exits       map[string]*Exit
-	Characters  map[uint64]*Character
-	Mutex       sync.Mutex
-	Items       map[string]*Item // Change to map for efficient lookups
-}
-
-type Exit struct {
-	ExitID     int64
-	TargetRoom int64
-	Visible    bool
-	Direction  string
-}
-
 func (k *KeyPair) LoadRooms() (map[int64]*Room, error) {
 	rooms := make(map[int64]*Room)
 

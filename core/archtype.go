@@ -33,7 +33,7 @@ func LoadArchetypesFromJSON(fileName string) (*ArchetypesData, error) {
 	return &data, nil
 }
 
-func StoreArchetypes(kp *KeyPair, archetypes *ArchetypesData) error {
+func (kp *KeyPair) StoreArchetypes(archetypes *ArchetypesData) error {
 	return kp.db.Update(func(tx *bolt.Tx) error {
 		bucket, err := tx.CreateBucketIfNotExists([]byte("Archetypes"))
 		if err != nil {
@@ -54,7 +54,7 @@ func StoreArchetypes(kp *KeyPair, archetypes *ArchetypesData) error {
 	})
 }
 
-func LoadArchetypes(kp *KeyPair) (*ArchetypesData, error) {
+func (kp *KeyPair) LoadArchetypes() (*ArchetypesData, error) {
 	archetypesData := &ArchetypesData{Archetypes: make(map[string]Archetype)}
 
 	err := kp.db.View(func(tx *bolt.Tx) error {
@@ -79,12 +79,4 @@ func LoadArchetypes(kp *KeyPair) (*ArchetypesData, error) {
 	}
 
 	return archetypesData, nil
-}
-
-func (k *KeyPair) StoreArchetypes(archetypes *ArchetypesData) error {
-	return StoreArchetypes(k, archetypes)
-}
-
-func (k *KeyPair) LoadArchetypes() (*ArchetypesData, error) {
-	return LoadArchetypes(k)
 }

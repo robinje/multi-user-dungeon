@@ -34,7 +34,7 @@ func LoadPrototypesFromJSON(fileName string) (*PrototypesData, error) {
 	return &data, nil
 }
 
-func StorePrototypes(kp *KeyPair, prototypes *PrototypesData) error {
+func (kp *KeyPair) StorePrototypes(prototypes *PrototypesData) error {
 	return kp.db.Update(func(tx *bolt.Tx) error {
 		bucket, err := tx.CreateBucketIfNotExists([]byte("ItemPrototypes"))
 		if err != nil {
@@ -55,7 +55,7 @@ func StorePrototypes(kp *KeyPair, prototypes *PrototypesData) error {
 	})
 }
 
-func LoadPrototypes(kp *KeyPair) (*PrototypesData, error) {
+func (kp *KeyPair) LoadPrototypes() (*PrototypesData, error) {
 	prototypesData := &PrototypesData{}
 
 	err := kp.db.View(func(tx *bolt.Tx) error {
@@ -86,12 +86,4 @@ func LoadPrototypes(kp *KeyPair) (*PrototypesData, error) {
 	}
 
 	return prototypesData, nil
-}
-
-func (k *KeyPair) StorePrototypes(prototypes *PrototypesData) error {
-	return StorePrototypes(k, prototypes)
-}
-
-func (k *KeyPair) LoadPrototypes() (*PrototypesData, error) {
-	return LoadPrototypes(k)
 }

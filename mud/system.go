@@ -5,58 +5,22 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"net"
 	"os"
 	"sync"
 	"time"
 
-	"golang.org/x/crypto/ssh"
+	"github.com/robinje/multi-user-dungeon/core"
 )
 
-type Configuration struct {
-	Port           uint16  `json:"Port"`
-	UserPoolID     string  `json:"UserPoolId"`
-	ClientSecret   string  `json:"UserPoolClientSecret"`
-	UserPoolRegion string  `json:"UserPoolRegion"`
-	ClientID       string  `json:"UserPoolClientId"`
-	DataFile       string  `json:"DataFile"`
-	Balance        float64 `json:"Balance"`
-	AutoSave       uint16  `json:"AutoSave"`
-	Essence        uint16  `json:"StartingEssence"`
-	Health         uint16  `json:"StartingHealth"`
-}
-
-type Server struct {
-	Port            uint16
-	Listener        net.Listener
-	SSHConfig       *ssh.ServerConfig
-	PlayerCount     uint64
-	Mutex           sync.Mutex
-	Config          Configuration
-	StartTime       time.Time
-	Rooms           map[int64]*Room
-	Database        *KeyPair
-	PlayerIndex     *Index
-	CharacterExists map[string]bool
-	Characters      map[string]*Character
-	Balance         float64
-	AutoSave        uint16
-	Archetypes      *ArchetypesData
-	Health          uint16
-	Essence         uint16
-	Items           map[uint64]*Item
-	ItemPrototypes  map[uint64]*Item
-}
-
-func NewServer(config Configuration) (*Server, error) {
+func NewServer(config core.Configuration) (*core.Server, error) {
 	// Initialize the server with the configuration
-	server := &Server{
+	server := &core.Server{
 		Port:        config.Port,
-		PlayerIndex: &Index{},
+		PlayerIndex: &core.Index{},
 		Config:      config,
 		StartTime:   time.Now(),
-		Rooms:       make(map[int64]*Room),
-		Characters:  make(map[string]*Character),
+		Rooms:       make(map[int64]*core.Room),
+		Characters:  make(map[string]*core.Character),
 		Balance:     config.Balance,
 		AutoSave:    config.AutoSave,
 		Health:      config.Health,
@@ -67,7 +31,7 @@ func NewServer(config Configuration) (*Server, error) {
 
 	// Initialize the database
 	var err error
-	server.Database, err = NewKeyPair(config.DataFile)
+	server.Database, err = core.NewKeyPair(config.DataFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize database: %v", err)
 	}
@@ -79,7 +43,7 @@ func NewServer(config Configuration) (*Server, error) {
 
 	log.Printf("Loading character names from database...")
 
-	server.CharacterExists, err = server.Database.LoadCharacterNames()
+	server.CharacterExists, err = core.LoadCharacterNames(server.Database.db)
 	if err != nil {
 		log.Printf("Error loading character names from database: %v", err)
 	}
@@ -168,7 +132,7 @@ func (i *Index) SetID(id uint64) {
 	}
 }
 
-func AutoSave(server *Server) {
+func AutoSave(server *core.Server) {
 	for {
 		// Sleep for the configured duration
 		time.Sleep(time.Duration(server.AutoSave) * time.Minute)
@@ -176,7 +140,7 @@ func AutoSave(server *Server) {
 		log.Println("Starting auto-save process...")
 
 		// Save active characters
-		if err := server.SaveActiveCharacters(); err != nil {
+		if err := SaveActiveCharacters(); err != nil {
 			log.Printf("Failed to save characters: %v", err)
 		} else {
 			log.Println("Active characters saved successfully")
