@@ -351,14 +351,45 @@ func (s *Server) CreateItemFromPrototype(prototypeID string) (*Item, error) {
 	return newItem, nil
 }
 
-func (r *Room) RemoveItem(item *Item) {
-	r.Mutex.Lock()
-	defer r.Mutex.Unlock()
-	delete(r.Items, item.ID.String())
-}
-
 func (r *Room) AddItem(item *Item) {
 	r.Mutex.Lock()
 	defer r.Mutex.Unlock()
+
+	if item == nil {
+		log.Printf("Warning: Attempted to add nil item to room %d", r.RoomID)
+		return
+	}
+
+	if r.Items == nil {
+		r.Items = make(map[string]*Item)
+	}
+
 	r.Items[item.ID.String()] = item
+	log.Printf("Added item %s (ID: %s) to room %d", item.Name, item.ID, r.RoomID)
+}
+
+func (r *Room) RemoveItem(item *Item) {
+	r.Mutex.Lock()
+	defer r.Mutex.Unlock()
+
+	if item == nil {
+		log.Printf("Warning: Attempted to remove nil item from room %d", r.RoomID)
+		return
+	}
+
+	delete(r.Items, item.ID.String())
+	log.Printf("Removed item %s (ID: %s) from room %d", item.Name, item.ID, r.RoomID)
+}
+
+// Add a new method to clean up nil items
+func (r *Room) CleanupNilItems() {
+	r.Mutex.Lock()
+	defer r.Mutex.Unlock()
+
+	for id, item := range r.Items {
+		if item == nil {
+			delete(r.Items, id)
+			log.Printf("Removed nil item with ID %s from room %d", id, r.RoomID)
+		}
+	}
 }

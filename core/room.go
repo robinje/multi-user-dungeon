@@ -131,10 +131,10 @@ func (k *KeyPair) StoreRooms(rooms map[int64]*Room) error {
 	})
 }
 
-func (k *KeyPair) LoadRooms() (map[int64]*Room, error) {
+func (kp *KeyPair) LoadRooms() (map[int64]*Room, error) {
 	rooms := make(map[int64]*Room)
 
-	err := k.db.View(func(tx *bolt.Tx) error {
+	err := kp.db.View(func(tx *bolt.Tx) error {
 		roomsBucket := tx.Bucket([]byte("Rooms"))
 		if roomsBucket == nil {
 			return fmt.Errorf("rooms bucket not found")
@@ -145,7 +145,7 @@ func (k *KeyPair) LoadRooms() (map[int64]*Room, error) {
 			return fmt.Errorf("exits bucket not found")
 		}
 
-		err := roomsBucket.ForEach(func(k, v []byte) error {
+		return roomsBucket.ForEach(func(k, v []byte) error {
 			var roomData struct {
 				RoomID      int64    `json:"RoomID"`
 				Area        string   `json:"Area"`
@@ -157,47 +157,21 @@ func (k *KeyPair) LoadRooms() (map[int64]*Room, error) {
 				return fmt.Errorf("error unmarshalling room data: %w", err)
 			}
 
-			room := &Room{
-				RoomID:      roomData.RoomID,
-				Area:        roomData.Area,
-				Title:       roomData.Title,
-				Description: roomData.Description,
-				Exits:       make(map[string]*Exit),
-				Characters:  make(map[uint64]*Character),
-				Items:       make(map[string]*Item),
+			room := NewRoom(roomData.RoomID, roomData.Area, roomData.Title, roomData.Description)
+
+			// Load items
+			for _, itemID := range roomData.ItemIDs {
+				item, err := kp.LoadItem(itemID, false)
+				if err != nil {
+					log.Printf("Warning: Failed to load item %s for room %d: %v", itemID, roomData.RoomID, err)
+					continue
+				}
+				room.AddItem(item)
 			}
 
-			for _, itemID := range roomData.ItemIDs {
-				room.Items[itemID] = nil // Placeholder for the actual Item
-			}
+			room.CleanupNilItems() // Clean up any nil items
 
 			rooms[room.RoomID] = room
-			return nil
-		})
-		if err != nil {
-			return err
-		}
-
-		return exitsBucket.ForEach(func(k, v []byte) error {
-			var exit Exit
-			if err := json.Unmarshal(v, &exit); err != nil {
-				return fmt.Errorf("error unmarshalling exit data: %w", err)
-			}
-
-			keyParts := strings.SplitN(string(k), "_", 2)
-			if len(keyParts) != 2 {
-				return fmt.Errorf("invalid exit key format")
-			}
-			roomID, err := strconv.ParseInt(keyParts[0], 10, 64)
-			if err != nil {
-				return fmt.Errorf("error parsing room ID from key: %w", err)
-			}
-
-			if room, exists := rooms[roomID]; exists {
-				room.Exits[exit.Direction] = &exit
-			} else {
-				return fmt.Errorf("room not found for exit: %s", string(k))
-			}
 			return nil
 		})
 	})
@@ -449,18 +423,26 @@ func getOtherCharacters(r *Room, currentCharacter *Character) []string {
 }
 
 func getVisibleItems(r *Room) []string {
-
 	log.Printf("Getting visible items in room %d", r.RoomID)
 
+	r.Mutex.Lock()
+	defer r.Mutex.Unlock()
+
 	if r.Items == nil {
+		log.Printf("Warning: Items map is nil for room %d", r.RoomID)
 		return []string{}
 	}
 
 	visibleItems := make([]string, 0, len(r.Items))
-	for _, item := range r.Items {
-		if item != nil {
-			visibleItems = append(visibleItems, item.Name)
+	for itemID, item := range r.Items {
+		if item == nil {
+			log.Printf("Warning: Nil item found with ID %s in room %d", itemID, r.RoomID)
+			continue
 		}
+		visibleItems = append(visibleItems, item.Name)
+		log.Printf("Found item %s (ID: %s) in room %d", item.Name, itemID, r.RoomID)
 	}
+
+	log.Printf("Total visible items in room %d: %d", r.RoomID, len(visibleItems))
 	return visibleItems
 }

@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"encoding/json"
 	"fmt"
 	"os"
 	"strconv"
@@ -13,7 +12,7 @@ import (
 )
 
 func main() {
-	dbPath := "../mud/data.bolt"
+	dbPath := "../ssh_server/data.bolt"
 	kp, err := core.NewKeyPair(dbPath)
 	if err != nil {
 		fmt.Printf("Error opening database: %v\n", err)
@@ -21,14 +20,12 @@ func main() {
 	}
 	defer kp.Close()
 
-	err = initializeBuckets(kp)
-	if err != nil {
-		fmt.Printf("Error initializing buckets: %v\n", err)
-		return
-	}
-
 	for {
-		rooms := loadRooms(kp)
+		rooms, err := kp.LoadRooms()
+		if err != nil {
+			fmt.Printf("Error loading rooms: %v\n", err)
+			return
+		}
 		displayRooms(rooms)
 
 		roomID := promptForRoom()
@@ -42,8 +39,12 @@ func main() {
 			continue
 		}
 
-		prototypes := loadPrototypes(kp)
-		if len(prototypes) == 0 {
+		prototypes, err := kp.LoadPrototypes()
+		if err != nil {
+			fmt.Printf("Error loading prototypes: %v\n", err)
+			return
+		}
+		if len(prototypes.ItemPrototypes) == 0 {
 			fmt.Println("No item prototypes found. Please add some prototypes first.")
 			continue
 		}
@@ -54,47 +55,25 @@ func main() {
 			continue
 		}
 
-		prototype, exists := prototypes[prototypeID]
-		if !exists {
+		var selectedPrototype *core.ItemData
+		for _, prototype := range prototypes.ItemPrototypes {
+			if prototype.ID == prototypeID {
+				selectedPrototype = &prototype
+				break
+			}
+		}
+		if selectedPrototype == nil {
 			fmt.Println("Prototype not found.")
 			continue
 		}
 
-		addItemToRoom(kp, room, prototype)
-		fmt.Printf("Added %s to room %d.\n", prototype.Name, room.RoomID)
-	}
-}
-
-func initializeBuckets(kp *core.KeyPair) error {
-	buckets := []string{"Rooms", "Items", "ItemPrototypes"}
-	for _, bucket := range buckets {
-		err := kp.Put(bucket, []byte("init"), []byte("init"))
+		err = addItemToRoom(kp, room, selectedPrototype)
 		if err != nil {
-			return fmt.Errorf("create bucket %s: %s", bucket, err)
+			fmt.Printf("Error adding item to room: %v\n", err)
+		} else {
+			fmt.Printf("Added %s to room %d.\n", selectedPrototype.Name, room.RoomID)
 		}
-		kp.Delete(bucket, []byte("init"))
 	}
-	return nil
-}
-
-func loadRooms(kp *core.KeyPair) map[int64]*core.Room {
-	rooms := make(map[int64]*core.Room)
-	roomsData, err := kp.Get("Rooms", nil)
-	if err != nil {
-		return rooms
-	}
-	json.Unmarshal(roomsData, &rooms)
-	return rooms
-}
-
-func loadPrototypes(kp *core.KeyPair) map[string]*core.Item {
-	prototypes := make(map[string]*core.Item)
-	prototypesData, err := kp.Get("ItemPrototypes", nil)
-	if err != nil {
-		return prototypes
-	}
-	json.Unmarshal(prototypesData, &prototypes)
-	return prototypes
 }
 
 func displayRooms(rooms map[int64]*core.Room) {
@@ -113,10 +92,10 @@ func promptForRoom() int64 {
 	return roomID
 }
 
-func displayPrototypes(prototypes map[string]*core.Item) {
+func displayPrototypes(prototypes *core.PrototypesData) {
 	fmt.Println("Available Prototypes:")
-	for id, prototype := range prototypes {
-		fmt.Printf("%s: %s\n", id, prototype.Name)
+	for _, prototype := range prototypes.ItemPrototypes {
+		fmt.Printf("%s: %s\n", prototype.ID, prototype.Name)
 	}
 }
 
@@ -127,31 +106,20 @@ func promptForPrototype() string {
 	return strings.TrimSpace(input)
 }
 
-func addItemToRoom(kp *core.KeyPair, room *core.Room, prototype *core.Item) error {
+func addItemToRoom(kp *core.KeyPair, room *core.Room, prototype *core.ItemData) error {
 	newItem := createNewItemFromPrototype(prototype)
 
-	// Save new item to Items bucket
-	itemData, err := json.Marshal(newItem)
-	if err != nil {
-		return fmt.Errorf("error marshalling new item: %v", err)
-	}
-	err = kp.Put("Items", []byte(newItem.ID.String()), itemData)
+	// Save new item to database
+	err := kp.WriteItem(newItem)
 	if err != nil {
 		return fmt.Errorf("error saving new item: %v", err)
 	}
 
-	// Update room
-	if room.Items == nil {
-		room.Items = make(map[string]*core.Item)
-	}
-	room.Items[newItem.ID.String()] = newItem
+	// Add item to room
+	room.AddItem(newItem)
 
-	// Save updated room to Rooms bucket
-	roomData, err := json.Marshal(room)
-	if err != nil {
-		return fmt.Errorf("error marshalling updated room: %v", err)
-	}
-	err = kp.Put("Rooms", []byte(strconv.FormatInt(room.RoomID, 10)), roomData)
+	// Save updated room to database
+	err = kp.WriteRoom(room)
 	if err != nil {
 		return fmt.Errorf("error saving updated room: %v", err)
 	}
@@ -160,9 +128,10 @@ func addItemToRoom(kp *core.KeyPair, room *core.Room, prototype *core.Item) erro
 	return nil
 }
 
-func createNewItemFromPrototype(prototype *core.Item) *core.Item {
+func createNewItemFromPrototype(prototype *core.ItemData) *core.Item {
+	newID := uuid.New()
 	newItem := &core.Item{
-		ID:          uuid.New(),
+		ID:          newID,
 		Name:        prototype.Name,
 		Description: prototype.Description,
 		Mass:        prototype.Mass,
