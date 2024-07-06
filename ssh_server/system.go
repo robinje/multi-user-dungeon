@@ -71,6 +71,25 @@ func NewServer(config core.Configuration) (*core.Server, error) {
 	return server, nil
 }
 
+func loadConfiguration(configFile string) (core.Configuration, error) {
+
+	log.Printf("Loading configuration from %s", configFile)
+
+	var config core.Configuration
+
+	data, err := os.ReadFile(configFile)
+	if err != nil {
+		return config, err
+	}
+
+	err = json.Unmarshal(data, &config)
+	if err != nil {
+		return config, err
+	}
+
+	return config, nil
+}
+
 func main() {
 
 	log.Printf("Starting server...")
@@ -99,23 +118,4 @@ func main() {
 		log.Printf("Failed to start server: %v", err)
 		return
 	}
-}
-
-func loadConfiguration(configFile string) (core.Configuration, error) {
-
-	log.Printf("Loading configuration from %s", configFile)
-
-	var config core.Configuration
-
-	data, err := os.ReadFile(configFile)
-	if err != nil {
-		return config, err
-	}
-
-	err = json.Unmarshal(data, &config)
-	if err != nil {
-		return config, err
-	}
-
-	return config, nil
 }
