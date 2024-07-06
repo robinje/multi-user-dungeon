@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"sync"
 	"time"
 
 	"github.com/robinje/multi-user-dungeon/core"
@@ -93,7 +92,7 @@ func main() {
 	}
 
 	// Start the auto-save routine
-	go AutoSave(server)
+	go core.AutoSave(server)
 
 	// Start the server
 	if err := StartSSHServer(server); err != nil {
@@ -119,59 +118,4 @@ func loadConfiguration(configFile string) (core.Configuration, error) {
 	}
 
 	return config, nil
-}
-
-type Index struct {
-	IndexID uint64
-	mu      sync.Mutex
-}
-
-func (i *Index) GetID() uint64 {
-	i.mu.Lock()
-	defer i.mu.Unlock()
-	i.IndexID++
-	return i.IndexID
-}
-
-func (i *Index) SetID(id uint64) {
-	i.mu.Lock()
-	defer i.mu.Unlock()
-	if id > i.IndexID {
-		i.IndexID = id
-	}
-}
-
-func AutoSave(server *core.Server) {
-
-	log.Printf("Starting auto-save routine...")
-
-	for {
-		// Sleep for the configured duration
-		time.Sleep(time.Duration(server.AutoSave) * time.Minute)
-
-		log.Println("Starting auto-save process...")
-
-		// Save active characters
-		if err := core.SaveActiveCharacters(server); err != nil {
-			log.Printf("Failed to save characters: %v", err)
-		} else {
-			log.Println("Active characters saved successfully")
-		}
-
-		// Save active rooms
-		if err := core.SaveActiveRooms(server); err != nil {
-			log.Printf("Failed to save rooms: %v", err)
-		} else {
-			log.Println("Active rooms saved successfully")
-		}
-
-		// Save active items
-		if err := server.SaveActiveItems(); err != nil {
-			log.Printf("Failed to save items: %v", err)
-		} else {
-			log.Println("Active items saved successfully")
-		}
-
-		log.Println("Auto-save process completed")
-	}
 }
