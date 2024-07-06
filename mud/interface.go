@@ -15,7 +15,7 @@ import (
 )
 
 func Authenticate(username, password string, config core.Configuration) bool {
-	_, err := SignInUser(username, password, config)
+	_, err := core.SignInUser(username, password, config)
 	if err != nil {
 		log.Printf("Authentication attempt failed for user %s: %v", username, err)
 		return false

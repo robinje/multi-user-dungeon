@@ -196,7 +196,7 @@ func executePasswordCommand(character *core.Character, tokens []string) bool {
 	oldPassword := tokens[1]
 	newPassword := tokens[2]
 
-	err := ChangePassword(character.Server, character.Player.Name, oldPassword, newPassword)
+	err := core.ChangePassword(character.Server, character.Player.Name, oldPassword, newPassword)
 	if err != nil {
 		log.Printf("Failed to change password for user %s: %v", character.Player.Name, err)
 		character.Player.ToPlayer <- "\n\rFailed to change password. Please try again.\n\r"
