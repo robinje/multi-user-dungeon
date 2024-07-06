@@ -149,7 +149,7 @@ func handleChannels(server *core.Server, sshConn *ssh.ServerConn, channels <-cha
 			p.ToPlayer <- fmt.Sprintf("Welcome to the game, %s!\n\r", p.Name)
 
 			// Character Selection Dialog
-			character, _ := SelectCharacter(p, server)
+			character, _ := core.SelectCharacter(p, server)
 
 			InputLoop(character)
 

@@ -9,6 +9,9 @@ import (
 )
 
 func NewKeyPair(file string) (*KeyPair, error) {
+
+	log.Printf("Opening database %s", file)
+
 	db, err := bolt.Open(file, 0600, nil)
 	if err != nil {
 		return nil, fmt.Errorf("error opening database: %w", err)
@@ -16,8 +19,10 @@ func NewKeyPair(file string) (*KeyPair, error) {
 
 	return &KeyPair{db: db, file: file}, nil
 }
-
 func (k *KeyPair) Close() {
+
+	log.Printf("Closing database %s", k.file)
+
 	k.Mutex.Lock() // Ensure we synchronize close operations
 	defer k.Mutex.Unlock()
 
