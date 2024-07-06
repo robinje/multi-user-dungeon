@@ -3,9 +3,11 @@ package core
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 
 	bolt "go.etcd.io/bbolt"
 )
@@ -214,4 +216,91 @@ func DisplayRooms(rooms map[int64]*Room) {
 			fmt.Printf("  Exit %s to room %d\n", exit.Direction, exit.TargetRoom)
 		}
 	}
+}
+
+func (kp *KeyPair) WriteRoom(room *Room) error {
+	// Create a serializable version of the room data
+	roomData := struct {
+		RoomID      int64            `json:"RoomID"`
+		Area        string           `json:"Area"`
+		Title       string           `json:"Title"`
+		Description string           `json:"Description"`
+		Exits       map[string]*Exit `json:"Exits"`
+		ItemIDs     []string         `json:"ItemIDs"`
+	}{
+		RoomID:      room.RoomID,
+		Area:        room.Area,
+		Title:       room.Title,
+		Description: room.Description,
+		Exits:       room.Exits,
+		ItemIDs:     make([]string, 0, len(room.Items)),
+	}
+
+	// Collect item IDs
+	for itemID := range room.Items {
+		roomData.ItemIDs = append(roomData.ItemIDs, itemID)
+	}
+
+	// Serialize the room data
+	serializedRoom, err := json.Marshal(roomData)
+	if err != nil {
+		return fmt.Errorf("error serializing room data: %w", err)
+	}
+
+	// Write the room data to the database
+	err = kp.db.Update(func(tx *bolt.Tx) error {
+		roomsBucket, err := tx.CreateBucketIfNotExists([]byte("Rooms"))
+		if err != nil {
+			return fmt.Errorf("error creating/accessing Rooms bucket: %w", err)
+		}
+
+		roomKey := strconv.FormatInt(room.RoomID, 10)
+		err = roomsBucket.Put([]byte(roomKey), serializedRoom)
+		if err != nil {
+			return fmt.Errorf("error writing room data: %w", err)
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return fmt.Errorf("database transaction failed: %w", err)
+	}
+
+	log.Printf("Successfully wrote room %d to database", room.RoomID)
+	return nil
+}
+
+func SaveActiveRooms(s *Server) error {
+	s.Mutex.Lock()
+	defer s.Mutex.Unlock()
+
+	for _, room := range s.Rooms {
+		if err := s.Database.WriteRoom(room); err != nil {
+			return fmt.Errorf("error saving room %d: %w", room.RoomID, err)
+		}
+	}
+
+	return nil
+}
+
+func NewRoom(RoomID int64, Area string, Title string, Description string) *Room {
+	room := &Room{
+		RoomID:      RoomID,
+		Area:        Area,
+		Title:       Title,
+		Description: Description,
+		Exits:       make(map[string]*Exit),
+		Characters:  make(map[uint64]*Character),
+		Items:       make(map[string]*Item),
+		Mutex:       sync.Mutex{},
+	}
+
+	log.Printf("Created room %s with ID %d", room.Title, room.RoomID)
+
+	return room
+}
+
+func (r *Room) AddExit(exit *Exit) {
+	r.Exits[exit.Direction] = exit
 }

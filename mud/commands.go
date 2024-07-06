@@ -65,7 +65,7 @@ func executeCommand(character *core.Character, verb string, tokens []string) boo
 func executeQuitCommand(character *core.Character, tokens []string) bool {
 	log.Printf("Player %s is quitting", character.Player.Name)
 	character.Player.ToPlayer <- "\n\rGoodbye!"
-	character.Room.SendRoomMessage(fmt.Sprintf("\n\r%s has left the game.\n\r", character.Name))
+	SendRoomMessage(character.Room, fmt.Sprintf("\n\r%s has left the game.\n\r", character.Name))
 
 	return true // Indicate that the loop should be exited
 }
@@ -97,7 +97,7 @@ func executeSayCommand(character *core.Character, tokens []string) bool {
 
 func executeLookCommand(character *core.Character, tokens []string) bool {
 	room := character.Room
-	character.Player.ToPlayer <- room.RoomInfo(character)
+	character.Player.ToPlayer <- RoomInfo(room, character)
 	return false
 }
 
@@ -108,7 +108,7 @@ func executeGoCommand(character *core.Character, tokens []string) bool {
 	}
 
 	direction := tokens[1]
-	character.Move(direction)
+	Move(character, direction)
 	return false
 }
 
@@ -266,7 +266,7 @@ func executeTakeCommand(character *core.Character, tokens []string) bool {
 	character.Room.RemoveItem(itemToTake)
 	character.AddToInventory(itemToTake)
 
-	character.Room.SendRoomMessage(fmt.Sprintf("\n\r%s picks up %s.\n\r", character.Name, itemToTake.Name))
+	SendRoomMessage(character.Room, fmt.Sprintf("\n\r%s picks up %s.\n\r", character.Name, itemToTake.Name))
 	character.Player.ToPlayer <- fmt.Sprintf("\n\rYou take %s.\n\r", itemToTake.Name)
 	return false
 }
@@ -295,7 +295,7 @@ func executeDropCommand(character *core.Character, tokens []string) bool {
 	character.Room.AddItem(itemToDrop)
 
 	character.Player.ToPlayer <- fmt.Sprintf("\n\rYou drop %s.\n\r", itemToDrop.Name)
-	character.Room.SendRoomMessage(fmt.Sprintf("\n\r%s drops %s.\n\r", character.Name, itemToDrop.Name))
+	SendRoomMessage(character.Room, fmt.Sprintf("\n\r%s drops %s.\n\r", character.Name, itemToDrop.Name))
 	return false
 }
 
@@ -329,7 +329,7 @@ func executeWearCommand(character *core.Character, tokens []string) bool {
 	}
 
 	character.Player.ToPlayer <- fmt.Sprintf("\n\rYou wear %s.\n\r", itemToWear.Name)
-	character.Room.SendRoomMessage(fmt.Sprintf("\n\r%s wears %s.\n\r", character.Name, itemToWear.Name))
+	SendRoomMessage(character.Room, fmt.Sprintf("\n\r%s wears %s.\n\r", character.Name, itemToWear.Name))
 	return false
 }
 
@@ -359,7 +359,7 @@ func executeRemoveCommand(character *core.Character, tokens []string) bool {
 	}
 
 	character.Player.ToPlayer <- fmt.Sprintf("\n\rYou remove %s.\n\r", removedItem.Name)
-	character.Room.SendRoomMessage(fmt.Sprintf("\n\r%s removes %s.\n\r", character.Name, removedItem.Name))
+	SendRoomMessage(character.Room, fmt.Sprintf("\n\r%s removes %s.\n\r", character.Name, removedItem.Name))
 	return false
 }
 

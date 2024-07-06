@@ -43,19 +43,19 @@ func NewServer(config core.Configuration) (*core.Server, error) {
 
 	log.Printf("Loading character names from database...")
 
-	server.CharacterExists, err = core.LoadCharacterNames(server.Database.db)
+	server.CharacterExists, err = server.Database.LoadCharacterNames()
 	if err != nil {
 		log.Printf("Error loading character names from database: %v", err)
 	}
 
-	server.Archetypes, err = LoadArchetypes(server.Database.db)
+	server.Archetypes, err = server.Database.LoadArchetypes()
 	if err != nil {
 		log.Printf("Error loading archetypes from database: %v", err)
 	}
 
 	// Add a default room
 
-	server.Rooms[0] = NewRoom(0, "The Void", "The Void", "You are in a void of nothingness. If you are here, something has gone terribly wrong.")
+	server.Rooms[0] = core.NewRoom(0, "The Void", "The Void", "You are in a void of nothingness. If you are here, something has gone terribly wrong.")
 
 	// Load rooms into the server
 
@@ -90,14 +90,14 @@ func main() {
 	go AutoSave(server)
 
 	// Start the server
-	if err := server.StartSSHServer(); err != nil {
+	if err := StartSSHServer(server); err != nil {
 		log.Printf("Failed to start server: %v", err)
 		return
 	}
 }
 
-func loadConfiguration(configFile string) (Configuration, error) {
-	var config Configuration
+func loadConfiguration(configFile string) (core.Configuration, error) {
+	var config core.Configuration
 
 	data, err := os.ReadFile(configFile)
 	if err != nil {
@@ -140,14 +140,14 @@ func AutoSave(server *core.Server) {
 		log.Println("Starting auto-save process...")
 
 		// Save active characters
-		if err := SaveActiveCharacters(); err != nil {
+		if err := core.SaveActiveCharacters(server); err != nil {
 			log.Printf("Failed to save characters: %v", err)
 		} else {
 			log.Println("Active characters saved successfully")
 		}
 
 		// Save active rooms
-		if err := server.SaveActiveRooms(); err != nil {
+		if err := core.SaveActiveRooms(server); err != nil {
 			log.Printf("Failed to save rooms: %v", err)
 		} else {
 			log.Println("Active rooms saved successfully")

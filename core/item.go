@@ -304,3 +304,15 @@ func (s *Server) CreateItemFromPrototype(prototypeID string) (*Item, error) {
 	log.Printf("Created new item %s (ID: %s) from prototype %s", newItem.Name, newItem.ID, prototypeID)
 	return newItem, nil
 }
+
+func (r *Room) RemoveItem(item *Item) {
+	r.Mutex.Lock()
+	defer r.Mutex.Unlock()
+	delete(r.Items, item.ID.String())
+}
+
+func (r *Room) AddItem(item *Item) {
+	r.Mutex.Lock()
+	defer r.Mutex.Unlock()
+	r.Items[item.ID.String()] = item
+}

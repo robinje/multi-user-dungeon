@@ -162,10 +162,10 @@ func (kp *KeyPair) LoadCharacter(characterIndex uint64, player *Player, server *
 	return character, nil
 }
 
-func LoadCharacterNames(db *bolt.DB) (map[string]bool, error) {
+func (kp *KeyPair) LoadCharacterNames() (map[string]bool, error) {
 	names := make(map[string]bool)
 
-	err := db.View(func(tx *bolt.Tx) error {
+	err := kp.db.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte("Characters"))
 		if b == nil {
 			return fmt.Errorf("characters bucket not found")
@@ -191,4 +191,22 @@ func LoadCharacterNames(db *bolt.DB) (map[string]bool, error) {
 	}
 
 	return names, nil
+}
+
+func SaveActiveCharacters(s *Server) error {
+	s.Mutex.Lock()
+	defer s.Mutex.Unlock()
+
+	log.Println("Saving active characters...")
+
+	for _, character := range s.Characters {
+		err := s.Database.WriteCharacter(character)
+		if err != nil {
+			return fmt.Errorf("error saving character %s: %w", character.Name, err)
+		}
+	}
+
+	log.Println("Active characters saved successfully.")
+
+	return nil
 }
