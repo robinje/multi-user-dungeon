@@ -24,7 +24,6 @@ func Challenge(attacker, defender, balance float64) float64 {
 }
 
 func AutoSave(server *Server) {
-
 	log.Printf("Starting auto-save routine...")
 
 	for {

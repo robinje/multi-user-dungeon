@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"sort"
 	"strconv"
 	"strings"
 
@@ -173,6 +172,19 @@ func (kp *KeyPair) LoadCharacter(characterIndex uint64, player *Player, server *
 		return nil, fmt.Errorf("error loading character from data: %w", err)
 	}
 
+	// Ensure the character is added to the room's character list
+	if character.Room != nil {
+		character.Room.Mutex.Lock()
+		if character.Room.Characters == nil {
+			character.Room.Characters = make(map[uint64]*Character)
+		}
+		character.Room.Characters[character.Index] = character
+		character.Room.Mutex.Unlock()
+		log.Printf("Added character %s (ID: %d) to room %d", character.Name, character.Index, character.Room.RoomID)
+	} else {
+		log.Printf("Warning: Character %s (ID: %d) loaded without a valid room", character.Name, character.Index)
+	}
+
 	log.Printf("Loaded character %s (Index %d) in Room %d", character.Name, character.Index, character.Room.RoomID)
 
 	return character, nil
@@ -225,135 +237,6 @@ func SaveActiveCharacters(s *Server) error {
 	log.Println("Active characters saved successfully.")
 
 	return nil
-}
-
-func SelectCharacter(player *Player, server *Server) (*Character, error) {
-
-	log.Printf("Player %s is selecting a character", player.Name)
-
-	var options []string
-
-	sendCharacterOptions := func() {
-		player.ToPlayer <- "Select a character:\n\r"
-		player.ToPlayer <- "0: Create a new character\n\r"
-
-		if len(player.CharacterList) > 0 {
-			i := 1
-			for name := range player.CharacterList {
-				player.ToPlayer <- fmt.Sprintf("%d: %s\n\r", i, name)
-				options = append(options, name)
-				i++
-			}
-		}
-		player.ToPlayer <- "Enter the number of your choice: "
-	}
-
-	for {
-		sendCharacterOptions()
-
-		input, ok := <-player.FromPlayer
-		if !ok {
-			return nil, fmt.Errorf("failed to receive input")
-		}
-
-		choice, err := strconv.Atoi(strings.TrimSpace(input))
-		if err != nil || choice < 0 || choice > len(options) {
-			player.ToPlayer <- "Invalid choice. Please select a valid option.\n\r"
-			continue
-		}
-
-		if choice == 0 {
-			return CreateCharacter(player, server)
-		} else if choice <= len(options) {
-			characterName := options[choice-1]
-			return server.Database.LoadCharacter(player.CharacterList[characterName], player, server)
-		}
-	}
-}
-
-func CreateCharacter(player *Player, server *Server) (*Character, error) {
-
-	log.Printf("Player %s is creating a new character", player.Name)
-
-	player.ToPlayer <- "\n\rEnter your character name: "
-
-	charName, ok := <-player.FromPlayer
-	if !ok {
-		return nil, fmt.Errorf("failed to receive character name input")
-	}
-
-	charName = strings.TrimSpace(charName)
-
-	if len(charName) == 0 {
-		return nil, fmt.Errorf("character name cannot be empty")
-	}
-
-	if len(charName) > 15 {
-		return nil, fmt.Errorf("character name must be 15 characters or fewer")
-	}
-
-	if server.CharacterExists[strings.ToLower(charName)] {
-		return nil, fmt.Errorf("character already exists")
-	}
-
-	var selectedArchetype string
-	if server.Archetypes != nil && len(server.Archetypes.Archetypes) > 0 {
-		for {
-			selectionMsg := "\n\rSelect a character archetype.\n\r"
-			archetypeOptions := make([]string, 0, len(server.Archetypes.Archetypes))
-			for name, archetype := range server.Archetypes.Archetypes {
-				archetypeOptions = append(archetypeOptions, name+" - "+archetype.Description)
-			}
-			sort.Strings(archetypeOptions)
-
-			for i, option := range archetypeOptions {
-				selectionMsg += fmt.Sprintf("%d: %s\n\r", i+1, option)
-			}
-
-			selectionMsg += "Enter the number of your choice: "
-			player.ToPlayer <- selectionMsg
-
-			selection, ok := <-player.FromPlayer
-			if !ok {
-				return nil, fmt.Errorf("failed to receive archetype selection")
-			}
-
-			selectionNum, err := strconv.Atoi(strings.TrimSpace(selection))
-			if err == nil && selectionNum >= 1 && selectionNum <= len(archetypeOptions) {
-				selectedOption := archetypeOptions[selectionNum-1]
-				selectedArchetype = strings.Split(selectedOption, " - ")[0]
-				break
-			} else {
-				player.ToPlayer <- "Invalid selection. Please select a valid archetype number."
-			}
-		}
-	}
-
-	log.Printf("Creating character with name: %s", charName)
-
-	room, ok := server.Rooms[1]
-	if !ok {
-		room, ok = server.Rooms[0]
-		if !ok {
-			return nil, fmt.Errorf("no starting room found")
-		}
-	}
-
-	character := server.NewCharacter(charName, player, room, selectedArchetype)
-
-	if room.Characters == nil {
-		room.Characters = make(map[uint64]*Character)
-	}
-
-	room.Mutex.Lock()
-	room.Characters[character.Index] = character
-	room.Mutex.Unlock()
-
-	server.Mutex.Lock()
-	server.CharacterExists[strings.ToLower(charName)] = true
-	server.Mutex.Unlock()
-
-	return character, nil
 }
 
 func WearItem(c *Character, item *Item) error {

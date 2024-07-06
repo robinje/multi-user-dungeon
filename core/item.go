@@ -219,30 +219,76 @@ func (k *KeyPair) WriteItem(obj *Item) error {
 }
 
 func (s *Server) SaveActiveItems() error {
+	if s == nil {
+		return fmt.Errorf("server is nil")
+	}
+
+	log.Println("Starting to save active items...")
+
 	// Collect all items from rooms and characters
 	itemsToSave := make(map[uuid.UUID]*Item)
 
 	// Items in rooms
-	for _, room := range s.Rooms {
-		for _, item := range room.Items {
-			itemsToSave[item.ID] = item
+	if s.Rooms != nil {
+		for roomID, room := range s.Rooms {
+			if room == nil {
+				log.Printf("Warning: Nil room found with ID %d", roomID)
+				continue
+			}
+			room.Mutex.Lock()
+			for itemID, item := range room.Items {
+				if item == nil {
+					log.Printf("Warning: Nil item found in room %d with ID %s", roomID, itemID)
+					continue
+				}
+				itemsToSave[item.ID] = item
+			}
+			room.Mutex.Unlock()
 		}
+	} else {
+		log.Println("Warning: Server Rooms map is nil")
 	}
 
 	// Items in character inventories
-	for _, character := range s.Characters {
-		for _, item := range character.Inventory {
-			itemsToSave[item.ID] = item
+	if s.Characters != nil {
+		for charName, character := range s.Characters {
+			if character == nil {
+				log.Printf("Warning: Nil character found with name %s", charName)
+				continue
+			}
+			character.Mutex.Lock()
+			for itemName, item := range character.Inventory {
+				if item == nil {
+					log.Printf("Warning: Nil item found in inventory of character %s with name %s", charName, itemName)
+					continue
+				}
+				itemsToSave[item.ID] = item
+			}
+			character.Mutex.Unlock()
 		}
+	} else {
+		log.Println("Warning: Server Characters map is nil")
 	}
 
 	// Save all collected items
+	if s.Database == nil {
+		return fmt.Errorf("server database is nil")
+	}
+
 	for _, item := range itemsToSave {
+		if item == nil {
+			log.Println("Warning: Attempting to save a nil item, skipping")
+			continue
+		}
 		if err := s.Database.WriteItem(item); err != nil {
-			return fmt.Errorf("error saving item %s (ID: %s): %w", item.Name, item.ID, err)
+			log.Printf("Error saving item %s (ID: %s): %v", item.Name, item.ID, err)
+			// Continue saving other items even if one fails
+		} else {
+			log.Printf("Successfully saved item %s (ID: %s)", item.Name, item.ID)
 		}
 	}
 
+	log.Println("Finished saving active items")
 	return nil
 }
 

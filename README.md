@@ -50,6 +50,9 @@ The current implementation includes an SSH server for secure authentication and 
 - [ ] Load item prototypes at start.
 - [ ] Create function for creating items from prototypes.
 - [ ] Add look at item command.
+- [ ] Improve the say commands.
+- [ ] Improve the input filters
+- [ ] Ensure that a message is passed when a characters is added to the game.
 
 
 ## Deployment

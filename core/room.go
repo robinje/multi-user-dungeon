@@ -307,7 +307,6 @@ func (r *Room) AddExit(exit *Exit) {
 }
 
 func Move(c *Character, direction string) {
-
 	log.Printf("Player %s is attempting to move %s", c.Name, direction)
 
 	c.Mutex.Lock()
@@ -317,8 +316,6 @@ func Move(c *Character, direction string) {
 		c.Player.ToPlayer <- "\n\rYou are not in any room to move from.\n\r"
 		return
 	}
-
-	log.Printf("Player %s is moving %s", c.Name, direction)
 
 	selectedExit, exists := c.Room.Exits[direction]
 	if !exists {
@@ -342,15 +339,15 @@ func Move(c *Character, direction string) {
 	// Update character's room
 	c.Room = newRoom
 
-	SendRoomMessage(newRoom, fmt.Sprintf("\n\r%s has arrived.\n\r", c.Name))
-
-	// Ensure the Characters map in the new room is initialized
+	// Safely add the character to the new room
 	newRoom.Mutex.Lock()
 	if newRoom.Characters == nil {
 		newRoom.Characters = make(map[uint64]*Character)
 	}
 	newRoom.Characters[c.Index] = c
 	newRoom.Mutex.Unlock()
+
+	SendRoomMessage(newRoom, fmt.Sprintf("\n\r%s has arrived.\n\r", c.Name))
 
 	ExecuteLookCommand(c, []string{})
 }
@@ -369,8 +366,6 @@ func SendRoomMessage(r *Room, message string) {
 
 func RoomInfo(r *Room, character *Character) string {
 
-	log.Printf("Generating room info for character %s in room %d", character.Name, r.RoomID)
-
 	if r == nil {
 		log.Printf("Error: Attempted to get room info for nil room (Character: %s)", character.Name)
 		return "\n\rError: You are not in a valid room.\n\r"
@@ -379,8 +374,6 @@ func RoomInfo(r *Room, character *Character) string {
 		log.Printf("Error: Attempted to get room info for nil character (Room ID: %d)", r.RoomID)
 		return "\n\rError: Invalid character.\n\r"
 	}
-
-	log.Printf("Generating room info for character %s in room %d", character.Name, r.RoomID)
 
 	var roomInfo strings.Builder
 
@@ -398,7 +391,9 @@ func RoomInfo(r *Room, character *Character) string {
 	}
 
 	// Characters in the room
+	r.Mutex.Lock()
 	otherCharacters := getOtherCharacters(r, character)
+	r.Mutex.Unlock()
 	if len(otherCharacters) > 0 {
 		roomInfo.WriteString("Also here: ")
 		roomInfo.WriteString(strings.Join(otherCharacters, ", "))
@@ -437,14 +432,10 @@ func sortedExits(r *Room) []string {
 
 func getOtherCharacters(r *Room, currentCharacter *Character) []string {
 
-	log.Printf("Getting other characters in room %d", r.RoomID)
-
 	if r == nil || r.Characters == nil {
 		log.Printf("Warning: Room or Characters map is nil in getOtherCharacters")
 		return []string{}
 	}
-
-	log.Printf("Room: %v", r)
 
 	otherCharacters := make([]string, 0)
 	for _, c := range r.Characters {
