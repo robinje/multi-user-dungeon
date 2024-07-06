@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strconv"
 	"strings"
 
 	bolt "go.etcd.io/bbolt"
@@ -92,35 +93,31 @@ func (s *Server) NewCharacter(name string, player *Player, room *Room, archetype
 	return character
 }
 
+// WriteCharacter persists a character to the database.
 func (kp *KeyPair) WriteCharacter(character *Character) error {
+	character.Mutex.Lock()
+	defer character.Mutex.Unlock()
+
 	characterData := character.ToData()
 	jsonData, err := json.Marshal(characterData)
 	if err != nil {
-		log.Printf("Error marshalling character data: %v", err)
-		return err
+		return fmt.Errorf("marshal character data: %w", err)
 	}
 
-	err = kp.db.Update(func(tx *bolt.Tx) error {
+	return kp.db.Update(func(tx *bolt.Tx) error {
 		bucket, err := tx.CreateBucketIfNotExists([]byte("Characters"))
 		if err != nil {
-			return fmt.Errorf("create bucket: %s", err)
+			return fmt.Errorf("create characters bucket: %w", err)
 		}
 
-		indexKey := fmt.Sprintf("%d", character.Index)
-		err = bucket.Put([]byte(indexKey), jsonData)
-		if err != nil {
-			return fmt.Errorf("failed to put character data: %v", err)
+		indexKey := strconv.FormatUint(character.Index, 10)
+		if err := bucket.Put([]byte(indexKey), jsonData); err != nil {
+			return fmt.Errorf("write character data: %w", err)
 		}
+
+		log.Printf("Successfully wrote character %s with Index %d to database", character.Name, character.Index)
 		return nil
 	})
-
-	if err != nil {
-		log.Printf("Failed to add character to database: %v", err)
-		return err
-	}
-
-	log.Printf("Successfully added character %s with Index %d to database", character.Name, character.Index)
-	return nil
 }
 
 func (kp *KeyPair) LoadCharacter(characterIndex uint64, player *Player, server *Server) (*Character, error) {

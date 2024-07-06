@@ -23,11 +23,27 @@ func calculateSecretHash(cognitoAppClientID, clientSecret, email string) string 
 	return encodedMessage
 }
 
+func handleCognitoError(err error, email string) error {
+	if awsErr, ok := err.(awserr.Error); ok {
+		switch awsErr.Code() {
+		case cognitoidentityprovider.ErrCodeNotAuthorizedException:
+			return fmt.Errorf("incorrect username or password")
+		case cognitoidentityprovider.ErrCodeUserNotConfirmedException:
+			return fmt.Errorf("user is not confirmed")
+		case cognitoidentityprovider.ErrCodePasswordResetRequiredException:
+			return fmt.Errorf("password reset required")
+		default:
+			return fmt.Errorf("authentication failed for user %s: %w", email, awsErr)
+		}
+	}
+	return fmt.Errorf("unexpected error during authentication for user %s: %w", email, err)
+}
+
+// SignInUser attempts to sign in a user with the provided credentials
 func SignInUser(email, password string, config Configuration) (*cognitoidentityprovider.InitiateAuthOutput, error) {
 	sess, err := session.NewSession(&aws.Config{Region: aws.String(config.UserPoolRegion)})
 	if err != nil {
-		log.Printf("Error creating AWS session for sign-in: %v", err)
-		return nil, fmt.Errorf("an internal error occurred while creating AWS session")
+		return nil, fmt.Errorf("create AWS session: %w", err)
 	}
 
 	cognitoClient := cognitoidentityprovider.New(sess)
@@ -45,27 +61,11 @@ func SignInUser(email, password string, config Configuration) (*cognitoidentityp
 
 	authOutput, err := cognitoClient.InitiateAuth(authInput)
 	if err != nil {
-		if awsErr, ok := err.(awserr.Error); ok {
-			switch awsErr.Code() {
-			case cognitoidentityprovider.ErrCodeNotAuthorizedException:
-				return nil, fmt.Errorf("incorrect username or password")
-			case cognitoidentityprovider.ErrCodeUserNotConfirmedException:
-				return nil, fmt.Errorf("user is not confirmed")
-			case cognitoidentityprovider.ErrCodePasswordResetRequiredException:
-				return nil, fmt.Errorf("password reset required")
-			default:
-				log.Printf("Error during user %s sign-in with Cognito: %v", email, awsErr)
-				return nil, fmt.Errorf("authentication failed: %v", awsErr)
-			}
-		}
-		// If it's not an AWS error, return a generic error message
-		log.Printf("Unexpected error during user %s sign-in: %v", email, err)
-		return nil, fmt.Errorf("authentication failed due to an unexpected error")
+		return nil, handleCognitoError(err, email)
 	}
 
 	if authOutput.AuthenticationResult == nil {
-		log.Printf("Authentication successful for user %s, but no AuthenticationResult returned", email)
-		return authOutput, nil
+		return authOutput, fmt.Errorf("authentication successful for user %s, but no AuthenticationResult returned", email)
 	}
 
 	return authOutput, nil

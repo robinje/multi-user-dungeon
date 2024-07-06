@@ -40,7 +40,6 @@ type Server struct {
 	Listener        net.Listener
 	SSHConfig       *ssh.ServerConfig
 	PlayerCount     uint64
-	Mutex           sync.Mutex
 	Config          Configuration
 	StartTime       time.Time
 	Rooms           map[int64]*Room
@@ -55,6 +54,7 @@ type Server struct {
 	Essence         uint16
 	Items           map[uint64]*Item
 	ItemPrototypes  map[uint64]*Item
+	Mutex           sync.Mutex
 }
 
 type Player struct {
@@ -74,6 +74,7 @@ type Player struct {
 	Character     *Character
 	LoginTime     time.Time
 	PasswordHash  string
+	Mutex         sync.Mutex
 }
 
 type PlayerData struct {
@@ -88,8 +89,8 @@ type Room struct {
 	Description string
 	Exits       map[string]*Exit
 	Characters  map[uint64]*Character
-	Mutex       sync.Mutex
 	Items       map[string]*Item
+	Mutex       sync.Mutex
 }
 
 type Exit struct {
@@ -157,6 +158,7 @@ type Item struct {
 	IsWorn      bool
 	CanPickUp   bool
 	Metadata    map[string]string
+	Mutex       sync.Mutex
 }
 
 type ItemData struct {

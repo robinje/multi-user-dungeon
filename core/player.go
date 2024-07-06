@@ -3,6 +3,7 @@ package core
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 
 	bolt "go.etcd.io/bbolt"
 )
@@ -26,24 +27,24 @@ func (k *KeyPair) WritePlayer(player *Player) error {
 
 func (k *KeyPair) ReadPlayer(playerName string) (string, map[string]uint64, error) {
 	playerData, err := k.Get("Players", []byte(playerName))
-
-	if err == bolt.ErrBucketNotFound {
-		return "", nil, fmt.Errorf("player not found")
-	}
-
 	if err != nil {
-		return "", nil, err
+		if err == bolt.ErrBucketNotFound {
+			log.Println("Player bucket not found")
+			return "", nil, fmt.Errorf("player not found")
+		}
+		log.Printf("Error reading player data: %v", err)
+		return "", nil, fmt.Errorf("database read failed: %w", err)
 	}
 
 	if playerData == nil {
+		log.Printf("Player %s not found", playerName)
 		return "", nil, fmt.Errorf("player not found")
 	}
 
-	// Deserialize the JSON into a PlayerData struct
 	var pd PlayerData
-	err = json.Unmarshal(playerData, &pd)
-	if err != nil {
-		return "", nil, err
+	if err := json.Unmarshal(playerData, &pd); err != nil {
+		log.Printf("Error unmarshalling player data: %v", err)
+		return "", nil, fmt.Errorf("unmarshal player data: %w", err)
 	}
 
 	return pd.Name, pd.CharacterList, nil

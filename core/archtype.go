@@ -3,6 +3,7 @@ package core
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 
 	bolt "go.etcd.io/bbolt"
@@ -34,27 +35,33 @@ func LoadArchetypesFromJSON(fileName string) (*ArchetypesData, error) {
 }
 
 func (kp *KeyPair) StoreArchetypes(archetypes *ArchetypesData) error {
+	kp.Mutex.Lock()
+	defer kp.Mutex.Unlock()
+
 	return kp.db.Update(func(tx *bolt.Tx) error {
 		bucket, err := tx.CreateBucketIfNotExists([]byte("Archetypes"))
 		if err != nil {
-			return err
+			return fmt.Errorf("create archetypes bucket: %w", err)
 		}
 
 		for key, archetype := range archetypes.Archetypes {
-			fmt.Println("Writing", key, archetype)
 			data, err := json.Marshal(archetype)
 			if err != nil {
-				return err
+				return fmt.Errorf("marshal archetype %s: %w", key, err)
 			}
 			if err := bucket.Put([]byte(key), data); err != nil {
-				return err
+				return fmt.Errorf("store archetype %s: %w", key, err)
 			}
+			log.Printf("Stored archetype: %s", key)
 		}
 		return nil
 	})
 }
 
 func (kp *KeyPair) LoadArchetypes() (*ArchetypesData, error) {
+	kp.Mutex.Lock()
+	defer kp.Mutex.Unlock()
+
 	archetypesData := &ArchetypesData{Archetypes: make(map[string]Archetype)}
 
 	err := kp.db.View(func(tx *bolt.Tx) error {

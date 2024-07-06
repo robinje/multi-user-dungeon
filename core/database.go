@@ -30,16 +30,25 @@ func (k *KeyPair) Close() {
 }
 
 func (k *KeyPair) Put(bucketName string, key, value []byte) error {
-	k.Mutex.Lock() // Lock for write operation
+	k.Mutex.Lock()
 	defer k.Mutex.Unlock()
 
-	return k.db.Update(func(tx *bolt.Tx) error {
+	err := k.db.Update(func(tx *bolt.Tx) error {
 		bucket, err := tx.CreateBucketIfNotExists([]byte(bucketName))
 		if err != nil {
-			return err
+			return fmt.Errorf("create bucket %s: %w", bucketName, err)
 		}
-		return bucket.Put(key, value)
+		if err := bucket.Put(key, value); err != nil {
+			return fmt.Errorf("put key-value in bucket %s: %w", bucketName, err)
+		}
+		return nil
 	})
+
+	if err != nil {
+		return fmt.Errorf("database update failed: %w", err)
+	}
+
+	return nil
 }
 
 func (k *KeyPair) Get(bucketName string, key []byte) ([]byte, error) {
@@ -113,4 +122,20 @@ func (k *KeyPair) ViewAllBuckets() error {
 			return err
 		})
 	})
+}
+
+func (k *KeyPair) Shutdown() error {
+	k.Mutex.Lock()
+	defer k.Mutex.Unlock()
+
+	if k.db != nil {
+		if err := k.db.Sync(); err != nil {
+			return fmt.Errorf("sync database: %w", err)
+		}
+		if err := k.db.Close(); err != nil {
+			return fmt.Errorf("close database: %w", err)
+		}
+		k.db = nil
+	}
+	return nil
 }

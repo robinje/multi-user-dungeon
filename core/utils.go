@@ -5,15 +5,12 @@ import (
 	"math/rand"
 )
 
-func (s *Server) Challenge(attacker, defender float64) float64 {
+func Challenge(attacker, defender, balance float64) float64 {
 	// Calculate the difference to determine the shift
 	diff := attacker - defender
 
-	// Assuming a default steepness k=1 for simplicity; adjust k if a different steepness is desired
-	k := s.Balance
-
 	// Simplified sigmoid function evaluation at x=0 with shift
-	sigmoidValue := 1 / (1 + math.Exp(k*diff))
+	sigmoidValue := 1 / (1 + math.Exp(balance*diff))
 
 	// Generate a random float64 number
 	randomNumber := rand.Float64()
