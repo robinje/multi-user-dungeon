@@ -32,7 +32,7 @@ jobs:
           cd ./core
           go fmt ./...
           go mod tidy
-          cd ../mud
+          cd ../ssh_server
           go fmt ./...
           go mod tidy
           cd ../database
