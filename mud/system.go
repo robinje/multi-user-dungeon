@@ -13,6 +13,9 @@ import (
 )
 
 func NewServer(config core.Configuration) (*core.Server, error) {
+
+	log.Printf("Initializing server...")
+
 	// Initialize the server with the configuration
 	server := &core.Server{
 		Port:        config.Port,
@@ -70,6 +73,9 @@ func NewServer(config core.Configuration) (*core.Server, error) {
 }
 
 func main() {
+
+	log.Printf("Starting server...")
+
 	// Read configuration file
 	configFile := flag.String("config", "config.json", "Configuration file")
 	flag.Parse()
@@ -97,6 +103,9 @@ func main() {
 }
 
 func loadConfiguration(configFile string) (core.Configuration, error) {
+
+	log.Printf("Loading configuration from %s", configFile)
+
 	var config core.Configuration
 
 	data, err := os.ReadFile(configFile)
@@ -133,6 +142,9 @@ func (i *Index) SetID(id uint64) {
 }
 
 func AutoSave(server *core.Server) {
+
+	log.Printf("Starting auto-save routine...")
+
 	for {
 		// Sleep for the configured duration
 		time.Sleep(time.Duration(server.AutoSave) * time.Minute)

@@ -10,6 +10,9 @@ import (
 )
 
 func Move(c *core.Character, direction string) {
+
+	log.Printf("Player %s is attempting to move %s", c.Name, direction)
+
 	c.Mutex.Lock()
 	defer c.Mutex.Unlock()
 
@@ -57,6 +60,8 @@ func Move(c *core.Character, direction string) {
 
 func SendRoomMessage(r *core.Room, message string) {
 
+	log.Printf("Sending message to room %d: %s", r.RoomID, message)
+
 	for _, character := range r.Characters {
 		character.Player.ToPlayer <- message
 
@@ -66,50 +71,108 @@ func SendRoomMessage(r *core.Room, message string) {
 }
 
 func RoomInfo(r *core.Room, character *core.Character) string {
-	roomInfo := fmt.Sprintf("\n\r[%s]\n\r%s\n\r", ApplyColor("white", r.Title), r.Description)
-	var displayExits strings.Builder
 
-	exits := make([]string, 0)
+	log.Printf("Generating room info for character %s in room %d", character.Name, r.RoomID)
+
+	if r == nil {
+		log.Printf("Error: Attempted to get room info for nil room (Character: %s)", character.Name)
+		return "\n\rError: You are not in a valid room.\n\r"
+	}
+	if character == nil {
+		log.Printf("Error: Attempted to get room info for nil character (Room ID: %d)", r.RoomID)
+		return "\n\rError: Invalid character.\n\r"
+	}
+
+	log.Printf("Generating room info for character %s in room %d", character.Name, r.RoomID)
+
+	var roomInfo strings.Builder
+
+	// Room Title and Description
+	roomInfo.WriteString(fmt.Sprintf("\n\r[%s]\n\r%s\n\r", ApplyColor("white", r.Title), r.Description))
+
+	// Exits
+	exits := sortedExits(r)
+	if len(exits) == 0 {
+		roomInfo.WriteString("There are no exits.\n\r")
+	} else {
+		roomInfo.WriteString("Obvious exits: ")
+		roomInfo.WriteString(strings.Join(exits, ", "))
+		roomInfo.WriteString("\n\r")
+	}
+
+	// Characters in the room
+	otherCharacters := getOtherCharacters(r, character)
+	if len(otherCharacters) > 0 {
+		roomInfo.WriteString("Also here: ")
+		roomInfo.WriteString(strings.Join(otherCharacters, ", "))
+		roomInfo.WriteString("\n\r")
+	} else {
+		roomInfo.WriteString("You are alone.\n\r")
+	}
+
+	// Items in the room
+	items := getVisibleItems(r)
+	if len(items) > 0 {
+		roomInfo.WriteString("Items in the room:\n\r")
+		for _, item := range items {
+			roomInfo.WriteString(fmt.Sprintf("- %s\n\r", item))
+		}
+	}
+
+	return roomInfo.String()
+}
+
+func sortedExits(r *core.Room) []string {
+
+	log.Printf("Sorting exits for room %d", r.RoomID)
+
+	if r.Exits == nil {
+		return []string{}
+	}
+
+	exits := make([]string, 0, len(r.Exits))
 	for direction := range r.Exits {
 		exits = append(exits, direction)
 	}
-
 	sort.Strings(exits)
+	return exits
+}
 
-	if len(exits) == 0 {
-		displayExits.WriteString("There are no exits.\n\r")
-	} else {
-		displayExits.WriteString("Obvious exits: ")
-		for i, exit := range exits {
-			if i > 0 {
-				displayExits.WriteString(", ")
-			}
-			displayExits.WriteString(exit)
-		}
-		displayExits.WriteString("\n\r")
+func getOtherCharacters(r *core.Room, currentCharacter *core.Character) []string {
+
+	log.Printf("Getting other characters in room %d", r.RoomID)
+
+	if r == nil || r.Characters == nil {
+		log.Printf("Warning: Room or Characters map is nil in getOtherCharacters")
+		return []string{}
 	}
 
-	// Display characters in the room
-	var charactersInRoom strings.Builder
+	log.Printf("Room: %v", r)
+
+	otherCharacters := make([]string, 0)
 	for _, c := range r.Characters {
-		if c != character {
-			charactersInRoom.WriteString(c.Name + ", ")
-		}
-	}
-	if charactersInRoom.Len() > 0 {
-		charactersInRoomStr := charactersInRoom.String()
-		roomInfo += "Also here: " + charactersInRoomStr[:len(charactersInRoomStr)-2] + "\n\r"
-	} else {
-		roomInfo += "You are alone.\n\r"
-	}
-
-	// Display items in the room
-	if len(r.Items) > 0 {
-		roomInfo += "Items in the room:\n\r"
-		for _, item := range r.Items {
-			roomInfo += fmt.Sprintf("- %s\n\r", item.Name)
+		if c != nil && c != currentCharacter {
+			otherCharacters = append(otherCharacters, c.Name)
 		}
 	}
 
-	return roomInfo + displayExits.String()
+	log.Printf("Found %d other characters in room %d", len(otherCharacters), r.RoomID)
+	return otherCharacters
+}
+
+func getVisibleItems(r *core.Room) []string {
+
+	log.Printf("Getting visible items in room %d", r.RoomID)
+
+	if r.Items == nil {
+		return []string{}
+	}
+
+	visibleItems := make([]string, 0, len(r.Items))
+	for _, item := range r.Items {
+		if item != nil {
+			visibleItems = append(visibleItems, item.Name)
+		}
+	}
+	return visibleItems
 }

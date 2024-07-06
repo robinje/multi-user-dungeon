@@ -38,6 +38,9 @@ var commandHandlers = map[string]CommandHandler{
 }
 
 func validateCommand(command string, commandHandlers map[string]CommandHandler) (string, []string, error) {
+
+	log.Printf("Received command: %s", command)
+
 	trimmedCommand := strings.TrimSpace(command)
 	tokens := strings.Fields(trimmedCommand)
 
@@ -54,6 +57,9 @@ func validateCommand(command string, commandHandlers map[string]CommandHandler) 
 }
 
 func executeCommand(character *core.Character, verb string, tokens []string) bool {
+
+	log.Printf("Executing command: %s", verb)
+
 	handler, ok := commandHandlers[verb]
 	if !ok {
 		character.Player.ToPlayer <- "\n\rCommand not yet implemented or recognized.\n\r"
@@ -71,6 +77,9 @@ func executeQuitCommand(character *core.Character, tokens []string) bool {
 }
 
 func executeSayCommand(character *core.Character, tokens []string) bool {
+
+	log.Printf("Player %s is saying something", character.Player.Name)
+
 	if len(tokens) < 2 {
 		character.Player.ToPlayer <- "\n\rWhat do you want to say?\n\r"
 		return false
@@ -96,12 +105,18 @@ func executeSayCommand(character *core.Character, tokens []string) bool {
 }
 
 func executeLookCommand(character *core.Character, tokens []string) bool {
+
+	log.Printf("Player %s is looking around", character.Player.Name)
+
 	room := character.Room
 	character.Player.ToPlayer <- RoomInfo(room, character)
 	return false
 }
 
 func executeGoCommand(character *core.Character, tokens []string) bool {
+
+	log.Printf("Player %s is attempting to move", character.Player.Name)
+
 	if len(tokens) < 2 {
 		character.Player.ToPlayer <- "\n\rWhich direction do you want to go?\n\r"
 		return false
@@ -113,6 +128,9 @@ func executeGoCommand(character *core.Character, tokens []string) bool {
 }
 
 func executeChallengeCommand(character *core.Character, tokens []string) bool {
+
+	log.Printf("Player %s is attempting a challenge", character.Player.Name)
+
 	// Ensure the correct number of arguments are provided
 	if len(tokens) < 3 {
 		character.Player.ToPlayer <- "\n\rUsage: challenge <attackerScore> <defenderScore>\n\r"
@@ -143,6 +161,9 @@ func executeChallengeCommand(character *core.Character, tokens []string) bool {
 }
 
 func executeWhoCommand(character *core.Character, tokens []string) bool {
+
+	log.Printf("Player %s is listing all characters online", character.Player.Name)
+
 	// Retrieve the server instance from the character
 	server := character.Server
 
@@ -188,6 +209,9 @@ func executeWhoCommand(character *core.Character, tokens []string) bool {
 }
 
 func executePasswordCommand(character *core.Character, tokens []string) bool {
+
+	log.Printf("Player %s is attempting to change their password", character.Player.Name)
+
 	if len(tokens) != 3 {
 		character.Player.ToPlayer <- "\n\rUsage: password <oldPassword> <newPassword>\n\r"
 		return false
@@ -208,6 +232,9 @@ func executePasswordCommand(character *core.Character, tokens []string) bool {
 }
 
 func executeShowCommand(character *core.Character, tokens []string) bool {
+
+	log.Printf("Player %s is displaying character information", character.Player.Name)
+
 	player := character.Player
 	var output strings.Builder
 
@@ -238,6 +265,9 @@ func executeShowCommand(character *core.Character, tokens []string) bool {
 }
 
 func executeTakeCommand(character *core.Character, tokens []string) bool {
+
+	log.Printf("Player %s is attempting to take an item", character.Player.Name)
+
 	if len(tokens) < 2 {
 		character.Player.ToPlayer <- "\n\rUsage: take <item name>\n\r"
 		return false
@@ -272,12 +302,18 @@ func executeTakeCommand(character *core.Character, tokens []string) bool {
 }
 
 func executeInventoryCommand(character *core.Character, tokens []string) bool {
+
+	log.Printf("Player %s is checking their inventory", character.Player.Name)
+
 	inventoryList := ListInventory(character)
 	character.Player.ToPlayer <- inventoryList
 	return false
 }
 
 func executeDropCommand(character *core.Character, tokens []string) bool {
+
+	log.Printf("Player %s is attempting to drop an item", character.Player.Name)
+
 	if len(tokens) < 2 {
 		character.Player.ToPlayer <- "\n\rUsage: drop <item name>\n\r"
 		return false
@@ -300,6 +336,9 @@ func executeDropCommand(character *core.Character, tokens []string) bool {
 }
 
 func executeWearCommand(character *core.Character, tokens []string) bool {
+
+	log.Printf("Player %s is attempting to wear an item", character.Player.Name)
+
 	if len(tokens) < 2 {
 		character.Player.ToPlayer <- "\n\rUsage: wear <item name>\n\r"
 		return false
@@ -334,6 +373,9 @@ func executeWearCommand(character *core.Character, tokens []string) bool {
 }
 
 func executeRemoveCommand(character *core.Character, tokens []string) bool {
+
+	log.Printf("Player %s is attempting to remove an item", character.Player.Name)
+
 	if len(tokens) < 2 {
 		character.Player.ToPlayer <- "\n\rUsage: remove <item name>\n\r"
 		return false
@@ -364,6 +406,9 @@ func executeRemoveCommand(character *core.Character, tokens []string) bool {
 }
 
 func executeExamineCommand(character *core.Character, tokens []string) bool {
+
+	log.Printf("Player %s is examining an item", character.Player.Name)
+
 	if len(tokens) < 2 {
 		character.Player.ToPlayer <- "\n\rUsage: examine <item name>\n\r"
 		return false
@@ -443,6 +488,9 @@ func executeExamineCommand(character *core.Character, tokens []string) bool {
 }
 
 func executeHelpCommand(character *core.Character, tokens []string) bool {
+
+	log.Printf("Player %s is requesting help", character.Player.Name)
+
 	helpMessage := "\n\rAvailable Commands:" +
 		"\n\rhelp - Display available commands" +
 		"\n\rshow - Display character information" +

@@ -29,6 +29,9 @@ var WearLocations = map[string]bool{
 }
 
 func SelectCharacter(player *core.Player, server *core.Server) (*core.Character, error) {
+
+	log.Printf("Player %s is selecting a character", player.Name)
+
 	var options []string
 
 	sendCharacterOptions := func() {
@@ -70,6 +73,9 @@ func SelectCharacter(player *core.Player, server *core.Server) (*core.Character,
 }
 
 func CreateCharacter(player *core.Player, server *core.Server) (*core.Character, error) {
+
+	log.Printf("Player %s is creating a new character", player.Name)
+
 	player.ToPlayer <- "\n\rEnter your character name: "
 
 	charName, ok := <-player.FromPlayer
@@ -152,6 +158,9 @@ func CreateCharacter(player *core.Player, server *core.Server) (*core.Character,
 }
 
 func WearItem(c *core.Character, item *core.Item) error {
+
+	log.Printf("Character %s is attempting to wear item %s", c.Name, item.Name)
+
 	c.Mutex.Lock()
 	defer c.Mutex.Unlock()
 
@@ -183,6 +192,9 @@ func WearItem(c *core.Character, item *core.Item) error {
 }
 
 func ListInventory(c *core.Character) string {
+
+	log.Printf("Character %s is listing inventory", c.Name)
+
 	c.Mutex.Lock()
 	defer c.Mutex.Unlock()
 
@@ -215,6 +227,9 @@ func ListInventory(c *core.Character) string {
 }
 
 func AddToInventory(c *core.Character, item *core.Item) {
+
+	log.Printf("Character %s is adding item %s to inventory", c.Name, item.Name)
+
 	c.Mutex.Lock()
 	defer c.Mutex.Unlock()
 
@@ -229,6 +244,9 @@ func AddToInventory(c *core.Character, item *core.Item) {
 }
 
 func FindInInventory(c *core.Character, itemName string) *core.Item {
+
+	log.Printf("Character %s is searching inventory for item %s", c.Name, itemName)
+
 	c.Mutex.Lock()
 	defer c.Mutex.Unlock()
 
@@ -244,6 +262,9 @@ func FindInInventory(c *core.Character, itemName string) *core.Item {
 }
 
 func RemoveFromInventory(c *core.Character, item *core.Item) {
+
+	log.Printf("Character %s is removing item %s from inventory", c.Name, item.Name)
+
 	c.Mutex.Lock()
 	defer c.Mutex.Unlock()
 
@@ -258,11 +279,17 @@ func RemoveFromInventory(c *core.Character, item *core.Item) {
 }
 
 func CanCarryItem(c *core.Character, item *core.Item) bool {
+
+	log.Printf("Character %s is checking if they can carry item %s", c.Name, item.Name)
+
 	// Placeholder implementation
 	return true
 }
 
 func RemoveWornItem(c *core.Character, itemOrLocation interface{}) (*core.Item, error) {
+
+	log.Printf("Character %s is removing worn item", c.Name)
+
 	c.Mutex.Lock()
 	defer c.Mutex.Unlock()
 

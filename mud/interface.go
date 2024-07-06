@@ -15,6 +15,9 @@ import (
 )
 
 func Authenticate(username, password string, config core.Configuration) bool {
+
+	log.Printf("Authenticating user %s", username)
+
 	_, err := core.SignInUser(username, password, config)
 	if err != nil {
 		log.Printf("Authentication attempt failed for user %s: %v", username, err)
@@ -24,6 +27,9 @@ func Authenticate(username, password string, config core.Configuration) bool {
 }
 
 func StartSSHServer(server *core.Server) error {
+
+	log.Printf("Starting SSH server on port %d", server.Port)
+
 	// Read the private key from disk
 	privateBytes, err := os.ReadFile("./server.key")
 	if err != nil {
@@ -78,6 +84,7 @@ func StartSSHServer(server *core.Server) error {
 }
 
 func handleChannels(server *core.Server, sshConn *ssh.ServerConn, channels <-chan ssh.NewChannel) {
+
 	log.Printf("New connection from %s (%s)", sshConn.User(), sshConn.RemoteAddr())
 
 	for newChannel := range channels {
@@ -179,6 +186,9 @@ var ColorMap = map[string]string{
 
 // ApplyColor applies the specified color to the text if the color exists in ColorMap.
 func ApplyColor(colorName, text string) string {
+
+	log.Printf("Applying color %s to text: %s", colorName, text)
+
 	if colorCode, exists := ColorMap[colorName]; exists {
 		return fmt.Sprintf("\033[%sm%s\033[0m", colorCode, text)
 	}
@@ -188,6 +198,9 @@ func ApplyColor(colorName, text string) string {
 
 // HandleSSHRequests handles SSH requests from the client
 func HandleSSHRequests(player *core.Player, requests <-chan *ssh.Request) {
+
+	log.Printf("Handling SSH requests for player %s", player.Name)
+
 	for req := range requests {
 		switch req.Type {
 		case "shell":
@@ -205,6 +218,8 @@ func HandleSSHRequests(player *core.Player, requests <-chan *ssh.Request) {
 }
 
 func PlayerInput(p *core.Player) {
+
+	log.Printf("Player %s input goroutine started", p.Name)
 
 	var inputBuffer bytes.Buffer
 
@@ -254,6 +269,9 @@ func PlayerInput(p *core.Player) {
 }
 
 func PlayerOutput(p *core.Player) {
+
+	log.Printf("Player %s output goroutine started", p.Name)
+
 	for message := range p.ToPlayer {
 		// Append carriage return and newline for SSH protocol compatibility
 		messageToSend := message
@@ -269,6 +287,9 @@ func PlayerOutput(p *core.Player) {
 }
 
 func InputLoop(c *core.Character) {
+
+	log.Printf("Starting input loop for character %s", c.Name)
+
 	// Initially execute the look command with no additional tokens
 	executeLookCommand(c, []string{}) // Adjusted to include the tokens parameter
 
