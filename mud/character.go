@@ -160,7 +160,7 @@ func WearItem(c *core.Character, item *core.Item) error {
 	}
 
 	for _, location := range item.WornOn {
-		if WearLocations[location] == false {
+		if !WearLocations[location] {
 			return fmt.Errorf("invalid wear location: %s", location)
 		}
 	}

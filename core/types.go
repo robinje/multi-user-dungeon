@@ -66,7 +66,7 @@ type Player struct {
 	PlayerError   chan error
 	Echo          bool
 	Prompt        string
-	Connection    net.Conn
+	Connection    ssh.Channel
 	Server        *Server
 	ConsoleWidth  int
 	ConsoleHeight int
