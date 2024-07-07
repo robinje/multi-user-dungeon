@@ -1,6 +1,7 @@
 package core
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -159,7 +160,18 @@ func (kp *KeyPair) LoadRooms() (map[int64]*Room, error) {
 
 			room := NewRoom(roomData.RoomID, roomData.Area, roomData.Title, roomData.Description)
 
-			// Load items
+			// Load exits for this room
+			exitPrefix := fmt.Sprintf("%d_", roomData.RoomID)
+			c := exitsBucket.Cursor()
+			for k, v := c.Seek([]byte(exitPrefix)); k != nil && bytes.HasPrefix(k, []byte(exitPrefix)); k, v = c.Next() {
+				var exit Exit
+				if err := json.Unmarshal(v, &exit); err != nil {
+					return fmt.Errorf("error unmarshalling exit data: %w", err)
+				}
+				room.AddExit(&exit)
+			}
+
+			// Load items (existing code)
 			for _, itemID := range roomData.ItemIDs {
 				item, err := kp.LoadItem(itemID, false)
 				if err != nil {
@@ -169,8 +181,7 @@ func (kp *KeyPair) LoadRooms() (map[int64]*Room, error) {
 				room.AddItem(item)
 			}
 
-			room.CleanupNilItems() // Clean up any nil items
-
+			room.CleanupNilItems()
 			rooms[room.RoomID] = room
 			return nil
 		})
