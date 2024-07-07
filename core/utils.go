@@ -53,6 +53,22 @@ func AutoSave(server *Server) {
 			log.Println("Active items saved successfully")
 		}
 
+		// Save active player records
+		savedPlayers := 0
+		server.Mutex.Lock()
+		for _, character := range server.Characters {
+			if character.Player != nil {
+				err := server.Database.WritePlayer(character.Player)
+				if err != nil {
+					log.Printf("Failed to save player data for %s: %v", character.Player.Name, err)
+				} else {
+					savedPlayers++
+				}
+			}
+		}
+		server.Mutex.Unlock()
+		log.Printf("Saved %d active player records", savedPlayers)
+
 		log.Println("Auto-save process completed")
 	}
 }
