@@ -263,9 +263,6 @@ func ExecuteShowCommand(character *Character, tokens []string) bool {
 }
 
 func ExecuteTakeCommand(character *Character, tokens []string) bool {
-
-	log.Printf("Player %s is attempting to take an item", character.Player.Name)
-
 	if len(tokens) < 2 {
 		character.Player.ToPlayer <- "\n\rUsage: take <item name>\n\r"
 		return false
@@ -291,11 +288,24 @@ func ExecuteTakeCommand(character *Character, tokens []string) bool {
 		return false
 	}
 
+	// Try to place the item in the right hand first, then the left hand if right is occupied
+	var handSlot string
+	if character.Inventory["right_hand"] == nil {
+		handSlot = "right_hand"
+	} else if character.Inventory["left_hand"] == nil {
+		handSlot = "left_hand"
+	}
+
+	if handSlot == "" {
+		character.Player.ToPlayer <- "\n\rYour hands are full. You need a free hand to pick up an item.\n\r"
+		return false
+	}
+
 	character.Room.RemoveItem(itemToTake)
-	AddToInventory(character, itemToTake)
+	character.Inventory[handSlot] = itemToTake
 
 	SendRoomMessage(character.Room, fmt.Sprintf("\n\r%s picks up %s.\n\r", character.Name, itemToTake.Name))
-	character.Player.ToPlayer <- fmt.Sprintf("\n\rYou take %s.\n\r", itemToTake.Name)
+	character.Player.ToPlayer <- fmt.Sprintf("\n\rYou take %s and hold it in your %s.\n\r", itemToTake.Name, strings.Replace(handSlot, "_", " ", -1))
 	return false
 }
 
@@ -309,23 +319,30 @@ func ExecuteInventoryCommand(character *Character, tokens []string) bool {
 }
 
 func ExecuteDropCommand(character *Character, tokens []string) bool {
-
-	log.Printf("Player %s is attempting to drop an item", character.Player.Name)
-
 	if len(tokens) < 2 {
 		character.Player.ToPlayer <- "\n\rUsage: drop <item name>\n\r"
 		return false
 	}
 
 	itemName := strings.ToLower(strings.Join(tokens[1:], " "))
-	itemToDrop := FindInInventory(character, itemName)
+	var itemToDrop *Item
+	var handSlot string
+
+	// Check if the item is in a hand slot
+	for slot, item := range character.Inventory {
+		if (slot == "left_hand" || slot == "right_hand") && strings.Contains(strings.ToLower(item.Name), itemName) {
+			itemToDrop = item
+			handSlot = slot
+			break
+		}
+	}
 
 	if itemToDrop == nil {
-		character.Player.ToPlayer <- "\n\rYou don't have that item.\n\r"
+		character.Player.ToPlayer <- "\n\rYou're not holding that item.\n\r"
 		return false
 	}
 
-	RemoveFromInventory(character, itemToDrop)
+	delete(character.Inventory, handSlot)
 	character.Room.AddItem(itemToDrop)
 
 	character.Player.ToPlayer <- fmt.Sprintf("\n\rYou drop %s.\n\r", itemToDrop.Name)
@@ -371,35 +388,34 @@ func ExecuteWearCommand(character *Character, tokens []string) bool {
 }
 
 func ExecuteRemoveCommand(character *Character, tokens []string) bool {
-
-	log.Printf("Player %s is attempting to remove an item", character.Player.Name)
-
 	if len(tokens) < 2 {
 		character.Player.ToPlayer <- "\n\rUsage: remove <item name>\n\r"
 		return false
 	}
 
 	itemName := strings.ToLower(strings.Join(tokens[1:], " "))
-	itemToRemove := FindInInventory(character, itemName)
+	var itemToRemove *Item
+
+	for _, item := range character.Inventory {
+		if item != nil && item.IsWorn && strings.Contains(strings.ToLower(item.Name), itemName) {
+			itemToRemove = item
+			break
+		}
+	}
 
 	if itemToRemove == nil {
-		character.Player.ToPlayer <- "\n\rYou don't have that item.\n\r"
+		character.Player.ToPlayer <- "\n\rYou're not wearing that item.\n\r"
 		return false
 	}
 
-	if !itemToRemove.IsWorn {
-		character.Player.ToPlayer <- "\n\rYou're not wearing that.\n\r"
-		return false
-	}
-
-	removedItem, err := RemoveWornItem(character, itemToRemove)
+	err := RemoveWornItem(character, itemToRemove)
 	if err != nil {
 		character.Player.ToPlayer <- fmt.Sprintf("\n\r%s\n\r", err.Error())
 		return false
 	}
 
-	character.Player.ToPlayer <- fmt.Sprintf("\n\rYou remove %s.\n\r", removedItem.Name)
-	SendRoomMessage(character.Room, fmt.Sprintf("\n\r%s removes %s.\n\r", character.Name, removedItem.Name))
+	character.Player.ToPlayer <- fmt.Sprintf("\n\rYou remove %s.\n\r", itemToRemove.Name)
+	SendRoomMessage(character.Room, fmt.Sprintf("\n\r%s removes %s.\n\r", character.Name, itemToRemove.Name))
 	return false
 }
 

@@ -17,18 +17,24 @@ import (
 func (k *KeyPair) WritePlayer(player *Player) error {
 	// Create a PlayerData instance containing only the data to be serialized
 	pd := PlayerData{
-		Name:          player.PlayerID,
+		Name:          player.Name,
 		CharacterList: player.CharacterList,
 	}
 
 	// Serialize the PlayerData struct to JSON
 	playerData, err := json.Marshal(pd)
 	if err != nil {
-		return err
+		return fmt.Errorf("error marshalling player data: %w", err)
 	}
 
 	// Use the player's Name as the key to store the serialized data
-	return k.Put("Players", []byte(player.Name), playerData)
+	err = k.Put("Players", []byte(player.Name), playerData)
+	if err != nil {
+		return fmt.Errorf("error storing player data: %w", err)
+	}
+
+	log.Printf("Successfully wrote player data for %s with %d characters", player.Name, len(player.CharacterList))
+	return nil
 }
 
 func (k *KeyPair) ReadPlayer(playerName string) (string, map[string]uint64, error) {
@@ -53,6 +59,17 @@ func (k *KeyPair) ReadPlayer(playerName string) (string, map[string]uint64, erro
 		return "", nil, fmt.Errorf("unmarshal player data: %w", err)
 	}
 
+	// If Name is empty in the database, use the playerName parameter
+	if pd.Name == "" {
+		pd.Name = playerName
+	}
+
+	// Ensure CharacterList is initialized
+	if pd.CharacterList == nil {
+		pd.CharacterList = make(map[string]uint64)
+	}
+
+	log.Printf("Successfully read player data for %s with %d characters", pd.Name, len(pd.CharacterList))
 	return pd.Name, pd.CharacterList, nil
 }
 
@@ -206,11 +223,14 @@ func SelectCharacter(player *Player, server *Server) (*Character, error) {
 				options = append(options, name)
 				i++
 			}
+		} else {
+			player.ToPlayer <- "No existing characters found.\n\r"
 		}
 		player.ToPlayer <- "Enter the number of your choice: "
 	}
 
 	for {
+		options = []string{} // Reset options for each iteration
 		sendCharacterOptions()
 
 		input, ok := <-player.FromPlayer
@@ -227,14 +247,23 @@ func SelectCharacter(player *Player, server *Server) (*Character, error) {
 		var character *Character
 		if choice == 0 {
 			character, err = CreateCharacter(player, server)
+			if err != nil {
+				player.ToPlayer <- fmt.Sprintf("Error creating character: %v\n\r", err)
+				continue
+			}
 		} else if choice <= len(options) {
 			characterName := options[choice-1]
-			character, err = server.Database.LoadCharacter(player.CharacterList[characterName], player, server)
+			characterIndex := player.CharacterList[characterName]
+			character, err = server.Database.LoadCharacter(characterIndex, player, server)
+			if err != nil {
+				log.Printf("Error loading character %s for player %s: %v", characterName, player.Name, err)
+				player.ToPlayer <- fmt.Sprintf("Error loading character: %v\n\r", err)
+				continue
+			}
 		}
 
-		if err != nil {
-			log.Printf("Error selecting character: %v", err)
-			player.ToPlayer <- fmt.Sprintf("Error selecting character: %v\n\r", err)
+		if character == nil {
+			player.ToPlayer <- "Failed to create or load character. Please try again.\n\r"
 			continue
 		}
 
@@ -244,19 +273,6 @@ func SelectCharacter(player *Player, server *Server) (*Character, error) {
 		server.Mutex.Unlock()
 
 		log.Printf("Character %s (ID: %d) selected and added to server character list", character.Name, character.Index)
-
-		// Double-check that the character is in the room's character list
-		if character.Room != nil {
-			character.Room.Mutex.Lock()
-			if character.Room.Characters == nil {
-				character.Room.Characters = make(map[uint64]*Character)
-			}
-			character.Room.Characters[character.Index] = character
-			character.Room.Mutex.Unlock()
-			log.Printf("Confirmed character %s (ID: %d) is in room %d character list", character.Name, character.Index, character.Room.RoomID)
-		} else {
-			log.Printf("Warning: Selected character %s (ID: %d) does not have a valid room", character.Name, character.Index)
-		}
 
 		return character, nil
 	}
@@ -332,17 +348,31 @@ func CreateCharacter(player *Player, server *Server) (*Character, error) {
 
 	character := server.NewCharacter(charName, player, room, selectedArchetype)
 
-	if room.Characters == nil {
-		room.Characters = make(map[uint64]*Character)
+	// Add the new character to the player's character list
+	player.Mutex.Lock()
+	if player.CharacterList == nil {
+		player.CharacterList = make(map[string]uint64)
+	}
+	player.CharacterList[charName] = character.Index
+	player.Mutex.Unlock()
+
+	log.Printf("Added character %s (ID: %d) to player %s's character list", charName, character.Index, player.Name)
+
+	// Save the character to the database
+	err := server.Database.WriteCharacter(character)
+	if err != nil {
+		log.Printf("Error saving character %s to database: %v", charName, err)
+		return nil, fmt.Errorf("failed to save character to database")
 	}
 
-	room.Mutex.Lock()
-	room.Characters[character.Index] = character
-	room.Mutex.Unlock()
+	// Save the updated player data
+	err = server.Database.WritePlayer(player)
+	if err != nil {
+		log.Printf("Error saving player data for %s: %v", player.Name, err)
+		return nil, fmt.Errorf("failed to save player data")
+	}
 
-	server.Mutex.Lock()
-	server.CharacterExists[strings.ToLower(charName)] = true
-	server.Mutex.Unlock()
+	log.Printf("Successfully created and saved character %s (ID: %d) for player %s", charName, character.Index, player.Name)
 
 	return character, nil
 }
