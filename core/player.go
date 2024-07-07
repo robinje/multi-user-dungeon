@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	bolt "go.etcd.io/bbolt"
 )
@@ -141,54 +142,55 @@ func PlayerOutput(p *Player) {
 }
 
 func InputLoop(c *Character) {
-
 	log.Printf("Starting input loop for character %s", c.Name)
 
 	// Initially execute the look command with no additional tokens
-	ExecuteLookCommand(c, []string{}) // Adjusted to include the tokens parameter
+	ExecuteLookCommand(c, []string{})
 
 	// Send initial prompt to player
 	c.Player.ToPlayer <- c.Player.Prompt
 
+	// Create a ticker that ticks once per second
+	commandTicker := time.NewTicker(time.Second)
+	defer commandTicker.Stop()
+
+	var lastCommand string
 	for {
-		// Wait for input from the player. This blocks until input is received.
-		inputLine, more := <-c.Player.FromPlayer
-		if !more {
-			// If the channel is closed, stop the input loop.
-			log.Printf("Input channel closed for player %s.", c.Player.Name)
-			return
+		select {
+		case <-commandTicker.C:
+			// Process the last received command
+			if lastCommand != "" {
+				verb, tokens, err := ValidateCommand(strings.TrimSpace(lastCommand))
+				if err != nil {
+					c.Player.ToPlayer <- err.Error() + "\n\r"
+				} else {
+					// Execute the command
+					if ExecuteCommand(c, verb, tokens) {
+						// If command execution indicates to exit, break the loop
+						return
+					}
+					// Log the command execution
+					log.Printf("Player %s issued command: %s", c.Player.Name, strings.Join(tokens, " "))
+				}
+				lastCommand = ""
+				c.Player.ToPlayer <- c.Player.Prompt
+			}
+
+		case inputLine, more := <-c.Player.FromPlayer:
+			if !more {
+				// If the channel is closed, stop the input loop.
+				log.Printf("Input channel closed for player %s.", c.Player.Name)
+				return
+			}
+			// Store the last received command, overwriting any unprocessed command
+			lastCommand = strings.Replace(inputLine, "\n", "\n\r", -1)
 		}
-
-		// Normalize line ending to \n\r for consistency
-		inputLine = strings.Replace(inputLine, "\n", "\n\r", -1)
-
-		// Process the command
-		verb, tokens, err := ValidateCommand(strings.TrimSpace(inputLine))
-		if err != nil {
-			c.Player.ToPlayer <- err.Error() + "\n\r"
-			c.Player.ToPlayer <- c.Player.Prompt
-			continue
-		}
-
-		// Execute the command
-		if ExecuteCommand(c, verb, tokens) {
-			// If command execution indicates to exit (or similar action), break the loop
-			// Note: Adjust logic as per your executeCommand's design to handle such conditions
-			break
-		}
-
-		// Log the command execution
-		log.Printf("Player %s issued command: %s", c.Player.Name, strings.Join(tokens, " "))
-
-		// Prompt for the next command
-		c.Player.ToPlayer <- c.Player.Prompt
 	}
 
 	// Close the player's input channel
 	close(c.Player.FromPlayer)
 
 	// Remove the character from the room
-
 	c.Room.Mutex.Lock()
 	delete(c.Room.Characters, c.Index)
 	c.Room.Mutex.Unlock()
