@@ -270,7 +270,17 @@ func SelectCharacter(player *Player, server *Server) (*Character, error) {
 		server.Characters[character.Name] = character
 		server.Mutex.Unlock()
 
-		log.Printf("Character %s (ID: %d) selected and added to server character list", character.Name, character.Index)
+		// Add character to the room and notify other players
+		if character.Room != nil {
+			character.Room.Mutex.Lock()
+			character.Room.Characters[character.Index] = character
+			character.Room.Mutex.Unlock()
+
+			// Notify the room that the character has entered
+			SendRoomMessage(character.Room, fmt.Sprintf("\n\r%s has entered the room.\n\r", character.Name))
+		}
+
+		log.Printf("Character %s (ID: %d) selected and added to server character list and room", character.Name, character.Index)
 
 		return character, nil
 	}
