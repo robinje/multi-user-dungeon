@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	bolt "go.etcd.io/bbolt"
 )
@@ -74,53 +75,51 @@ func (k *KeyPair) ReadPlayer(playerName string) (string, map[string]uint64, erro
 }
 
 func PlayerInput(p *Player) {
-
 	log.Printf("Player %s input goroutine started", p.Name)
 
 	var inputBuffer bytes.Buffer
+	const maxBufferSize = 1024 // Maximum input size in bytes
 
 	reader := bufio.NewReader(p.Connection)
 
 	for {
-		char, _, err := reader.ReadRune() // Read one rune (character) at a time from the buffered reader
+		char, _, err := reader.ReadRune()
 		if err != nil {
 			if err == io.EOF {
-				// Handle EOF to indicate client disconnect gracefully
 				log.Printf("Player %s disconnected: %v", p.Name, err)
 				p.PlayerError <- err
-				break // Exit the loop on EOF
+				break
 			} else {
-				// Log and handle other errors without breaking the loop
 				log.Printf("Error reading from player %s: %v", p.Name, err)
 				p.PlayerError <- err
 				continue
 			}
 		}
 
-		// Echo the character back to the player if Echo is true
-		// Ensure we do not echo back newline characters, maintaining input cleanliness
 		if p.Echo && char != '\n' && char != '\r' {
 			if _, err := p.Connection.Write([]byte(string(char))); err != nil {
 				log.Printf("Failed to echo character to player %s: %v", p.Name, err)
 			}
 		}
 
-		// Check if the character is a newline, indicating the end of input
 		if char == '\n' || char == '\r' {
-			// Trim the newline character and send the input through the FromPlayer channel
-			// This assumes that the inputBuffer contains the input line up to the newline character
-			if inputBuffer.Len() > 0 { // Ensure we have something to send
+			if inputBuffer.Len() > 0 {
 				p.FromPlayer <- inputBuffer.String()
-				inputBuffer.Reset() // Clear the buffer for the next line of input
+				inputBuffer.Reset()
 			}
 			continue
 		}
 
-		// Add character to the buffer for accumulating the line
+		if inputBuffer.Len() >= maxBufferSize {
+			log.Printf("Input buffer overflow for player %s, discarding input", p.Name)
+			p.ToPlayer <- "\n\rInput too long, discarded.\n\r"
+			inputBuffer.Reset()
+			continue
+		}
+
 		inputBuffer.WriteRune(char)
 	}
 
-	// Close the channel to signify no more input will be processed
 	close(p.FromPlayer)
 }
 
@@ -143,68 +142,66 @@ func PlayerOutput(p *Player) {
 }
 
 func InputLoop(c *Character) {
-
 	log.Printf("Starting input loop for character %s", c.Name)
 
 	// Initially execute the look command with no additional tokens
-	ExecuteLookCommand(c, []string{}) // Adjusted to include the tokens parameter
+	ExecuteLookCommand(c, []string{})
 
 	// Send initial prompt to player
 	c.Player.ToPlayer <- c.Player.Prompt
 
-	for {
-		// Wait for input from the player. This blocks until input is received.
-		inputLine, more := <-c.Player.FromPlayer
-		if !more {
-			// If the channel is closed, stop the input loop.
-			log.Printf("Input channel closed for player %s.", c.Player.Name)
-			return
+	// Create a ticker that ticks once per second
+	commandTicker := time.NewTicker(time.Second)
+	defer commandTicker.Stop()
+
+	var lastCommand string
+	shouldQuit := false
+
+	for !shouldQuit {
+		select {
+		case <-commandTicker.C:
+			if lastCommand != "" {
+				verb, tokens, err := ValidateCommand(strings.TrimSpace(lastCommand))
+				if err != nil {
+					c.Player.ToPlayer <- err.Error() + "\n\r"
+				} else {
+					// Execute the command
+					shouldQuit = ExecuteCommand(c, verb, tokens)
+					log.Printf("Player %s issued command: %s", c.Player.Name, strings.Join(tokens, " "))
+				}
+				lastCommand = ""
+				if !shouldQuit {
+					c.Player.ToPlayer <- c.Player.Prompt
+				}
+			}
+
+		case inputLine, more := <-c.Player.FromPlayer:
+			if !more {
+				log.Printf("Input channel closed for player %s.", c.Player.Name)
+				shouldQuit = true
+				break
+			}
+			lastCommand = strings.Replace(inputLine, "\n", "\n\r", -1)
 		}
-
-		// Normalize line ending to \n\r for consistency
-		inputLine = strings.Replace(inputLine, "\n", "\n\r", -1)
-
-		// Process the command
-		verb, tokens, err := ValidateCommand(strings.TrimSpace(inputLine))
-		if err != nil {
-			c.Player.ToPlayer <- err.Error() + "\n\r"
-			c.Player.ToPlayer <- c.Player.Prompt
-			continue
-		}
-
-		// Execute the command
-		if ExecuteCommand(c, verb, tokens) {
-			// If command execution indicates to exit (or similar action), break the loop
-			// Note: Adjust logic as per your executeCommand's design to handle such conditions
-			break
-		}
-
-		// Log the command execution
-		log.Printf("Player %s issued command: %s", c.Player.Name, strings.Join(tokens, " "))
-
-		// Prompt for the next command
-		c.Player.ToPlayer <- c.Player.Prompt
 	}
 
-	// Close the player's input channel
+	// Cleanup code
 	close(c.Player.FromPlayer)
-
-	// Remove the character from the room
 
 	c.Room.Mutex.Lock()
 	delete(c.Room.Characters, c.Index)
 	c.Room.Mutex.Unlock()
 
-	// Remove the character from the server's active characters
 	c.Server.Mutex.Lock()
 	delete(c.Server.Characters, c.Name)
 	c.Server.Mutex.Unlock()
 
-	// Save the character to the database
 	err := c.Server.Database.WriteCharacter(c)
 	if err != nil {
 		log.Printf("Error saving character %s: %v", c.Name, err)
 	}
+
+	log.Printf("Input loop ended for character %s", c.Name)
 }
 
 func SelectCharacter(player *Player, server *Server) (*Character, error) {
@@ -272,7 +269,17 @@ func SelectCharacter(player *Player, server *Server) (*Character, error) {
 		server.Characters[character.Name] = character
 		server.Mutex.Unlock()
 
-		log.Printf("Character %s (ID: %d) selected and added to server character list", character.Name, character.Index)
+		// Add character to the room and notify other players
+		if character.Room != nil {
+			character.Room.Mutex.Lock()
+			character.Room.Characters[character.Index] = character
+			character.Room.Mutex.Unlock()
+
+			// Notify the room that the character has entered
+			SendRoomMessage(character.Room, fmt.Sprintf("\n\r%s has arrived.\n\r", character.Name))
+		}
+
+		log.Printf("Character %s (ID: %d) selected and added to server character list and room", character.Name, character.Index)
 
 		return character, nil
 	}
