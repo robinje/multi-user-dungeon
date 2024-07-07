@@ -153,6 +153,8 @@ func handleChannels(server *core.Server, sshConn *ssh.ServerConn, channels <-cha
 
 			server.Database.WriteCharacter(character)
 
+			server.Database.WritePlayer(player)
+
 			log.Printf("Player %s disconnected", p.Name)
 			player = nil
 
