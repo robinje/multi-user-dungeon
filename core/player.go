@@ -277,7 +277,7 @@ func SelectCharacter(player *Player, server *Server) (*Character, error) {
 			character.Room.Mutex.Unlock()
 
 			// Notify the room that the character has entered
-			SendRoomMessage(character.Room, fmt.Sprintf("\n\r%s has entered the room.\n\r", character.Name))
+			SendRoomMessage(character.Room, fmt.Sprintf("\n\r%s has arrived.\n\r", character.Name))
 		}
 
 		log.Printf("Character %s (ID: %d) selected and added to server character list and room", character.Name, character.Index)
