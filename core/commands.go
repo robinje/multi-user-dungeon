@@ -68,8 +68,30 @@ func ExecuteCommand(character *Character, verb string, tokens []string) bool {
 
 func ExecuteQuitCommand(character *Character, tokens []string) bool {
 	log.Printf("Player %s is quitting", character.Player.Name)
+
+	// Send goodbye message
 	character.Player.ToPlayer <- "\n\rGoodbye!"
-	SendRoomMessage(character.Room, fmt.Sprintf("\n\r%s has left the game.\n\r", character.Name))
+
+	// Notify room
+	SendRoomMessage(character.Room, fmt.Sprintf("\n\r%s has left.\n\r", character.Name))
+
+	// Remove character from the room
+	character.Room.Mutex.Lock()
+	delete(character.Room.Characters, character.Index)
+	character.Room.Mutex.Unlock()
+
+	// Remove character from the server's active characters
+	character.Server.Mutex.Lock()
+	delete(character.Server.Characters, character.Name)
+	character.Server.Mutex.Unlock()
+
+	// Save character state to database
+	err := character.Server.Database.WriteCharacter(character)
+	if err != nil {
+		log.Printf("Error saving character %s state on quit: %v", character.Name, err)
+	}
+
+	log.Printf("Player %s has successfully quit", character.Player.Name)
 
 	return true // Indicate that the loop should be exited
 }
