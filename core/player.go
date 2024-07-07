@@ -120,7 +120,7 @@ func PlayerInput(p *Player) {
 		inputBuffer.WriteRune(char)
 	}
 
-	// close(p.FromPlayer)
+	close(p.FromPlayer)
 }
 
 func PlayerOutput(p *Player) {
@@ -155,56 +155,53 @@ func InputLoop(c *Character) {
 	defer commandTicker.Stop()
 
 	var lastCommand string
-	for {
+	shouldQuit := false
+
+	for !shouldQuit {
 		select {
 		case <-commandTicker.C:
-			// Process the last received command
 			if lastCommand != "" {
 				verb, tokens, err := ValidateCommand(strings.TrimSpace(lastCommand))
 				if err != nil {
 					c.Player.ToPlayer <- err.Error() + "\n\r"
 				} else {
 					// Execute the command
-					if ExecuteCommand(c, verb, tokens) {
-						// If command execution indicates to exit, break the loop
-						return
-					}
-					// Log the command execution
+					shouldQuit = ExecuteCommand(c, verb, tokens)
 					log.Printf("Player %s issued command: %s", c.Player.Name, strings.Join(tokens, " "))
 				}
 				lastCommand = ""
-				c.Player.ToPlayer <- c.Player.Prompt
+				if !shouldQuit {
+					c.Player.ToPlayer <- c.Player.Prompt
+				}
 			}
 
 		case inputLine, more := <-c.Player.FromPlayer:
 			if !more {
-				// If the channel is closed, stop the input loop.
 				log.Printf("Input channel closed for player %s.", c.Player.Name)
-				return
+				shouldQuit = true
+				break
 			}
-			// Store the last received command, overwriting any unprocessed command
 			lastCommand = strings.Replace(inputLine, "\n", "\n\r", -1)
 		}
 	}
 
-	// Close the player's input channel
+	// Cleanup code
 	close(c.Player.FromPlayer)
 
-	// Remove the character from the room
 	c.Room.Mutex.Lock()
 	delete(c.Room.Characters, c.Index)
 	c.Room.Mutex.Unlock()
 
-	// Remove the character from the server's active characters
 	c.Server.Mutex.Lock()
 	delete(c.Server.Characters, c.Name)
 	c.Server.Mutex.Unlock()
 
-	// Save the character to the database
 	err := c.Server.Database.WriteCharacter(c)
 	if err != nil {
 		log.Printf("Error saving character %s: %v", c.Name, err)
 	}
+
+	log.Printf("Input loop ended for character %s", c.Name)
 }
 
 func SelectCharacter(player *Player, server *Server) (*Character, error) {
