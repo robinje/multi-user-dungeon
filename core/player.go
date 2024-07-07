@@ -120,7 +120,7 @@ func PlayerInput(p *Player) {
 		inputBuffer.WriteRune(char)
 	}
 
-	close(p.FromPlayer)
+	// close(p.FromPlayer)
 }
 
 func PlayerOutput(p *Player) {
