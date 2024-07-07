@@ -74,53 +74,51 @@ func (k *KeyPair) ReadPlayer(playerName string) (string, map[string]uint64, erro
 }
 
 func PlayerInput(p *Player) {
-
 	log.Printf("Player %s input goroutine started", p.Name)
 
 	var inputBuffer bytes.Buffer
+	const maxBufferSize = 1024 // Maximum input size in bytes
 
 	reader := bufio.NewReader(p.Connection)
 
 	for {
-		char, _, err := reader.ReadRune() // Read one rune (character) at a time from the buffered reader
+		char, _, err := reader.ReadRune()
 		if err != nil {
 			if err == io.EOF {
-				// Handle EOF to indicate client disconnect gracefully
 				log.Printf("Player %s disconnected: %v", p.Name, err)
 				p.PlayerError <- err
-				break // Exit the loop on EOF
+				break
 			} else {
-				// Log and handle other errors without breaking the loop
 				log.Printf("Error reading from player %s: %v", p.Name, err)
 				p.PlayerError <- err
 				continue
 			}
 		}
 
-		// Echo the character back to the player if Echo is true
-		// Ensure we do not echo back newline characters, maintaining input cleanliness
 		if p.Echo && char != '\n' && char != '\r' {
 			if _, err := p.Connection.Write([]byte(string(char))); err != nil {
 				log.Printf("Failed to echo character to player %s: %v", p.Name, err)
 			}
 		}
 
-		// Check if the character is a newline, indicating the end of input
 		if char == '\n' || char == '\r' {
-			// Trim the newline character and send the input through the FromPlayer channel
-			// This assumes that the inputBuffer contains the input line up to the newline character
-			if inputBuffer.Len() > 0 { // Ensure we have something to send
+			if inputBuffer.Len() > 0 {
 				p.FromPlayer <- inputBuffer.String()
-				inputBuffer.Reset() // Clear the buffer for the next line of input
+				inputBuffer.Reset()
 			}
 			continue
 		}
 
-		// Add character to the buffer for accumulating the line
+		if inputBuffer.Len() >= maxBufferSize {
+			log.Printf("Input buffer overflow for player %s, discarding input", p.Name)
+			p.ToPlayer <- "\n\rInput too long, discarded.\n\r"
+			inputBuffer.Reset()
+			continue
+		}
+
 		inputBuffer.WriteRune(char)
 	}
 
-	// Close the channel to signify no more input will be processed
 	close(p.FromPlayer)
 }
 
