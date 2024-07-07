@@ -240,11 +240,23 @@ func SaveActiveCharacters(s *Server) error {
 }
 
 func WearItem(c *Character, item *Item) error {
-
-	log.Printf("Character %s is attempting to wear item %s", c.Name, item.Name)
-
 	c.Mutex.Lock()
 	defer c.Mutex.Unlock()
+
+	// Check if the item is in a hand slot
+	inHand := false
+	var handSlot string
+	for slot, handItem := range c.Inventory {
+		if (slot == "left_hand" || slot == "right_hand") && handItem == item {
+			inHand = true
+			handSlot = slot
+			break
+		}
+	}
+
+	if !inHand {
+		return fmt.Errorf("you need to be holding the item to wear it")
+	}
 
 	if !item.Wearable {
 		return fmt.Errorf("this item cannot be worn")
@@ -254,21 +266,17 @@ func WearItem(c *Character, item *Item) error {
 		if !WearLocations[location] {
 			return fmt.Errorf("invalid wear location: %s", location)
 		}
-	}
-
-	for _, location := range item.WornOn {
-		if _, exists := c.Inventory[location]; exists {
+		if c.Inventory[location] != nil {
 			return fmt.Errorf("you are already wearing something on your %s", location)
 		}
 	}
-
-	delete(c.Inventory, item.Name)
 
 	for _, location := range item.WornOn {
 		c.Inventory[location] = item
 	}
 
 	item.IsWorn = true
+	delete(c.Inventory, handSlot) // Remove from hand slot
 
 	return nil
 }
@@ -368,42 +376,41 @@ func CanCarryItem(c *Character, item *Item) bool {
 	return true
 }
 
-func RemoveWornItem(c *Character, itemOrLocation interface{}) (*Item, error) {
-
-	log.Printf("Character %s is removing worn item", c.Name)
-
+func RemoveWornItem(c *Character, item *Item) error {
 	c.Mutex.Lock()
 	defer c.Mutex.Unlock()
 
-	var itemToRemove *Item
-	var exists bool
-
-	switch v := itemOrLocation.(type) {
-	case string:
-		itemToRemove, exists = c.Inventory[v]
-		if !exists {
-			return nil, fmt.Errorf("you are not wearing anything on your %s", v)
-		}
-	case *Item:
-		if !v.IsWorn {
-			return nil, fmt.Errorf("the item %s is not being worn", v.Name)
-		}
-		itemToRemove = v
-	default:
-		return nil, fmt.Errorf("invalid argument type for RemoveWornItem")
+	if item == nil {
+		return fmt.Errorf("no item specified")
 	}
 
-	for _, loc := range itemToRemove.WornOn {
-		if c.Inventory[loc] == itemToRemove {
-			delete(c.Inventory, loc)
+	var wornLocation string
+	for location, invItem := range c.Inventory {
+		if invItem == item && item.IsWorn {
+			wornLocation = location
+			break
 		}
 	}
 
-	if _, exists := c.Inventory[itemToRemove.Name]; !exists {
-		c.Inventory[itemToRemove.Name] = itemToRemove
+	if wornLocation == "" {
+		return fmt.Errorf("you are not wearing that item")
 	}
 
-	itemToRemove.IsWorn = false
+	// Try to place the item in the right hand first, then the left hand if right is occupied
+	var handSlot string
+	if c.Inventory["right_hand"] == nil {
+		handSlot = "right_hand"
+	} else if c.Inventory["left_hand"] == nil {
+		handSlot = "left_hand"
+	}
 
-	return itemToRemove, nil
+	if handSlot == "" {
+		return fmt.Errorf("your hands are full. You need a free hand to remove an item")
+	}
+
+	delete(c.Inventory, wornLocation)
+	item.IsWorn = false
+	c.Inventory[handSlot] = item
+
+	return nil
 }
