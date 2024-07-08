@@ -1,26 +1,17 @@
-package main
+package core
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
-	"sync"
+	"strings"
 
 	bolt "go.etcd.io/bbolt"
 )
 
-type KeyPair struct {
-	db    *bolt.DB
-	file  string
-	Mutex sync.Mutex // Mutex to synchronize write access
-}
-
-type PlayerData struct {
-	Name          string
-	CharacterList map[string]uint64
-}
-
 func NewKeyPair(file string) (*KeyPair, error) {
+
+	log.Printf("Opening database %s", file)
+
 	db, err := bolt.Open(file, 0600, nil)
 	if err != nil {
 		return nil, fmt.Errorf("error opening database: %w", err)
@@ -28,8 +19,10 @@ func NewKeyPair(file string) (*KeyPair, error) {
 
 	return &KeyPair{db: db, file: file}, nil
 }
-
 func (k *KeyPair) Close() {
+
+	log.Printf("Closing database %s", k.file)
+
 	k.Mutex.Lock() // Ensure we synchronize close operations
 	defer k.Mutex.Unlock()
 
@@ -42,16 +35,25 @@ func (k *KeyPair) Close() {
 }
 
 func (k *KeyPair) Put(bucketName string, key, value []byte) error {
-	k.Mutex.Lock() // Lock for write operation
+	k.Mutex.Lock()
 	defer k.Mutex.Unlock()
 
-	return k.db.Update(func(tx *bolt.Tx) error {
+	err := k.db.Update(func(tx *bolt.Tx) error {
 		bucket, err := tx.CreateBucketIfNotExists([]byte(bucketName))
 		if err != nil {
-			return err
+			return fmt.Errorf("create bucket %s: %w", bucketName, err)
 		}
-		return bucket.Put(key, value)
+		if err := bucket.Put(key, value); err != nil {
+			return fmt.Errorf("put key-value in bucket %s: %w", bucketName, err)
+		}
+		return nil
 	})
+
+	if err != nil {
+		return fmt.Errorf("database update failed: %w", err)
+	}
+
+	return nil
 }
 
 func (k *KeyPair) Get(bucketName string, key []byte) ([]byte, error) {
@@ -106,44 +108,39 @@ func (k *KeyPair) NextIndex(bucketName string) (uint64, error) {
 	return nextIndex, nil
 }
 
-func (k *KeyPair) WritePlayer(player *Player) error {
-	// Create a PlayerData instance containing only the data to be serialized
-	pd := PlayerData{
-		Name:          player.PlayerID,
-		CharacterList: player.CharacterList,
-	}
+func (k *KeyPair) ViewAllBuckets() error {
+	return k.db.View(func(tx *bolt.Tx) error {
+		return tx.ForEach(func(name []byte, b *bolt.Bucket) error {
+			fmt.Printf("\nBucket: %s\n", name)
+			fmt.Println(strings.Repeat("-", 30))
 
-	// Serialize the PlayerData struct to JSON
-	playerData, err := json.Marshal(pd)
-	if err != nil {
-		return err
-	}
+			count := 0
+			err := b.ForEach(func(k, v []byte) error {
+				fmt.Printf("  Key:   %s\n", k)
+				fmt.Printf("  Value: %s\n", v)
+				fmt.Println()
+				count++
+				return nil
+			})
 
-	// Use the player's Name as the key to store the serialized data
-	return k.Put("Players", []byte(player.Name), playerData)
+			fmt.Printf("Total entries in bucket: %d\n", count)
+			return err
+		})
+	})
 }
 
-func (k *KeyPair) ReadPlayer(playerName string) (string, map[string]uint64, error) {
-	playerData, err := k.Get("Players", []byte(playerName))
+func (k *KeyPair) Shutdown() error {
+	k.Mutex.Lock()
+	defer k.Mutex.Unlock()
 
-	if err == bolt.ErrBucketNotFound {
-		return "", nil, fmt.Errorf("player not found")
+	if k.db != nil {
+		if err := k.db.Sync(); err != nil {
+			return fmt.Errorf("sync database: %w", err)
+		}
+		if err := k.db.Close(); err != nil {
+			return fmt.Errorf("close database: %w", err)
+		}
+		k.db = nil
 	}
-
-	if err != nil {
-		return "", nil, err
-	}
-
-	if playerData == nil {
-		return "", nil, fmt.Errorf("player not found")
-	}
-
-	// Deserialize the JSON into a PlayerData struct
-	var pd PlayerData
-	err = json.Unmarshal(playerData, &pd)
-	if err != nil {
-		return "", nil, err
-	}
-
-	return pd.Name, pd.CharacterList, nil
+	return nil
 }

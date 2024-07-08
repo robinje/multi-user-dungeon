@@ -20,7 +20,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: 1.21
+          go-version: 1.22
 
       - name: Auto format and commit
         run: |
@@ -29,7 +29,10 @@ jobs:
           git config --global user.name 'Dark Relics Automatic'
           git config --global user.email 'contact@darkrelics.net'
           git pull
-          cd ./mud
+          cd ./core
+          go fmt ./...
+          go mod tidy
+          cd ../ssh_server
           go fmt ./...
           go mod tidy
           cd ../database

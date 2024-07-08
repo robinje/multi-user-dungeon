@@ -1,7 +1,8 @@
-go 1.21
+go 1.22
 
 use (
-    ./mud
+    ./core
+    ./ssh_server
     ./database
     ./database_viewer
     ./database_create_item

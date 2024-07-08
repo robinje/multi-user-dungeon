@@ -4,6 +4,8 @@ import (
 	"flag"
 	"fmt"
 	"log"
+
+	"github.com/robinje/multi-user-dungeon/core"
 )
 
 func main() {
@@ -30,88 +32,79 @@ func main() {
 		return
 	}
 
-	// Initialize the rooms map
-	rooms := make(map[int64]*Room)
+	// Initialize the database connection
+	kp, err := core.NewKeyPair(*boltFilePath)
+	if err != nil {
+		log.Fatalf("Failed to open database: %v", err)
+	}
+	defer kp.Close()
+
+	// Load rooms from JSON
+	rooms, err := core.LoadRoomsFromJSON(*jsonRoomFilePath)
+	if err != nil {
+		log.Printf("Room data load from JSON failed: %v", err)
+	} else {
+		fmt.Println("Room data loaded from JSON successfully")
+
+		// Store rooms in the database
+		err = kp.StoreRooms(rooms)
+		if err != nil {
+			log.Printf("Failed to store rooms in BoltDB: %v", err)
+		} else {
+			fmt.Println("Room data stored in BoltDB successfully")
+		}
+	}
+
+	// Load archetypes from JSON and store in BoltDB
+	archetypes, err := core.LoadArchetypesFromJSON(*jsonArchFilePath)
+	if err != nil {
+		log.Printf("Failed to load Archetype JSON data: %v", err)
+	} else {
+		fmt.Println("Archetypes loaded from JSON successfully")
+		err = kp.StoreArchetypes(archetypes)
+		if err != nil {
+			log.Printf("Failed to store Archetypes in BoltDB: %v", err)
+		} else {
+			fmt.Println("Archetype data stored in BoltDB successfully")
+		}
+	}
+
+	// Load prototypes from JSON and store in BoltDB
+	prototypes, err := core.LoadPrototypesFromJSON(*jsonProtoFilePath)
+	if err != nil {
+		log.Printf("Failed to load Prototype JSON data: %v", err)
+	} else {
+		fmt.Println("Prototypes loaded from JSON successfully")
+		err = kp.StorePrototypes(prototypes)
+		if err != nil {
+			log.Printf("Failed to store Prototypes in BoltDB: %v", err)
+		} else {
+			fmt.Println("Prototype data stored in BoltDB successfully")
+		}
+	}
 
 	// Load data from BoltDB
-	rooms, err := roomLoadBolt(rooms, *boltFilePath)
+	loadedRooms, err := kp.LoadRooms()
 	if err != nil {
-		fmt.Println("Room data load from BoltDB failed:", err)
+		log.Printf("Room data load from BoltDB failed: %v", err)
 	} else {
 		fmt.Println("Room data loaded from BoltDB successfully")
+		core.DisplayRooms(loadedRooms)
 	}
 
-	// Load the JSON data
-	rooms, err = roomLoadJSON(rooms, *jsonRoomFilePath)
+	loadedArchetypes, err := kp.LoadArchetypes()
 	if err != nil {
-		fmt.Println("Room data load failed:", err)
+		log.Printf("Failed to load Archetype data from BoltDB: %v", err)
 	} else {
-		fmt.Println("Room data loaded successfully")
+		fmt.Println("Archetype data loaded from BoltDB successfully")
+		core.DisplayArchetypes(loadedArchetypes)
 	}
 
-	// Load JSON data from file
-	archetypesData, err := archLoadJSON(*jsonArchFilePath)
+	loadedPrototypes, err := kp.LoadPrototypes()
 	if err != nil {
-		log.Fatalf("Failed to load Archetype JSON data: %v", err)
-	}
-
-	// Load JSON data from file
-	prototypesData, err := protoLoadJSON(*jsonProtoFilePath)
-	if err != nil {
-		log.Fatalf("Failed to load Prototype JSON data: %v", err)
-	}
-
-	// Write data to BoltDB
-	err = roomWriteBolt(rooms, *boltFilePath)
-	if err != nil {
-		fmt.Println("Room data write failed:", err)
-		return // Ensure to exit if writing fails
+		log.Printf("Failed to load Prototype data from BoltDB: %v", err)
 	} else {
-		fmt.Println("Room data written successfully")
+		fmt.Println("Prototype data loaded from BoltDB successfully")
+		core.DisplayPrototypes(loadedPrototypes)
 	}
-
-	// Store the data in BoltDB
-	err = archWriteBolt(archetypesData, *boltFilePath)
-	if err != nil {
-		log.Fatalf("Failed to store Archetype data in BoltDB: %v", err)
-	}
-
-	fmt.Println("Archetype Data successfully stored in BoltDB.")
-
-	// Store the data in BoltDB
-	err = protoWriteBolt(prototypesData, *boltFilePath)
-	if err != nil {
-		log.Fatalf("Failed to store Prototype data in BoltDB: %v", err)
-	}
-
-	fmt.Println("Prototype Data successfully stored in BoltDB.")
-
-	// Load data from BoltDB
-	rooms, err = roomLoadBolt(rooms, *boltFilePath)
-	if err != nil {
-		fmt.Println("Room data load from BoltDB failed:", err)
-	} else {
-		fmt.Println("Room data loaded from BoltDB successfully")
-	}
-
-	// Load the data from BoltDB
-	archetypesData, err = archLoadBolt(*boltFilePath)
-	if err != nil {
-		log.Fatalf("Failed to load Archetype data from BoltDB: %v", err)
-	}
-
-	// Load the data from BoltDB
-	prototypesData, err = protoLoadBolt(*boltFilePath)
-	if err != nil {
-		log.Fatalf("Failed to load Prototype data from BoltDB: %v", err)
-	}
-
-	// Display the rooms
-	roomDisplay(rooms)
-
-	// Display the data
-	archDisplay(archetypesData)
-
-	// Display the data
-	protoDisplay(prototypesData)
 }

@@ -1,9 +1,10 @@
-module github.com/robinje/multi-user-dungeon/mud
+module github.com/robinje/multi-user-dungeon/core
 
-go 1.21
+go 1.22
 
 require (
-	github.com/aws/aws-sdk-go v1.54.6
+	github.com/aws/aws-sdk-go v1.54.15
+	github.com/google/uuid v1.6.0
 	go.etcd.io/bbolt v1.3.10
 	golang.org/x/crypto v0.24.0
 )
