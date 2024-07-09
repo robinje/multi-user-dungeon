@@ -77,12 +77,12 @@ func ExecuteQuitCommand(character *Character, tokens []string) bool {
 
 	// Remove character from the room
 	character.Room.Mutex.Lock()
-	delete(character.Room.Characters, character.Index)
+	delete(character.Room.Characters, character.ID)
 	character.Room.Mutex.Unlock()
 
 	// Remove character from the server's active characters
 	character.Server.Mutex.Lock()
-	delete(character.Server.Characters, character.Name)
+	delete(character.Server.Characters, character.ID)
 	character.Server.Mutex.Unlock()
 
 	// Save character state to database
@@ -181,15 +181,14 @@ func ExecuteChallengeCommand(character *Character, tokens []string) bool {
 }
 
 func ExecuteWhoCommand(character *Character, tokens []string) bool {
-
 	log.Printf("Player %s is listing all characters online", character.Player.Name)
 
 	// Retrieve the server instance from the character
 	server := character.Server
 
 	characterNames := make([]string, 0, len(server.Characters))
-	for name := range server.Characters {
-		characterNames = append(characterNames, name)
+	for _, char := range server.Characters {
+		characterNames = append(characterNames, char.Name)
 	}
 
 	// Sort character names for consistent display

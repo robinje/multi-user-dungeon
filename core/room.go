@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/google/uuid"
 	bolt "go.etcd.io/bbolt"
 )
 
@@ -50,7 +51,7 @@ func LoadRoomsFromJSON(fileName string) (map[int64]*Room, error) {
 			Title:       roomData.Title,
 			Description: roomData.Description,
 			Exits:       make(map[string]*Exit),
-			Characters:  make(map[uint64]*Character),
+			Characters:  make(map[uuid.UUID]*Character),
 			Items:       make(map[string]*Item),
 		}
 
@@ -277,7 +278,7 @@ func NewRoom(RoomID int64, Area string, Title string, Description string) *Room 
 		Title:       Title,
 		Description: Description,
 		Exits:       make(map[string]*Exit),
-		Characters:  make(map[uint64]*Character),
+		Characters:  make(map[uuid.UUID]*Character),
 		Items:       make(map[string]*Item),
 		Mutex:       sync.Mutex{},
 	}
@@ -317,7 +318,7 @@ func Move(c *Character, direction string) {
 	// Safely remove the character from the old room
 	oldRoom := c.Room
 	oldRoom.Mutex.Lock()
-	delete(oldRoom.Characters, c.Index)
+	delete(oldRoom.Characters, c.ID) // Changed from c.Index to c.ID
 	oldRoom.Mutex.Unlock()
 	SendRoomMessage(oldRoom, fmt.Sprintf("\n\r%s has left going %s.\n\r", c.Name, direction))
 
@@ -327,9 +328,9 @@ func Move(c *Character, direction string) {
 	// Safely add the character to the new room
 	newRoom.Mutex.Lock()
 	if newRoom.Characters == nil {
-		newRoom.Characters = make(map[uint64]*Character)
+		newRoom.Characters = make(map[uuid.UUID]*Character) // Changed from uint64 to uuid.UUID
 	}
-	newRoom.Characters[c.Index] = c
+	newRoom.Characters[c.ID] = c // Changed from c.Index to c.ID
 	newRoom.Mutex.Unlock()
 
 	SendRoomMessage(newRoom, fmt.Sprintf("\n\r%s has arrived.\n\r", c.Name))
