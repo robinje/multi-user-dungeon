@@ -6,6 +6,7 @@ import (
 	"net"
 	"os"
 
+	"github.com/google/uuid"
 	"github.com/robinje/multi-user-dungeon/core"
 	"golang.org/x/crypto/ssh"
 )
@@ -99,7 +100,7 @@ func handleChannels(server *core.Server, sshConn *ssh.ServerConn, channels <-cha
 			// If the player does not exist, create a new record
 			if err.Error() == "player not found" {
 				log.Printf("Creating new player record for %s", playerName)
-				characterList = make(map[string]uint64) // Initialize an empty character list for new players
+				characterList = make(map[string]uuid.UUID) // Initialize an empty character list for new players
 				err = server.Database.WritePlayer(&core.Player{
 					Name:          playerName,
 					CharacterList: characterList,

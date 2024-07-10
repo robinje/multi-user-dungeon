@@ -46,7 +46,7 @@ type Server struct {
 	Database        *KeyPair
 	PlayerIndex     *Index
 	CharacterExists map[string]bool
-	Characters      map[string]*Character
+	Characters      map[uuid.UUID]*Character
 	Balance         float64
 	AutoSave        uint16
 	Archetypes      *ArchetypesData
@@ -70,7 +70,7 @@ type Player struct {
 	Server        *Server
 	ConsoleWidth  int
 	ConsoleHeight int
-	CharacterList map[string]uint64
+	CharacterList map[string]uuid.UUID
 	Character     *Character
 	LoginTime     time.Time
 	PasswordHash  string
@@ -88,7 +88,7 @@ type Room struct {
 	Title       string
 	Description string
 	Exits       map[string]*Exit
-	Characters  map[uint64]*Character
+	Characters  map[uuid.UUID]*Character
 	Items       map[string]*Item
 	Mutex       sync.Mutex
 }
@@ -101,7 +101,7 @@ type Exit struct {
 }
 
 type Character struct {
-	Index      uint64
+	ID         uuid.UUID
 	Player     *Player
 	Name       string
 	Attributes map[string]float64
@@ -116,7 +116,7 @@ type Character struct {
 
 // CharacterData for unmarshalling character.
 type CharacterData struct {
-	Index      uint64             `json:"index"`
+	Index      string             `json:"index"`
 	PlayerID   string             `json:"playerID"`
 	Name       string             `json:"name"`
 	Attributes map[string]float64 `json:"attributes"`

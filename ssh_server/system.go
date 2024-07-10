@@ -8,6 +8,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/robinje/multi-user-dungeon/core"
 )
 
@@ -22,7 +23,7 @@ func NewServer(config core.Configuration) (*core.Server, error) {
 		Config:      config,
 		StartTime:   time.Now(),
 		Rooms:       make(map[int64]*core.Room),
-		Characters:  make(map[string]*core.Character),
+		Characters:  make(map[uuid.UUID]*core.Character),
 		Balance:     config.Balance,
 		AutoSave:    config.AutoSave,
 		Health:      config.Health,

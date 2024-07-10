@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"strconv"
 	"strings"
 
+	"github.com/google/uuid"
 	bolt "go.etcd.io/bbolt"
 )
 
@@ -35,7 +35,7 @@ func (c *Character) ToData() *CharacterData {
 	}
 
 	return &CharacterData{
-		Index:      c.Index,
+		Index:      c.ID.String(),
 		PlayerID:   c.Player.PlayerID,
 		Name:       c.Name,
 		Attributes: c.Attributes,
@@ -48,7 +48,11 @@ func (c *Character) ToData() *CharacterData {
 }
 
 func (c *Character) FromData(cd *CharacterData) error {
-	c.Index = cd.Index
+	Index, err := uuid.Parse(cd.Index)
+	if err != nil {
+		return fmt.Errorf("parse character index: %w", err)
+	}
+	c.ID = Index
 	c.Name = cd.Name
 	c.Attributes = cd.Attributes
 	c.Abilities = cd.Abilities
@@ -76,14 +80,9 @@ func (c *Character) FromData(cd *CharacterData) error {
 }
 
 func (s *Server) NewCharacter(name string, player *Player, room *Room, archetypeName string) *Character {
-	characterIndex, err := s.Database.NextIndex("Characters")
-	if err != nil {
-		log.Printf("Error generating character index: %v", err)
-		return nil
-	}
 
 	character := &Character{
-		Index:      characterIndex,
+		ID:         uuid.New(),
 		Room:       room,
 		Name:       name,
 		Player:     player,
@@ -128,25 +127,25 @@ func (kp *KeyPair) WriteCharacter(character *Character) error {
 			return fmt.Errorf("create characters bucket: %w", err)
 		}
 
-		indexKey := strconv.FormatUint(character.Index, 10)
-		if err := bucket.Put([]byte(indexKey), jsonData); err != nil {
+		idKey := character.ID.String()
+		if err := bucket.Put([]byte(idKey), jsonData); err != nil {
 			return fmt.Errorf("write character data: %w", err)
 		}
 
-		log.Printf("Successfully wrote character %s with Index %d to database", character.Name, character.Index)
+		log.Printf("Successfully wrote character %s with ID %s to database", character.Name, idKey)
 		return nil
 	})
 }
 
-func (kp *KeyPair) LoadCharacter(characterIndex uint64, player *Player, server *Server) (*Character, error) {
+func (kp *KeyPair) LoadCharacter(characterID uuid.UUID, player *Player, server *Server) (*Character, error) {
 	var characterData []byte
 	err := kp.db.View(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket([]byte("Characters"))
 		if bucket == nil {
 			return fmt.Errorf("characters bucket not found")
 		}
-		indexKey := fmt.Sprintf("%d", characterIndex)
-		characterData = bucket.Get([]byte(indexKey))
+		idKey := characterID.String()
+		characterData = bucket.Get([]byte(idKey))
 		return nil
 	})
 
@@ -176,16 +175,16 @@ func (kp *KeyPair) LoadCharacter(characterIndex uint64, player *Player, server *
 	if character.Room != nil {
 		character.Room.Mutex.Lock()
 		if character.Room.Characters == nil {
-			character.Room.Characters = make(map[uint64]*Character)
+			character.Room.Characters = make(map[uuid.UUID]*Character)
 		}
-		character.Room.Characters[character.Index] = character
+		character.Room.Characters[character.ID] = character
 		character.Room.Mutex.Unlock()
-		log.Printf("Added character %s (ID: %d) to room %d", character.Name, character.Index, character.Room.RoomID)
+		log.Printf("Added character %s (ID: %s) to room %d", character.Name, character.ID, character.Room.RoomID)
 	} else {
-		log.Printf("Warning: Character %s (ID: %d) loaded without a valid room", character.Name, character.Index)
+		log.Printf("Warning: Character %s (ID: %s) loaded without a valid room", character.Name, character.ID)
 	}
 
-	log.Printf("Loaded character %s (Index %d) in Room %d", character.Name, character.Index, character.Room.RoomID)
+	log.Printf("Loaded character %s (ID: %s) in Room %d", character.Name, character.ID, character.Room.RoomID)
 
 	return character, nil
 }

@@ -3,6 +3,7 @@ package core
 import (
 	"bufio"
 	"bytes"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -12,23 +13,26 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	bolt "go.etcd.io/bbolt"
 )
 
 func (k *KeyPair) WritePlayer(player *Player) error {
-	// Create a PlayerData instance containing only the data to be serialized
 	pd := PlayerData{
 		Name:          player.Name,
-		CharacterList: player.CharacterList,
+		CharacterList: make(map[string]uint64), // Keep as uint64
 	}
 
-	// Serialize the PlayerData struct to JSON
+	// Convert UUID to uint64
+	for charName, charID := range player.CharacterList {
+		pd.CharacterList[charName] = uint64(charID.ID())
+	}
+
 	playerData, err := json.Marshal(pd)
 	if err != nil {
 		return fmt.Errorf("error marshalling player data: %w", err)
 	}
 
-	// Use the player's Name as the key to store the serialized data
 	err = k.Put("Players", []byte(player.Name), playerData)
 	if err != nil {
 		return fmt.Errorf("error storing player data: %w", err)
@@ -38,7 +42,7 @@ func (k *KeyPair) WritePlayer(player *Player) error {
 	return nil
 }
 
-func (k *KeyPair) ReadPlayer(playerName string) (string, map[string]uint64, error) {
+func (k *KeyPair) ReadPlayer(playerName string) (string, map[string]uuid.UUID, error) {
 	playerData, err := k.Get("Players", []byte(playerName))
 	if err != nil {
 		if err == bolt.ErrBucketNotFound {
@@ -60,18 +64,24 @@ func (k *KeyPair) ReadPlayer(playerName string) (string, map[string]uint64, erro
 		return "", nil, fmt.Errorf("unmarshal player data: %w", err)
 	}
 
-	// If Name is empty in the database, use the playerName parameter
 	if pd.Name == "" {
 		pd.Name = playerName
 	}
 
-	// Ensure CharacterList is initialized
-	if pd.CharacterList == nil {
-		pd.CharacterList = make(map[string]uint64)
+	characterList := make(map[string]uuid.UUID)
+	for name, idUint := range pd.CharacterList {
+		buf := make([]byte, 16)
+		binary.BigEndian.PutUint64(buf[8:], idUint)
+		id, err := uuid.FromBytes(buf)
+		if err != nil {
+			log.Printf("Error parsing UUID for character %s: %v", name, err)
+			continue
+		}
+		characterList[name] = id
 	}
 
-	log.Printf("Successfully read player data for %s with %d characters", pd.Name, len(pd.CharacterList))
-	return pd.Name, pd.CharacterList, nil
+	log.Printf("Successfully read player data for %s with %d characters", pd.Name, len(characterList))
+	return pd.Name, characterList, nil
 }
 
 func PlayerInput(p *Player) {
@@ -189,11 +199,11 @@ func InputLoop(c *Character) {
 	close(c.Player.FromPlayer)
 
 	c.Room.Mutex.Lock()
-	delete(c.Room.Characters, c.Index)
+	delete(c.Room.Characters, c.ID)
 	c.Room.Mutex.Unlock()
 
 	c.Server.Mutex.Lock()
-	delete(c.Server.Characters, c.Name)
+	delete(c.Server.Characters, c.ID)
 	c.Server.Mutex.Unlock()
 
 	err := c.Server.Database.WriteCharacter(c)
@@ -250,8 +260,8 @@ func SelectCharacter(player *Player, server *Server) (*Character, error) {
 			}
 		} else if choice <= len(options) {
 			characterName := options[choice-1]
-			characterIndex := player.CharacterList[characterName]
-			character, err = server.Database.LoadCharacter(characterIndex, player, server)
+			characterID := player.CharacterList[characterName]
+			character, err = server.Database.LoadCharacter(characterID, player, server)
 			if err != nil {
 				log.Printf("Error loading character %s for player %s: %v", characterName, player.Name, err)
 				player.ToPlayer <- fmt.Sprintf("Error loading character: %v\n\r", err)
@@ -266,20 +276,20 @@ func SelectCharacter(player *Player, server *Server) (*Character, error) {
 
 		// Ensure the character is added to the server's character list
 		server.Mutex.Lock()
-		server.Characters[character.Name] = character
+		server.Characters[character.ID] = character
 		server.Mutex.Unlock()
 
 		// Add character to the room and notify other players
 		if character.Room != nil {
 			character.Room.Mutex.Lock()
-			character.Room.Characters[character.Index] = character
+			character.Room.Characters[character.ID] = character
 			character.Room.Mutex.Unlock()
 
 			// Notify the room that the character has entered
 			SendRoomMessage(character.Room, fmt.Sprintf("\n\r%s has arrived.\n\r", character.Name))
 		}
 
-		log.Printf("Character %s (ID: %d) selected and added to server character list and room", character.Name, character.Index)
+		log.Printf("Character %s (ID: %s) selected and added to server character list and room", character.Name, character.ID)
 
 		return character, nil
 	}
@@ -355,15 +365,14 @@ func CreateCharacter(player *Player, server *Server) (*Character, error) {
 
 	character := server.NewCharacter(charName, player, room, selectedArchetype)
 
-	// Add the new character to the player's character list
 	player.Mutex.Lock()
 	if player.CharacterList == nil {
-		player.CharacterList = make(map[string]uint64)
+		player.CharacterList = make(map[string]uuid.UUID)
 	}
-	player.CharacterList[charName] = character.Index
+	player.CharacterList[charName] = character.ID
 	player.Mutex.Unlock()
 
-	log.Printf("Added character %s (ID: %d) to player %s's character list", charName, character.Index, player.Name)
+	log.Printf("Added character %s (ID: %s) to player %s's character list", charName, character.ID, player.Name)
 
 	// Save the character to the database
 	err := server.Database.WriteCharacter(character)
@@ -379,7 +388,7 @@ func CreateCharacter(player *Player, server *Server) (*Character, error) {
 		return nil, fmt.Errorf("failed to save player data")
 	}
 
-	log.Printf("Successfully created and saved character %s (ID: %d) for player %s", charName, character.Index, player.Name)
+	log.Printf("Successfully created and saved character %s (ID: %d) for player %s", charName, character.ID, player.Name)
 
 	return character, nil
 }
