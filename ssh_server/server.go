@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
@@ -12,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/robinje/multi-user-dungeon/core"
 	"golang.org/x/crypto/ssh"
+	"gopkg.in/yaml.v3"
 )
 
 func NewServer(config core.Configuration) (*core.Server, error) {
@@ -75,7 +75,6 @@ func NewServer(config core.Configuration) (*core.Server, error) {
 }
 
 func loadConfiguration(configFile string) (core.Configuration, error) {
-
 	log.Printf("Loading configuration from %s", configFile)
 
 	var config core.Configuration
@@ -85,7 +84,7 @@ func loadConfiguration(configFile string) (core.Configuration, error) {
 		return config, err
 	}
 
-	err = json.Unmarshal(data, &config)
+	err = yaml.Unmarshal(data, &config)
 	if err != nil {
 		return config, err
 	}
@@ -98,7 +97,7 @@ func main() {
 	log.Printf("Starting server...")
 
 	// Read configuration file
-	configFile := flag.String("config", "config.json", "Configuration file")
+	configFile := flag.String("config", "config.yml", "Configuration file")
 	flag.Parse()
 
 	config, err := loadConfiguration(*configFile)
