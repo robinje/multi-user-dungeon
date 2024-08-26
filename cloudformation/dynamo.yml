@@ -1,0 +1,164 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'DynamoDB tables for Multi-User Dungeon game'
+
+Resources:
+  PlayersTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: players
+      AttributeDefinitions:
+        - AttributeName: PlayerName
+          AttributeType: S
+      KeySchema:
+        - AttributeName: PlayerName
+          KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 2
+        WriteCapacityUnits: 2
+
+  CharactersTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: characters
+      AttributeDefinitions:
+        - AttributeName: CharacterID
+          AttributeType: S
+      KeySchema:
+        - AttributeName: CharacterID
+          KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 2
+        WriteCapacityUnits: 2
+
+  RoomsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: rooms
+      AttributeDefinitions:
+        - AttributeName: RoomID
+          AttributeType: N
+      KeySchema:
+        - AttributeName: RoomID
+          KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 2
+        WriteCapacityUnits: 2
+
+  ExitsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: exits
+      AttributeDefinitions:
+        - AttributeName: RoomID
+          AttributeType: N
+        - AttributeName: Direction
+          AttributeType: S
+      KeySchema:
+        - AttributeName: RoomID
+          KeyType: HASH
+        - AttributeName: Direction
+          KeyType: RANGE
+      ProvisionedThroughput:
+        ReadCapacityUnits: 2
+        WriteCapacityUnits: 2
+
+  ItemsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: items
+      AttributeDefinitions:
+        - AttributeName: ItemID
+          AttributeType: S
+      KeySchema:
+        - AttributeName: ItemID
+          KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 2
+        WriteCapacityUnits: 2
+
+  ItemPrototypesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: prototypes
+      AttributeDefinitions:
+        - AttributeName: PrototypeID
+          AttributeType: S
+      KeySchema:
+        - AttributeName: PrototypeID
+          KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 2
+        WriteCapacityUnits: 2
+
+  ArchetypesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: archetypes
+      AttributeDefinitions:
+        - AttributeName: ArchetypeName
+          AttributeType: S
+      KeySchema:
+        - AttributeName: ArchetypeName
+          KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 2
+        WriteCapacityUnits: 2
+
+  MUDDynamoDBPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: MUDDynamoDBReadWritePolicy
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - dynamodb:GetItem
+              - dynamodb:PutItem
+              - dynamodb:UpdateItem
+              - dynamodb:DeleteItem
+              - dynamodb:BatchGetItem
+              - dynamodb:BatchWriteItem
+              - dynamodb:Query
+              - dynamodb:Scan
+            Resource:
+              - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/players'
+              - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/characters'
+              - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/rooms'
+              - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/exits'
+              - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/items'
+              - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/prototypes'
+              - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/archetypes'
+
+Outputs:
+  PlayersTableArn:
+    Description: "ARN of the Players table"
+    Value: !GetAtt PlayersTable.Arn
+
+  CharactersTableArn:
+    Description: "ARN of the Characters table"
+    Value: !GetAtt CharactersTable.Arn
+
+  RoomsTableArn:
+    Description: "ARN of the Rooms table"
+    Value: !GetAtt RoomsTable.Arn
+
+  ExitsTableArn:
+    Description: "ARN of the Exits table"
+    Value: !GetAtt ExitsTable.Arn
+
+  ItemsTableArn:
+    Description: "ARN of the Items table"
+    Value: !GetAtt ItemsTable.Arn
+
+  ItemPrototypesTableArn:
+    Description: "ARN of the ItemPrototypes table"
+    Value: !GetAtt ItemPrototypesTable.Arn
+    
+  ArchetypesTableArn:
+    Description: "ARN of the Archetypes table"
+    Value: !GetAtt ArchetypesTable.Arn
+
+  MUDDynamoDBPolicyArn:
+    Description: "ARN of the MUD DynamoDB Read/Write Policy"
+    Value: !Ref MUDDynamoDBPolicy
