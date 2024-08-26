@@ -31,8 +31,11 @@
 # Ignore the config file.
 
 **/config.json
+**/config.yaml
+**/config.yml
 
 **/*.key
+**/*.pem
 
 # Ignore bolt files.
 
