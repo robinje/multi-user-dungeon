@@ -1,13 +1,14 @@
 package core
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 	"strings"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/dynamodb"
+	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
 	"github.com/google/uuid"
-	bolt "go.etcd.io/bbolt"
 )
 
 // WearLocations defines all possible locations where an item can be worn
@@ -112,54 +113,34 @@ func (s *Server) NewCharacter(name string, player *Player, room *Room, archetype
 
 // WriteCharacter persists a character to the database.
 func (kp *KeyPair) WriteCharacter(character *Character) error {
-	character.Mutex.Lock()
-	defer character.Mutex.Unlock()
-
 	characterData := character.ToData()
-	jsonData, err := json.Marshal(characterData)
+	av, err := dynamodbattribute.MarshalMap(characterData)
 	if err != nil {
-		return fmt.Errorf("marshal character data: %w", err)
+		return fmt.Errorf("error marshalling character data: %w", err)
 	}
 
-	return kp.db.Update(func(tx *bolt.Tx) error {
-		bucket, err := tx.CreateBucketIfNotExists([]byte("Characters"))
-		if err != nil {
-			return fmt.Errorf("create characters bucket: %w", err)
-		}
+	key := map[string]*dynamodb.AttributeValue{
+		"Index": {S: aws.String(character.ID.String())},
+	}
 
-		idKey := character.ID.String()
-		if err := bucket.Put([]byte(idKey), jsonData); err != nil {
-			return fmt.Errorf("write character data: %w", err)
-		}
+	err = kp.Put("characters", key, av)
+	if err != nil {
+		return fmt.Errorf("error writing character data: %w", err)
+	}
 
-		log.Printf("Successfully wrote character %s with ID %s to database", character.Name, idKey)
-		return nil
-	})
+	log.Printf("Successfully wrote character %s with ID %s to database", character.Name, character.ID)
+	return nil
 }
 
 func (kp *KeyPair) LoadCharacter(characterID uuid.UUID, player *Player, server *Server) (*Character, error) {
-	var characterData []byte
-	err := kp.db.View(func(tx *bolt.Tx) error {
-		bucket := tx.Bucket([]byte("Characters"))
-		if bucket == nil {
-			return fmt.Errorf("characters bucket not found")
-		}
-		idKey := characterID.String()
-		characterData = bucket.Get([]byte(idKey))
-		return nil
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	if characterData == nil {
-		return nil, fmt.Errorf("character not found")
+	key := map[string]*dynamodb.AttributeValue{
+		"Index": {S: aws.String(characterID.String())},
 	}
 
 	var cd CharacterData
-	if err := json.Unmarshal(characterData, &cd); err != nil {
-		return nil, fmt.Errorf("error unmarshalling character data: %w", err)
+	err := kp.Get("characters", key, &cd)
+	if err != nil {
+		return nil, fmt.Errorf("error loading character data: %w", err)
 	}
 
 	character := &Character{
@@ -192,29 +173,21 @@ func (kp *KeyPair) LoadCharacter(characterID uuid.UUID, player *Player, server *
 func (kp *KeyPair) LoadCharacterNames() (map[string]bool, error) {
 	names := make(map[string]bool)
 
-	err := kp.db.View(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte("Characters"))
-		if b == nil {
-			return fmt.Errorf("characters bucket not found")
-		}
+	var characters []struct {
+		Name string `dynamodbav:"Name"`
+	}
 
-		return b.ForEach(func(k, v []byte) error {
-			var cd CharacterData
-			if err := json.Unmarshal(v, &cd); err != nil {
-				log.Printf("Error unmarshalling character data: %v", err)
-			}
+	err := kp.Scan("characters", &characters)
+	if err != nil {
+		return nil, fmt.Errorf("error scanning characters: %w", err)
+	}
 
-			names[strings.ToLower(cd.Name)] = true
-			return nil
-		})
-	})
+	for _, character := range characters {
+		names[strings.ToLower(character.Name)] = true
+	}
 
 	if len(names) == 0 {
 		return names, fmt.Errorf("no characters found")
-	}
-
-	if err != nil {
-		return names, fmt.Errorf("error reading from BoltDB: %w", err)
 	}
 
 	return names, nil

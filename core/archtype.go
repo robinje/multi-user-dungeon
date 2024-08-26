@@ -6,13 +6,54 @@ import (
 	"log"
 	"os"
 
-	bolt "go.etcd.io/bbolt"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/dynamodb"
+	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
 )
 
 func DisplayArchetypes(archetypes *ArchetypesData) {
 	for key, archetype := range archetypes.Archetypes {
 		fmt.Println(key, archetype)
 	}
+}
+
+func (kp *KeyPair) LoadArchetypes() (*ArchetypesData, error) {
+	archetypesData := &ArchetypesData{Archetypes: make(map[string]Archetype)}
+
+	var archetypes []Archetype
+	err := kp.Scan("archetypes", &archetypes)
+	if err != nil {
+		return nil, fmt.Errorf("error scanning archetypes table: %w", err)
+	}
+
+	for _, archetype := range archetypes {
+		archetypesData.Archetypes[archetype.Name] = archetype
+		fmt.Printf("Loaded archetype '%s': %s\n", archetype.Name, archetype.Description)
+	}
+
+	return archetypesData, nil
+}
+
+func (kp *KeyPair) StoreArchetypes(archetypes *ArchetypesData) error {
+	for _, archetype := range archetypes.Archetypes {
+		av, err := dynamodbattribute.MarshalMap(archetype)
+		if err != nil {
+			return fmt.Errorf("error marshalling archetype %s: %w", archetype.Name, err)
+		}
+
+		key := map[string]*dynamodb.AttributeValue{
+			"Name": {S: aws.String(archetype.Name)},
+		}
+
+		err = kp.Put("archetypes", key, av)
+		if err != nil {
+			return fmt.Errorf("error storing archetype %s: %w", archetype.Name, err)
+		}
+
+		log.Printf("Stored archetype: %s", archetype.Name)
+	}
+
+	return nil
 }
 
 func LoadArchetypesFromJSON(fileName string) (*ArchetypesData, error) {
@@ -32,58 +73,4 @@ func LoadArchetypesFromJSON(fileName string) (*ArchetypesData, error) {
 	}
 
 	return &data, nil
-}
-
-func (kp *KeyPair) StoreArchetypes(archetypes *ArchetypesData) error {
-	kp.Mutex.Lock()
-	defer kp.Mutex.Unlock()
-
-	return kp.db.Update(func(tx *bolt.Tx) error {
-		bucket, err := tx.CreateBucketIfNotExists([]byte("Archetypes"))
-		if err != nil {
-			return fmt.Errorf("create archetypes bucket: %w", err)
-		}
-
-		for key, archetype := range archetypes.Archetypes {
-			data, err := json.Marshal(archetype)
-			if err != nil {
-				return fmt.Errorf("marshal archetype %s: %w", key, err)
-			}
-			if err := bucket.Put([]byte(key), data); err != nil {
-				return fmt.Errorf("store archetype %s: %w", key, err)
-			}
-			log.Printf("Stored archetype: %s", key)
-		}
-		return nil
-	})
-}
-
-func (kp *KeyPair) LoadArchetypes() (*ArchetypesData, error) {
-	kp.Mutex.Lock()
-	defer kp.Mutex.Unlock()
-
-	archetypesData := &ArchetypesData{Archetypes: make(map[string]Archetype)}
-
-	err := kp.db.View(func(tx *bolt.Tx) error {
-		bucket := tx.Bucket([]byte("Archetypes"))
-		if bucket == nil {
-			return fmt.Errorf("archetypes bucket does not exist")
-		}
-
-		return bucket.ForEach(func(k, v []byte) error {
-			var archetype Archetype
-			if err := json.Unmarshal(v, &archetype); err != nil {
-				return err
-			}
-			fmt.Println("Reading", string(k), archetype)
-			archetypesData.Archetypes[string(k)] = archetype
-			return nil
-		})
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	return archetypesData, nil
 }

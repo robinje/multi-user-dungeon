@@ -1,7 +1,6 @@
 package core
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -11,8 +10,10 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/dynamodb"
+	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
 	"github.com/google/uuid"
-	bolt "go.etcd.io/bbolt"
 )
 
 func LoadRoomsFromJSON(fileName string) (map[int64]*Room, error) {
@@ -75,124 +76,86 @@ func LoadRoomsFromJSON(fileName string) (map[int64]*Room, error) {
 	return rooms, nil
 }
 
-func (k *KeyPair) StoreRooms(rooms map[int64]*Room) error {
-	return k.db.Update(func(tx *bolt.Tx) error {
-		roomsBucket, err := tx.CreateBucketIfNotExists([]byte("Rooms"))
+func (kp *KeyPair) StoreRooms(rooms map[int64]*Room) error {
+	for _, room := range rooms {
+		err := kp.WriteRoom(room)
 		if err != nil {
-			return err
+			return fmt.Errorf("error storing room %d: %w", room.RoomID, err)
 		}
-
-		exitsBucket, err := tx.CreateBucketIfNotExists([]byte("Exits"))
-		if err != nil {
-			return err
-		}
-
-		for _, room := range rooms {
-			roomData := struct {
-				RoomID      int64    `json:"RoomID"`
-				Area        string   `json:"Area"`
-				Title       string   `json:"Title"`
-				Description string   `json:"Description"`
-				ItemIDs     []string `json:"ItemIDs"`
-			}{
-				RoomID:      room.RoomID,
-				Area:        room.Area,
-				Title:       room.Title,
-				Description: room.Description,
-				ItemIDs:     make([]string, 0, len(room.Items)),
-			}
-
-			for itemID := range room.Items {
-				roomData.ItemIDs = append(roomData.ItemIDs, itemID)
-			}
-
-			roomBytes, err := json.Marshal(roomData)
-			if err != nil {
-				return fmt.Errorf("error marshaling room data: %v", err)
-			}
-
-			roomKey := strconv.FormatInt(room.RoomID, 10)
-			if err := roomsBucket.Put([]byte(roomKey), roomBytes); err != nil {
-				return fmt.Errorf("error writing room data: %v", err)
-			}
-
-			for dir, exit := range room.Exits {
-				exitData, err := json.Marshal(exit)
-				if err != nil {
-					return fmt.Errorf("error marshaling exit data: %v", err)
-				}
-
-				exitKey := fmt.Sprintf("%d_%s", room.RoomID, dir)
-				if err := exitsBucket.Put([]byte(exitKey), exitData); err != nil {
-					return fmt.Errorf("error writing exit data: %v", err)
-				}
-			}
-		}
-
-		return nil
-	})
+	}
+	return nil
 }
 
 func (kp *KeyPair) LoadRooms() (map[int64]*Room, error) {
 	rooms := make(map[int64]*Room)
 
-	err := kp.db.View(func(tx *bolt.Tx) error {
-		roomsBucket := tx.Bucket([]byte("Rooms"))
-		if roomsBucket == nil {
-			return fmt.Errorf("rooms bucket not found")
-		}
+	var roomsData []struct {
+		RoomID      int64    `dynamodbav:"RoomID"`
+		Area        string   `dynamodbav:"Area"`
+		Title       string   `dynamodbav:"Title"`
+		Description string   `dynamodbav:"Description"`
+		ItemIDs     []string `dynamodbav:"ItemIDs"`
+	}
 
-		exitsBucket := tx.Bucket([]byte("Exits"))
-		if exitsBucket == nil {
-			return fmt.Errorf("exits bucket not found")
-		}
-
-		return roomsBucket.ForEach(func(k, v []byte) error {
-			var roomData struct {
-				RoomID      int64    `json:"RoomID"`
-				Area        string   `json:"Area"`
-				Title       string   `json:"Title"`
-				Description string   `json:"Description"`
-				ItemIDs     []string `json:"ItemIDs"`
-			}
-			if err := json.Unmarshal(v, &roomData); err != nil {
-				return fmt.Errorf("error unmarshalling room data: %w", err)
-			}
-
-			room := NewRoom(roomData.RoomID, roomData.Area, roomData.Title, roomData.Description)
-
-			// Load exits for this room
-			exitPrefix := fmt.Sprintf("%d_", roomData.RoomID)
-			c := exitsBucket.Cursor()
-			for k, v := c.Seek([]byte(exitPrefix)); k != nil && bytes.HasPrefix(k, []byte(exitPrefix)); k, v = c.Next() {
-				var exit Exit
-				if err := json.Unmarshal(v, &exit); err != nil {
-					return fmt.Errorf("error unmarshalling exit data: %w", err)
-				}
-				room.AddExit(&exit)
-			}
-
-			// Load items (existing code)
-			for _, itemID := range roomData.ItemIDs {
-				item, err := kp.LoadItem(itemID, false)
-				if err != nil {
-					log.Printf("Warning: Failed to load item %s for room %d: %v", itemID, roomData.RoomID, err)
-					continue
-				}
-				room.AddItem(item)
-			}
-
-			room.CleanupNilItems()
-			rooms[room.RoomID] = room
-			return nil
-		})
-	})
-
+	err := kp.Scan("rooms", &roomsData)
 	if err != nil {
-		return nil, fmt.Errorf("error reading room data from BoltDB: %w", err)
+		return nil, fmt.Errorf("error scanning rooms: %w", err)
+	}
+
+	for _, roomData := range roomsData {
+		room := NewRoom(roomData.RoomID, roomData.Area, roomData.Title, roomData.Description)
+
+		// Load exits for this room
+		exits, err := kp.LoadExits(roomData.RoomID)
+		if err != nil {
+			log.Printf("Warning: Failed to load exits for room %d: %v", roomData.RoomID, err)
+		}
+		room.Exits = exits
+
+		// Load items
+		for _, itemID := range roomData.ItemIDs {
+			item, err := kp.LoadItem(itemID, false)
+			if err != nil {
+				log.Printf("Warning: Failed to load item %s for room %d: %v", itemID, roomData.RoomID, err)
+				continue
+			}
+			room.AddItem(item)
+		}
+
+		room.CleanupNilItems()
+		rooms[room.RoomID] = room
 	}
 
 	return rooms, nil
+}
+
+func (kp *KeyPair) LoadExits(roomID int64) (map[string]*Exit, error) {
+	exits := make(map[string]*Exit)
+
+	var exitsData []struct {
+		RoomID     int64  `dynamodbav:"RoomID"`
+		Direction  string `dynamodbav:"Direction"`
+		TargetRoom int64  `dynamodbav:"TargetRoom"`
+		Visible    bool   `dynamodbav:"Visible"`
+	}
+
+	err := kp.Query("exits", "RoomID = :roomID", map[string]*dynamodb.AttributeValue{
+		":roomID": {N: aws.String(strconv.FormatInt(roomID, 10))},
+	}, &exitsData)
+
+	if err != nil {
+		return nil, fmt.Errorf("error querying exits: %w", err)
+	}
+
+	for _, exitData := range exitsData {
+		exits[exitData.Direction] = &Exit{
+			TargetRoom: exitData.TargetRoom,
+			Visible:    exitData.Visible,
+			Direction:  exitData.Direction,
+		}
+	}
+
+	return exits, nil
 }
 
 func DisplayRooms(rooms map[int64]*Room) {
@@ -206,52 +169,66 @@ func DisplayRooms(rooms map[int64]*Room) {
 }
 
 func (kp *KeyPair) WriteRoom(room *Room) error {
-	// Create a serializable version of the room data
 	roomData := struct {
-		RoomID      int64            `json:"RoomID"`
-		Area        string           `json:"Area"`
-		Title       string           `json:"Title"`
-		Description string           `json:"Description"`
-		Exits       map[string]*Exit `json:"Exits"`
-		ItemIDs     []string         `json:"ItemIDs"`
+		RoomID      int64    `dynamodbav:"RoomID"`
+		Area        string   `dynamodbav:"Area"`
+		Title       string   `dynamodbav:"Title"`
+		Description string   `dynamodbav:"Description"`
+		ItemIDs     []string `dynamodbav:"ItemIDs"`
 	}{
 		RoomID:      room.RoomID,
 		Area:        room.Area,
 		Title:       room.Title,
 		Description: room.Description,
-		Exits:       room.Exits,
 		ItemIDs:     make([]string, 0, len(room.Items)),
 	}
 
-	// Collect item IDs
 	for itemID := range room.Items {
 		roomData.ItemIDs = append(roomData.ItemIDs, itemID)
 	}
 
-	// Serialize the room data
-	serializedRoom, err := json.Marshal(roomData)
+	av, err := dynamodbattribute.MarshalMap(roomData)
 	if err != nil {
-		return fmt.Errorf("error serializing room data: %w", err)
+		return fmt.Errorf("error marshalling room data: %w", err)
 	}
 
-	// Write the room data to the database
-	err = kp.db.Update(func(tx *bolt.Tx) error {
-		roomsBucket, err := tx.CreateBucketIfNotExists([]byte("Rooms"))
-		if err != nil {
-			return fmt.Errorf("error creating/accessing Rooms bucket: %w", err)
-		}
+	key := map[string]*dynamodb.AttributeValue{
+		"RoomID": {N: aws.String(strconv.FormatInt(room.RoomID, 10))},
+	}
 
-		roomKey := strconv.FormatInt(room.RoomID, 10)
-		err = roomsBucket.Put([]byte(roomKey), serializedRoom)
-		if err != nil {
-			return fmt.Errorf("error writing room data: %w", err)
-		}
-
-		return nil
-	})
-
+	err = kp.Put("rooms", key, av)
 	if err != nil {
-		return fmt.Errorf("database transaction failed: %w", err)
+		return fmt.Errorf("error writing room data: %w", err)
+	}
+
+	// Write exits
+	for direction, exit := range room.Exits {
+		exitData := struct {
+			RoomID     int64  `dynamodbav:"RoomID"`
+			Direction  string `dynamodbav:"Direction"`
+			TargetRoom int64  `dynamodbav:"TargetRoom"`
+			Visible    bool   `dynamodbav:"Visible"`
+		}{
+			RoomID:     room.RoomID,
+			Direction:  direction,
+			TargetRoom: exit.TargetRoom,
+			Visible:    exit.Visible,
+		}
+
+		av, err := dynamodbattribute.MarshalMap(exitData)
+		if err != nil {
+			return fmt.Errorf("error marshalling exit data: %w", err)
+		}
+
+		exitKey := map[string]*dynamodb.AttributeValue{
+			"RoomID":    {N: aws.String(strconv.FormatInt(room.RoomID, 10))},
+			"Direction": {S: aws.String(direction)},
+		}
+
+		err = kp.Put("exits", exitKey, av)
+		if err != nil {
+			return fmt.Errorf("error writing exit data: %w", err)
+		}
 	}
 
 	log.Printf("Successfully wrote room %d to database", room.RoomID)
