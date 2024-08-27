@@ -4,19 +4,22 @@ Script for Deploying the AWS Components.
 This project is licensed under the Apache 2.0 License. See the LICENSE file for more details.
 """
 
-import json
+import yaml
+
 import boto3
 
 # Constants for stack names
 COGNITO_STACK_NAME = "MUD-Cognito-Stack"
+DYNAMO_STACK_NAME = "MUD-DynamoDB-Stack"
 CODEBUILD_STACK_NAME = "MUD-CodeBuild-Stack"
 
 # Paths to the CloudFormation templates
 COGNITO_TEMPLATE_PATH = "../cloudformation/cognito.yml"
+DYNAMO_TEMPLATE_PATH = "../cloudformation/dynamo.yml"
 CODEBUILD_TEMPLATE_PATH = "../cloudformation/codebuild.yml"
 
 # Configuration file path
-CONFIG_PATH = "../mud/config.json"
+CONFIG_PATH = "../mud/config.yml"
 
 
 def prompt_for_parameters(template_name) -> dict:
@@ -31,6 +34,9 @@ def prompt_for_parameters(template_name) -> dict:
             "SignOutURL": input("Enter the URL of the sign-out page for the app client [default: https://localhost:3000/sign-out]: ") or "https://localhost:3000/sign-out",
             "ReplyEmailAddress": input("Enter the email address to send from: "),
         }
+    elif template_name == "dynamo":
+        # DynamoDB template doesn't require any parameters
+        parameters = {}
     elif template_name == "codebuild":
         parameters = {
             "GitHubSourceRepo": input("Enter the GitHub repository URL for the source code: "),
@@ -126,16 +132,16 @@ def wait_for_codebuild_completion(codebuild_client, build_id):
 
 def update_configuration_file(config_updates) -> None:
     """
-    Updates the config.json file based on the provided parameters.
+    Updates the config.yml file based on the provided parameters.
     """
     try:
         with open(CONFIG_PATH, "r", encoding="utf-8") as file:
-            config = json.load(file)
+            config = yaml.safe_load(file) or {}
 
         config.update(config_updates)
 
         with open(CONFIG_PATH, "w", encoding="utf-8") as file:
-            json.dump(config, file, indent=4)
+            yaml.dump(config, file, default_flow_style=False)
 
         print("Configuration file updated successfully.")
     except Exception as err:
@@ -153,9 +159,16 @@ def main() -> None:
     deploy_stack(cloudformation_client, COGNITO_STACK_NAME, cognito_template, cognito_parameters)
     cognito_outputs: dict = get_stack_outputs(cloudformation_client, COGNITO_STACK_NAME)
 
+    # Deploy DynamoDB stack
+    dynamo_parameters: dict = prompt_for_parameters("dynamo")
+    dynamo_template: str = load_template(DYNAMO_TEMPLATE_PATH)
+    deploy_stack(cloudformation_client, DYNAMO_STACK_NAME, dynamo_template, dynamo_parameters)
+    dynamo_outputs: dict = get_stack_outputs(cloudformation_client, DYNAMO_STACK_NAME)
+
     # Deploy CodeBuild stack
     codebuild_parameters: dict = prompt_for_parameters("codebuild")
     codebuild_parameters.update(cognito_outputs)  # Add Cognito outputs as parameters for CodeBuild stack
+    codebuild_parameters.update(dynamo_outputs)   # Add DynamoDB outputs as parameters for CodeBuild stack
     codebuild_template: str = load_template(CODEBUILD_TEMPLATE_PATH)
     deploy_stack(cloudformation_client, CODEBUILD_STACK_NAME, codebuild_template, codebuild_parameters)
     codebuild_outputs: dict = get_stack_outputs(cloudformation_client, CODEBUILD_STACK_NAME)
@@ -165,8 +178,8 @@ def main() -> None:
     build_id = start_codebuild_project(codebuild_client, codebuild_project_name)
     wait_for_codebuild_completion(codebuild_client, build_id)
 
-    # Update configuration file with outputs from both stacks
-    config_updates: dict = {**cognito_outputs, **codebuild_outputs}
+    # Update configuration file with outputs from all stacks
+    config_updates: dict = {**cognito_outputs, **dynamo_outputs, **codebuild_outputs}
     update_configuration_file(config_updates)
 
 
