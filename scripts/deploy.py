@@ -30,8 +30,12 @@ def prompt_for_parameters(template_name) -> dict:
         parameters: dict = {
             "UserPoolName": input("Enter the Name of the user pool [default: mud-user-pool]: ") or "mud-user-pool",
             "AppClientName": input("Enter the Name of the app client [default: mud-app-client]: ") or "mud-app-client",
-            "CallbackURL": input("Enter the URL of the callback for the app client [default: https://localhost:3000/callback]: ") or "https://localhost:3000/callback",
-            "SignOutURL": input("Enter the URL of the sign-out page for the app client [default: https://localhost:3000/sign-out]: ") or "https://localhost:3000/sign-out",
+            "CallbackURL": input("Enter the URL of the callback for the app client [default: https://localhost:3000/callback]: ")
+            or "https://localhost:3000/callback",
+            "SignOutURL": input(
+                "Enter the URL of the sign-out page for the app client [default: https://localhost:3000/sign-out]: "
+            )
+            or "https://localhost:3000/sign-out",
             "ReplyEmailAddress": input("Enter the email address to send from: "),
         }
     elif template_name == "dynamo":
@@ -115,7 +119,7 @@ def start_codebuild_project(codebuild_client, project_name):
     Starts an AWS CodeBuild project.
     """
     response = codebuild_client.start_build(projectName=project_name)
-    build_id = response['build']['id']
+    build_id = response["build"]["id"]
     print(f"Started CodeBuild project: {project_name}, Build ID: {build_id}")
     return build_id
 
@@ -125,7 +129,7 @@ def wait_for_codebuild_completion(codebuild_client, build_id):
     Waits for the specified CodeBuild project build to complete.
     """
     print(f"Waiting for CodeBuild build {build_id} to complete...")
-    waiter = codebuild_client.get_waiter('build_completed')
+    waiter = codebuild_client.get_waiter("build_completed")
     waiter.wait(ids=[build_id])
     print("CodeBuild build completed.")
 
@@ -168,7 +172,7 @@ def main() -> None:
     # Deploy CodeBuild stack
     codebuild_parameters: dict = prompt_for_parameters("codebuild")
     codebuild_parameters.update(cognito_outputs)  # Add Cognito outputs as parameters for CodeBuild stack
-    codebuild_parameters.update(dynamo_outputs)   # Add DynamoDB outputs as parameters for CodeBuild stack
+    codebuild_parameters.update(dynamo_outputs)  # Add DynamoDB outputs as parameters for CodeBuild stack
     codebuild_template: str = load_template(CODEBUILD_TEMPLATE_PATH)
     deploy_stack(cloudformation_client, CODEBUILD_STACK_NAME, codebuild_template, codebuild_parameters)
     codebuild_outputs: dict = get_stack_outputs(cloudformation_client, CODEBUILD_STACK_NAME)
