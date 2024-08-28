@@ -3,7 +3,6 @@ package core
 import (
 	"errors"
 	"fmt"
-	"log"
 	"sort"
 	"strconv"
 	"strings"
@@ -37,7 +36,7 @@ var CommandHandlers = map[string]CommandHandler{
 
 func ValidateCommand(command string) (string, []string, error) {
 
-	log.Printf("Received command: %s", command)
+	Logger.Debug("Received command", "command", command)
 
 	trimmedCommand := strings.TrimSpace(command)
 	tokens := strings.Fields(trimmedCommand)
@@ -56,7 +55,7 @@ func ValidateCommand(command string) (string, []string, error) {
 
 func ExecuteCommand(character *Character, verb string, tokens []string) bool {
 
-	log.Printf("Executing command: %s", verb)
+	Logger.Debug("Executing command", "verb", verb)
 
 	handler, ok := CommandHandlers[verb]
 	if !ok {
@@ -67,7 +66,7 @@ func ExecuteCommand(character *Character, verb string, tokens []string) bool {
 }
 
 func ExecuteQuitCommand(character *Character, tokens []string) bool {
-	log.Printf("Player %s is quitting", character.Player.Name)
+	Logger.Info("Player is quitting", "playerName", character.Player.Name)
 
 	// Send goodbye message
 	character.Player.ToPlayer <- "\n\rGoodbye!"
@@ -88,17 +87,17 @@ func ExecuteQuitCommand(character *Character, tokens []string) bool {
 	// Save character state to database
 	err := character.Server.Database.WriteCharacter(character)
 	if err != nil {
-		log.Printf("Error saving character %s state on quit: %v", character.Name, err)
+		Logger.Error("Error saving character state on quit", "characterName", character.Name, "error", err)
 	}
 
-	log.Printf("Player %s has successfully quit", character.Player.Name)
+	Logger.Info("Player has successfully quit", "playerName", character.Player.Name)
 
 	return true // Indicate that the loop should be exited
 }
 
 func ExecuteSayCommand(character *Character, tokens []string) bool {
 
-	log.Printf("Player %s is saying something", character.Player.Name)
+	Logger.Info("Player is saying something", "playerName", character.Player.Name)
 
 	if len(tokens) < 2 {
 		character.Player.ToPlayer <- "\n\rWhat do you want to say?\n\r"
@@ -126,7 +125,7 @@ func ExecuteSayCommand(character *Character, tokens []string) bool {
 
 func ExecuteLookCommand(character *Character, tokens []string) bool {
 
-	log.Printf("Player %s is looking around", character.Player.Name)
+	Logger.Info("Player is looking around", "playerName", character.Player.Name)
 
 	room := character.Room
 	character.Player.ToPlayer <- RoomInfo(room, character)
@@ -135,7 +134,7 @@ func ExecuteLookCommand(character *Character, tokens []string) bool {
 
 func ExecuteGoCommand(character *Character, tokens []string) bool {
 
-	log.Printf("Player %s is attempting to move", character.Player.Name)
+	Logger.Info("Player is attempting to move", "playerName", character.Player.Name)
 
 	if len(tokens) < 2 {
 		character.Player.ToPlayer <- "\n\rWhich direction do you want to go?\n\r"
@@ -149,7 +148,7 @@ func ExecuteGoCommand(character *Character, tokens []string) bool {
 
 func ExecuteChallengeCommand(character *Character, tokens []string) bool {
 
-	log.Printf("Player %s is attempting a challenge", character.Player.Name)
+	Logger.Info("Player is attempting a challenge", "playerName", character.Player.Name)
 
 	// Ensure the correct number of arguments are provided
 	if len(tokens) < 3 {
@@ -181,7 +180,7 @@ func ExecuteChallengeCommand(character *Character, tokens []string) bool {
 }
 
 func ExecuteWhoCommand(character *Character, tokens []string) bool {
-	log.Printf("Player %s is listing all characters online", character.Player.Name)
+	Logger.Info("Player is listing all characters online", "playerName", character.Player.Name)
 
 	// Retrieve the server instance from the character
 	server := character.Server
@@ -229,7 +228,7 @@ func ExecuteWhoCommand(character *Character, tokens []string) bool {
 
 func ExecutePasswordCommand(character *Character, tokens []string) bool {
 
-	log.Printf("Player %s is attempting to change their password", character.Player.Name)
+	Logger.Info("Player is attempting to change their password", "playerName", character.Player.Name)
 
 	if len(tokens) != 3 {
 		character.Player.ToPlayer <- "\n\rUsage: password <oldPassword> <newPassword>\n\r"
@@ -241,7 +240,7 @@ func ExecutePasswordCommand(character *Character, tokens []string) bool {
 
 	err := ChangePassword(character.Server, character.Player.Name, oldPassword, newPassword)
 	if err != nil {
-		log.Printf("Failed to change password for user %s: %v", character.Player.Name, err)
+		Logger.Error("Failed to change password for user", "playerName", character.Player.Name, "error", err)
 		character.Player.ToPlayer <- "\n\rFailed to change password. Please try again.\n\r"
 		return false
 	}
@@ -252,7 +251,7 @@ func ExecutePasswordCommand(character *Character, tokens []string) bool {
 
 func ExecuteShowCommand(character *Character, tokens []string) bool {
 
-	log.Printf("Player %s is displaying character information", character.Player.Name)
+	Logger.Info("Player is displaying character information", "playerName", character.Player.Name)
 
 	player := character.Player
 	var output strings.Builder
@@ -332,7 +331,7 @@ func ExecuteTakeCommand(character *Character, tokens []string) bool {
 
 func ExecuteInventoryCommand(character *Character, tokens []string) bool {
 
-	log.Printf("Player %s is checking their inventory", character.Player.Name)
+	Logger.Info("Player is checking their inventory", "playerName", character.Player.Name)
 
 	inventoryList := ListInventory(character)
 	character.Player.ToPlayer <- inventoryList
@@ -373,7 +372,7 @@ func ExecuteDropCommand(character *Character, tokens []string) bool {
 
 func ExecuteWearCommand(character *Character, tokens []string) bool {
 
-	log.Printf("Player %s is attempting to wear an item", character.Player.Name)
+	Logger.Info("Player is attempting to wear an item", "playerName", character.Player.Name)
 
 	if len(tokens) < 2 {
 		character.Player.ToPlayer <- "\n\rUsage: wear <item name>\n\r"
@@ -442,7 +441,7 @@ func ExecuteRemoveCommand(character *Character, tokens []string) bool {
 
 func ExecuteExamineCommand(character *Character, tokens []string) bool {
 
-	log.Printf("Player %s is examining an item", character.Player.Name)
+	Logger.Info("Player is examining an item", "playerName", character.Player.Name)
 
 	if len(tokens) < 2 {
 		character.Player.ToPlayer <- "\n\rUsage: examine <item name>\n\r"
@@ -524,7 +523,7 @@ func ExecuteExamineCommand(character *Character, tokens []string) bool {
 
 func ExecuteHelpCommand(character *Character, tokens []string) bool {
 
-	log.Printf("Player %s is requesting help", character.Player.Name)
+	Logger.Info("Player is requesting help", "playerName", character.Player.Name)
 
 	helpMessage := "\n\rAvailable Commands:" +
 		"\n\rhelp - Display available commands" +
