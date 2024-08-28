@@ -2,7 +2,6 @@ package core
 
 import (
 	"fmt"
-	"log"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -62,7 +61,7 @@ func (c *Character) FromData(cd *CharacterData) error {
 
 	room, exists := c.Server.Rooms[cd.RoomID]
 	if !exists {
-		log.Printf("room with ID %d not found", cd.RoomID)
+		Logger.Warn("Room not found", "roomID", cd.RoomID)
 		room = c.Server.Rooms[0]
 	}
 	c.Room = room
@@ -71,7 +70,7 @@ func (c *Character) FromData(cd *CharacterData) error {
 	for key, objID := range cd.Inventory {
 		obj, err := c.Server.Database.LoadItem(objID, false)
 		if err != nil {
-			log.Printf("Error loading object %s for character %s: %v", objID, c.Name, err)
+			Logger.Error("Error loading object for character", "objectID", objID, "characterName", c.Name, "error", err)
 			continue
 		}
 		c.Inventory[key] = obj
@@ -128,7 +127,7 @@ func (kp *KeyPair) WriteCharacter(character *Character) error {
 		return fmt.Errorf("error writing character data: %w", err)
 	}
 
-	log.Printf("Successfully wrote character %s with ID %s to database", character.Name, character.ID)
+	Logger.Info("Successfully wrote character to database", "characterName", character.Name, "characterID", character.ID)
 	return nil
 }
 
@@ -160,12 +159,12 @@ func (kp *KeyPair) LoadCharacter(characterID uuid.UUID, player *Player, server *
 		}
 		character.Room.Characters[character.ID] = character
 		character.Room.Mutex.Unlock()
-		log.Printf("Added character %s (ID: %s) to room %d", character.Name, character.ID, character.Room.RoomID)
+		Logger.Info("Added character to room", "characterName", character.Name, "characterID", character.ID, "roomID", character.Room.RoomID)
 	} else {
-		log.Printf("Warning: Character %s (ID: %s) loaded without a valid room", character.Name, character.ID)
+		Logger.Warn("Character loaded without a valid room", "characterName", character.Name, "characterID", character.ID)
 	}
 
-	log.Printf("Loaded character %s (ID: %s) in Room %d", character.Name, character.ID, character.Room.RoomID)
+	Logger.Info("Loaded character in room", "characterName", character.Name, "characterID", character.ID, "roomID", character.Room.RoomID)
 
 	return character, nil
 }
@@ -197,7 +196,7 @@ func SaveActiveCharacters(s *Server) error {
 	s.Mutex.Lock()
 	defer s.Mutex.Unlock()
 
-	log.Println("Saving active characters...")
+	Logger.Info("Saving active characters...")
 
 	for _, character := range s.Characters {
 		err := s.Database.WriteCharacter(character)
@@ -206,7 +205,7 @@ func SaveActiveCharacters(s *Server) error {
 		}
 	}
 
-	log.Println("Active characters saved successfully.")
+	Logger.Info("Active characters saved successfully.")
 
 	return nil
 }
@@ -255,7 +254,7 @@ func WearItem(c *Character, item *Item) error {
 
 func ListInventory(c *Character) string {
 
-	log.Printf("Character %s is listing inventory", c.Name)
+	Logger.Debug("Character is listing inventory", "characterName", c.Name)
 
 	c.Mutex.Lock()
 	defer c.Mutex.Unlock()
@@ -290,7 +289,7 @@ func ListInventory(c *Character) string {
 
 func AddToInventory(c *Character, item *Item) {
 
-	log.Printf("Character %s is adding item %s to inventory", c.Name, item.Name)
+	Logger.Debug("Character is adding item to inventory", "characterName", c.Name, "itemName", item.Name)
 
 	c.Mutex.Lock()
 	defer c.Mutex.Unlock()
@@ -307,7 +306,7 @@ func AddToInventory(c *Character, item *Item) {
 
 func FindInInventory(c *Character, itemName string) *Item {
 
-	log.Printf("Character %s is searching inventory for item %s", c.Name, itemName)
+	Logger.Debug("Character is searching inventory for item", "characterName", c.Name, "itemName", itemName)
 
 	c.Mutex.Lock()
 	defer c.Mutex.Unlock()
@@ -325,7 +324,7 @@ func FindInInventory(c *Character, itemName string) *Item {
 
 func RemoveFromInventory(c *Character, item *Item) {
 
-	log.Printf("Character %s is removing item %s from inventory", c.Name, item.Name)
+	Logger.Debug("Character is removing item from inventory", "characterName", c.Name, "itemName", item.Name)
 
 	c.Mutex.Lock()
 	defer c.Mutex.Unlock()
@@ -342,7 +341,7 @@ func RemoveFromInventory(c *Character, item *Item) {
 
 func CanCarryItem(c *Character, item *Item) bool {
 
-	log.Printf("Character %s is checking if they can carry item %s", c.Name, item.Name)
+	Logger.Info("Character is checking if they can carry item", "characterName", c.Name, "itemName", item.Name)
 
 	// Placeholder implementation
 	return true

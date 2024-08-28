@@ -3,7 +3,6 @@ package core
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -50,7 +49,7 @@ func (kp *KeyPair) StoreArchetypes(archetypes *ArchetypesData) error {
 			return fmt.Errorf("error storing archetype %s: %w", archetype.Name, err)
 		}
 
-		log.Printf("Stored archetype: %s", archetype.Name)
+		Logger.Info("Loaded archetype", "name", archetype.Name)
 	}
 
 	return nil

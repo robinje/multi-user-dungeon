@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -311,8 +312,37 @@ func CreateCharacter(player *Player, server *Server) (*Character, error) {
 	}
 
 	var selectedArchetype string
+
 	if server.Archetypes != nil && len(server.Archetypes.Archetypes) > 0 {
-		// ... (keep existing archetype selection logic)
+		for {
+			selectionMsg := "\n\rSelect a character archetype.\n\r"
+			archetypeOptions := make([]string, 0, len(server.Archetypes.Archetypes))
+			for name, archetype := range server.Archetypes.Archetypes {
+				archetypeOptions = append(archetypeOptions, name+" - "+archetype.Description)
+			}
+			sort.Strings(archetypeOptions)
+
+			for i, option := range archetypeOptions {
+				selectionMsg += fmt.Sprintf("%d: %s\n\r", i+1, option)
+			}
+
+			selectionMsg += "Enter the number of your choice: "
+			player.ToPlayer <- selectionMsg
+
+			selection, ok := <-player.FromPlayer
+			if !ok {
+				return nil, fmt.Errorf("failed to receive archetype selection")
+			}
+
+			selectionNum, err := strconv.Atoi(strings.TrimSpace(selection))
+			if err == nil && selectionNum >= 1 && selectionNum <= len(archetypeOptions) {
+				selectedOption := archetypeOptions[selectionNum-1]
+				selectedArchetype = strings.Split(selectedOption, " - ")[0]
+				break
+			} else {
+				player.ToPlayer <- "Invalid selection. Please select a valid archetype number."
+			}
+		}
 	}
 
 	log.Printf("Creating character with name: %s", charName)
