@@ -6,8 +6,10 @@ import (
 	"log"
 	"os"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/dynamodb"
+	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
 	"github.com/google/uuid"
-	bolt "go.etcd.io/bbolt"
 )
 
 func DisplayPrototypes(prototypes *PrototypesData) {
@@ -36,127 +38,99 @@ func LoadPrototypesFromJSON(fileName string) (*PrototypesData, error) {
 }
 
 func (kp *KeyPair) StorePrototypes(prototypes *PrototypesData) error {
-	return kp.db.Update(func(tx *bolt.Tx) error {
-		bucket, err := tx.CreateBucketIfNotExists([]byte("ItemPrototypes"))
+	for _, prototype := range prototypes.ItemPrototypes {
+		av, err := dynamodbattribute.MarshalMap(prototype)
 		if err != nil {
-			return err
+			return fmt.Errorf("error marshalling prototype %s: %w", prototype.Name, err)
 		}
 
-		for _, prototype := range prototypes.ItemPrototypes {
-			fmt.Println("Writing", prototype.Name)
-			data, err := json.Marshal(prototype)
-			if err != nil {
-				return err
-			}
-			if err := bucket.Put([]byte(prototype.ID), data); err != nil {
-				return err
-			}
+		key := map[string]*dynamodb.AttributeValue{
+			"ID": {S: aws.String(prototype.ID)},
 		}
-		return nil
-	})
+
+		err = kp.Put("prototypes", key, av)
+		if err != nil {
+			return fmt.Errorf("error storing prototype %s: %w", prototype.Name, err)
+		}
+
+		fmt.Printf("Stored prototype: %s\n", prototype.Name)
+	}
+
+	return nil
 }
 
 func (kp *KeyPair) LoadPrototypes() (*PrototypesData, error) {
 	prototypesData := &PrototypesData{}
 
-	err := kp.db.View(func(tx *bolt.Tx) error {
-		bucket := tx.Bucket([]byte("ItemPrototypes"))
-		if bucket == nil {
-			return fmt.Errorf("ItemPrototypes bucket does not exist")
-		}
-
-		return bucket.ForEach(func(k, v []byte) error {
-			var itemData ItemData
-			if err := json.Unmarshal(v, &itemData); err != nil {
-				return err
-			}
-
-			// Validate UUID
-			if _, err := uuid.Parse(itemData.ID); err != nil {
-				return fmt.Errorf("invalid UUID for item %s: %v", itemData.Name, err)
-			}
-
-			fmt.Printf("Reading %s (ID: %s)\n", itemData.Name, itemData.ID)
-			prototypesData.ItemPrototypes = append(prototypesData.ItemPrototypes, itemData)
-			return nil
-		})
-	})
-
+	var itemPrototypes []ItemData
+	err := kp.Scan("prototypes", &itemPrototypes)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error scanning prototypes: %w", err)
+	}
+
+	prototypesData.ItemPrototypes = itemPrototypes
+
+	for _, prototype := range prototypesData.ItemPrototypes {
+		fmt.Printf("Loaded prototype: %s - %s\n", prototype.Name, prototype.Description)
 	}
 
 	return prototypesData, nil
 }
 
 func (k *KeyPair) LoadItem(id string, isPrototype bool) (*Item, error) {
-	var objectData []byte
-	bucketName := "Items"
+	tableName := "items"
 	if isPrototype {
-		bucketName = "ItemPrototypes"
+		tableName = "prototypes"
 	}
 
-	err := k.db.View(func(tx *bolt.Tx) error {
-		bucket := tx.Bucket([]byte(bucketName))
-		if bucket == nil {
-			return fmt.Errorf("%s bucket not found", bucketName)
-		}
-		objectData = bucket.Get([]byte(id))
-		return nil
-	})
+	key := map[string]*dynamodb.AttributeValue{
+		"ID": {S: aws.String(id)},
+	}
 
+	var itemData ItemData
+	err := k.Get(tableName, key, &itemData)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error loading item data: %w", err)
 	}
 
-	if objectData == nil {
-		return nil, fmt.Errorf("object not found")
-	}
-
-	var od ItemData
-	if err := json.Unmarshal(objectData, &od); err != nil {
-		return nil, fmt.Errorf("error unmarshalling object data: %v", err)
-	}
-
-	itemID, err := uuid.Parse(od.ID)
+	itemID, err := uuid.Parse(itemData.ID)
 	if err != nil {
-		return nil, fmt.Errorf("error parsing item ID: %v", err)
+		return nil, fmt.Errorf("error parsing item ID: %w", err)
 	}
 
-	object := &Item{
+	item := &Item{
 		ID:          itemID,
-		Name:        od.Name,
-		Description: od.Description,
-		Mass:        od.Mass,
-		Value:       od.Value,
-		Stackable:   od.Stackable,
-		MaxStack:    od.MaxStack,
-		Quantity:    od.Quantity,
-		Wearable:    od.Wearable,
-		WornOn:      od.WornOn,
-		Verbs:       od.Verbs,
-		Overrides:   od.Overrides,
-		TraitMods:   od.TraitMods,
-		Container:   od.Container,
-		IsPrototype: od.IsPrototype,
-		IsWorn:      od.IsWorn,
-		CanPickUp:   od.CanPickUp,
-		Metadata:    od.Metadata,
+		Name:        itemData.Name,
+		Description: itemData.Description,
+		Mass:        itemData.Mass,
+		Value:       itemData.Value,
+		Stackable:   itemData.Stackable,
+		MaxStack:    itemData.MaxStack,
+		Quantity:    itemData.Quantity,
+		Wearable:    itemData.Wearable,
+		WornOn:      itemData.WornOn,
+		Verbs:       itemData.Verbs,
+		Overrides:   itemData.Overrides,
+		TraitMods:   itemData.TraitMods,
+		Container:   itemData.Container,
+		IsPrototype: itemData.IsPrototype,
+		IsWorn:      itemData.IsWorn,
+		CanPickUp:   itemData.CanPickUp,
+		Metadata:    itemData.Metadata,
 	}
 
-	// Load contents if the item is a container
-	if object.Container {
-		object.Contents = make([]*Item, 0, len(od.Contents))
-		for _, contentID := range od.Contents {
+	if item.Container {
+		item.Contents = make([]*Item, 0, len(itemData.Contents))
+		for _, contentID := range itemData.Contents {
 			contentItem, err := k.LoadItem(contentID, false)
 			if err != nil {
-				return nil, fmt.Errorf("error loading content item %s: %v", contentID, err)
+				return nil, fmt.Errorf("error loading content item %s: %w", contentID, err)
 			}
-			object.Contents = append(object.Contents, contentItem)
+			item.Contents = append(item.Contents, contentItem)
 		}
 	}
 
-	return object, nil
+	return item, nil
 }
 
 func (k *KeyPair) WriteItem(obj *Item) error {
@@ -165,11 +139,11 @@ func (k *KeyPair) WriteItem(obj *Item) error {
 		contentIDs = append(contentIDs, contentItem.ID.String())
 		// Recursively write contained items
 		if err := k.WriteItem(contentItem); err != nil {
-			return fmt.Errorf("error writing content item %s: %v", contentItem.ID, err)
+			return fmt.Errorf("error writing content item %s: %w", contentItem.ID, err)
 		}
 	}
 
-	objData := ItemData{
+	itemData := ItemData{
 		ID:          obj.ID.String(),
 		Name:        obj.Name,
 		Description: obj.Description,
@@ -191,31 +165,26 @@ func (k *KeyPair) WriteItem(obj *Item) error {
 		Metadata:    obj.Metadata,
 	}
 
-	serializedData, err := json.Marshal(objData)
+	av, err := dynamodbattribute.MarshalMap(itemData)
 	if err != nil {
-		return fmt.Errorf("error marshalling object data: %v", err)
+		return fmt.Errorf("error marshalling item data: %w", err)
 	}
 
-	bucketName := "Items"
+	tableName := "items"
 	if obj.IsPrototype {
-		bucketName = "ItemPrototypes"
+		tableName = "prototypes"
 	}
 
-	err = k.db.Update(func(tx *bolt.Tx) error {
-		bucket, err := tx.CreateBucketIfNotExists([]byte(bucketName))
-		if err != nil {
-			return fmt.Errorf("create bucket: %s", err)
-		}
+	key := map[string]*dynamodb.AttributeValue{
+		"ID": {S: aws.String(obj.ID.String())},
+	}
 
-		err = bucket.Put([]byte(obj.ID.String()), serializedData)
-		if err != nil {
-			return fmt.Errorf("failed to write object data: %v", err)
-		}
+	err = k.Put(tableName, key, av)
+	if err != nil {
+		return fmt.Errorf("error writing item data: %w", err)
+	}
 
-		return nil
-	})
-
-	return err
+	return nil
 }
 
 func (s *Server) SaveActiveItems() error {

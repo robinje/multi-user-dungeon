@@ -3,7 +3,4 @@ go 1.22
 use (
     ./core
     ./ssh_server
-    ./database
-    ./database_viewer
-    ./database_create_item
 )
