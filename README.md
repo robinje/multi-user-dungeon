@@ -12,6 +12,7 @@ The current implementation includes an SSH server for secure authentication and 
 - [x] Implement a database for the game.
 - [x] Implement a character creation system.
 - [x] Implement a text colorization system.
+- [ ] Add Cloudwatch Logs and Metrics.
 - [ ] Construct the item system.
 - [ ] Develop game mechanics.
 - [ ] Design an ecenomic framework.
@@ -55,60 +56,46 @@ The current implementation includes an SSH server for secure authentication and 
 - [ ] Ensure that a message is passed when a characters is added to the game.
 
 
+## Project Overview
+
+The engine is primarily written in Go (version 1.22) with an SSH server for secure authentication and communication between the player and the server. Additionally, there are database utility scripts written in Python (version 3.12) and various deployment scripts.
+
+Key components:
+- Go server (v1.22) for game logic and player interactions
+- Python (v3.12) scripts for database management and deployment
+- AWS services for database (DynamoDB) and Identity Provider (Cognito)
+- CloudFormation templates for AWS resource management
+
 ## Deployment
 
-Deploying the server involves several steps, from setting up your environment to running the server. Follow these steps to ensure a smooth deployment process:
+Deploying the server involves several steps:
 
-1. **Install Python**: The server and utility scripts are now written in Python. Install Python 3.7 or later from the [Python website](https://www.python.org/).
-
-2. **Set Up AWS Account**: An AWS account is required for deploying the server components, including DynamoDB and Cognito. Sign up for an account [here](https://aws.amazon.com/) if you don't already have one.
-
-3. **Configure AWS Credentials**: Ensure you have AWS credentials configured on your machine. These credentials should have sufficient permissions to create DynamoDB tables, a Cognito user pool, and the necessary IAM policies and roles. You can configure your credentials by using the AWS CLI and running `aws configure`.
-
-4. **Install Required Python Packages**: Install the necessary Python packages by running:
+1. Ensure you have Go 1.22 and Python 3.12 installed.
+2. Clone the repository.
+3. Install the required Python packages:
    ```
-   pip install boto3 pyyaml
+   pip install -r requirements/scripts-requirements.txt
    ```
-
-5. **Deploy AWS Resources**:
-   - Navigate to the `scripts` directory within the project.
-   - Run the `deploy.py` script using the command:
-     ```
-     python deploy.py
-     ```
-   This script will create the Cognito user pool, DynamoDB tables, and CodeBuild project. It will also generate the `config.yml` file needed to run the server.
-
-6. **Initialize the Database**:
-   - Navigate to the directory containing the `data_loader.py` script.
-   - Run the script using the command:
-     ```
-     python data_loader.py -r rooms.json -a archetypes.json -p prototypes.json
-     ```
-   This will load the initial world data into your DynamoDB tables.
-
-7. **Start the Server**: Start the server by running the main Python script from the root directory of the project:
+4. Set up your AWS credentials (access key ID and secret access key) in your environment variables or AWS credentials file.
+5. Run the deployment script:
    ```
-   python main.py
+   python scripts/deploy.py
+   ```
+   This script will create the necessary AWS resources using CloudFormation.
+6. Once deployment is complete, build and run the server:
+   ```
+   go build ./ssh_server
+   ./ssh_server
    ```
 
-8. **Verify Deployment**: You can verify the deployment by using the viewer script:
-   ```
-   python viewer.py --region your-aws-region
-   ```
-   This will display the contents of your DynamoDB tables.
+## Development
 
-Ensure all steps are completed without errors before trying to connect to the server. If you encounter any issues during deployment, refer to the AWS documentation or the specific tool's documentation for troubleshooting advice.
-
-## Additional Tools
-
-- **Create Item**: To add new items to rooms, use the `create_item.py` script:
-  ```
-  python create_item.py
-  ```
-  Follow the prompts to select a room and an item prototype, and the script will create a new item in the specified room.
-
-Remember to keep your AWS credentials secure and never commit them to version control. It's recommended to use AWS IAM roles and policies to manage permissions securely.advice.
+- The `core/` directory contains the main game logic and types.
+- The `ssh_server/` directory contains the main server implementation.
+- The `database/` directory contains Python scripts for database management.
+- The `scripts/` directory contains deployment and utility scripts.
 
 ## License
 
 This project is licensed under the Apache 2.0 License. See the LICENSE file for more details.
+
