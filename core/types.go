@@ -19,16 +19,31 @@ type Index struct {
 }
 
 type Configuration struct {
-	Port           uint16  `json:"Port"`
-	UserPoolID     string  `json:"UserPoolId"`
-	ClientSecret   string  `json:"UserPoolClientSecret"`
-	UserPoolRegion string  `json:"UserPoolRegion"`
-	ClientID       string  `json:"UserPoolClientId"`
-	DataFile       string  `json:"DataFile"`
-	Balance        float64 `json:"Balance"`
-	AutoSave       uint16  `json:"AutoSave"`
-	Essence        uint16  `json:"StartingEssence"`
-	Health         uint16  `json:"StartingHealth"`
+	Server struct {
+		Port uint16 `yaml:"Port"`
+	} `yaml:"Server"`
+	Aws struct {
+		Region string `yaml:"Region"`
+	} `yaml:"Aws"`
+	Cognito struct {
+		UserPoolID     string `yaml:"UserPoolId"`
+		ClientSecret   string `yaml:"UserPoolClientSecret"`
+		ClientID       string `yaml:"UserPoolClientId"`
+		UserPoolDomain string `yaml:"UserPoolDomain"`
+		UserPoolArn    string `yaml:"UserPoolArn"`
+	} `yaml:"Cognito"`
+	Game struct {
+		Balance         float64 `yaml:"Balance"`
+		AutoSave        uint16  `yaml:"AutoSave"`
+		StartingEssence uint16  `yaml:"StartingEssence"`
+		StartingHealth  uint16  `yaml:"StartingHealth"`
+	} `yaml:"Game"`
+	Logging struct {
+		ApplicationName string `yaml:"ApplicationName"`
+		LogLevel        int    `yaml:"LogLevel"`
+		LogGroup        string `yaml:"LogGroup"`
+		LogStream       string `yaml:"LogStream"`
+	} `yaml:"Logging"`
 }
 
 type KeyPair struct {

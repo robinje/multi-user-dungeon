@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"strconv"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -20,26 +19,10 @@ var (
 	Logger *slog.Logger
 )
 
-// APPLICATION_NAME is the name of the application, defaulting to "dark_relics"
-var APPLICATION_NAME = GetEnv("APPLICATION_NAME", "dark_relics")
-
-// REGION is the primary AWS region for Observatory resources
-var REGION = GetEnv("AWS_REGION", "us-east-1")
-
-// LOG_LEVEL is the logging level (default: 20)
-var LOG_LEVEL, _ = strconv.Atoi(GetEnv("LOGGING", "20"))
-
-// LOG_GROUP is the CloudWatch log group name
-var LOG_GROUP = GetEnv("LOG_GROUP", "/"+APPLICATION_NAME)
-
-// LOG_STREAM is the CloudWatch log stream name
-var LOG_STREAM = GetEnv("LOG_STREAM", "application")
-
-func init() {
-
+func InitializeLogging(cfg *Configuration) error {
 	// Determine the log level
 	var level slog.Level
-	switch LOG_LEVEL {
+	switch cfg.Logging.LogLevel {
 	case 10:
 		level = slog.LevelDebug
 	case 20:
@@ -53,27 +36,28 @@ func init() {
 	}
 
 	// Initialize AWS SDK configuration
-	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(REGION))
+	awsCfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(cfg.Aws.Region))
 	if err != nil {
-		panic("unable to load SDK config, " + err.Error())
+		return fmt.Errorf("unable to load SDK config: %w", err)
 	}
 
 	// Create CloudWatch Logs client
-	client := cloudwatchlogs.NewFromConfig(cfg)
+	client := cloudwatchlogs.NewFromConfig(awsCfg)
 
 	// Create CloudWatch handler
-	cwHandler := NewCloudWatchHandler(client, LOG_GROUP, LOG_STREAM)
+	cwHandler := NewCloudWatchHandler(client, cfg.Logging.LogGroup, cfg.Logging.LogStream)
 
 	// Create a multi-writer handler that writes to both CloudWatch and stdout
 	multiHandler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: level}).WithAttrs([]slog.Attr{
-		slog.String("application", APPLICATION_NAME),
-		slog.String("region", REGION),
+		slog.String("application", cfg.Logging.ApplicationName),
+		slog.String("region", cfg.Aws.Region),
 	})
 
 	// Initialize the Logger with both handlers
 	Logger = slog.New(NewMultiHandler(multiHandler, cwHandler))
 	slog.SetDefault(Logger)
 
+	return nil
 }
 
 // GetEnv retrieves environment variables or returns a default value if not set
@@ -84,10 +68,10 @@ func GetEnv(key, defaultValue string) string {
 	return defaultValue
 }
 
-func EnableXRay() error {
+func EnableXRay(cfg *Configuration) error {
 	// Determine the log level
 	var xrayLogLevel string
-	switch LOG_LEVEL {
+	switch cfg.Logging.LogLevel {
 	case 10:
 		xrayLogLevel = "debug"
 	case 20:
@@ -103,8 +87,7 @@ func EnableXRay() error {
 	Logger.Info("Configuring AWS X-Ray", "logLevel", xrayLogLevel)
 
 	err := xray.Configure(xray.Config{
-		LogLevel:       xrayLogLevel,
-		ServiceVersion: APPLICATION_NAME, // Assuming APPLICATION_NAME is your service version
+		LogLevel: xrayLogLevel,
 	})
 
 	if err != nil {

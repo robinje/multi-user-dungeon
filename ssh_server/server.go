@@ -19,23 +19,23 @@ func NewServer(config core.Configuration) (*core.Server, error) {
 
 	// Initialize the server with the configuration
 	server := &core.Server{
-		Port:        config.Port,
+		Port:        config.Server.Port,
 		PlayerIndex: &core.Index{},
 		Config:      config,
 		StartTime:   time.Now(),
 		Rooms:       make(map[int64]*core.Room),
 		Characters:  make(map[uuid.UUID]*core.Character),
-		Balance:     config.Balance,
-		AutoSave:    config.AutoSave,
-		Health:      config.Health,
-		Essence:     config.Essence,
+		Balance:     config.Game.Balance,
+		AutoSave:    config.Game.AutoSave,
+		Health:      config.Game.StartingHealth,
+		Essence:     config.Game.StartingEssence,
 	}
 
 	core.Logger.Info("Initializing database...")
 
 	// Initialize the database
 	var err error
-	server.Database, err = core.NewKeyPair(config.DataFile)
+	server.Database, err = core.NewKeyPair(config.Aws.Region)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize database: %v", err)
 	}
@@ -74,34 +74,35 @@ func NewServer(config core.Configuration) (*core.Server, error) {
 }
 
 func loadConfiguration(configFile string) (core.Configuration, error) {
-	core.Logger.Info("Loading configuration", "config_file", configFile)
-
 	var config core.Configuration
 
 	data, err := os.ReadFile(configFile)
 	if err != nil {
-		return config, err
+		return config, fmt.Errorf("error reading config file: %w", err)
 	}
 
 	err = yaml.Unmarshal(data, &config)
 	if err != nil {
-		return config, err
+		return config, fmt.Errorf("error unmarshalling config: %w", err)
 	}
 
 	return config, nil
 }
 
 func main() {
-
-	core.Logger.Info("Starting server...")
-
-	// Read configuration file
 	configFile := flag.String("config", "config.yml", "Configuration file")
 	flag.Parse()
 
 	config, err := loadConfiguration(*configFile)
 	if err != nil {
-		core.Logger.Error("Error loading configuration", "error", err)
+		fmt.Printf("Error loading configuration: %v\n", err)
+		return
+	}
+
+	// Initialize logging
+	err = core.InitializeLogging(&config)
+	if err != nil {
+		fmt.Printf("Error initializing logging: %v\n", err)
 		return
 	}
 
