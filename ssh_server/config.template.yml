@@ -22,3 +22,4 @@ ApplicationName: "mud"
 LogLevel: 20
 LogGroup: "/mud"
 LogStream: "application"
+MetricNamespace: "MUD/Application"

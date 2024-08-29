@@ -39,10 +39,13 @@ type Configuration struct {
 		StartingHealth  uint16  `yaml:"StartingHealth"`
 	} `yaml:"Game"`
 	Logging struct {
-		ApplicationName string `yaml:"ApplicationName"`
-		LogLevel        int    `yaml:"LogLevel"`
-		LogGroup        string `yaml:"LogGroup"`
-		LogStream       string `yaml:"LogStream"`
+		Logging struct {
+			ApplicationName string `yaml:"ApplicationName"`
+			LogLevel        int    `yaml:"LogLevel"`
+			LogGroup        string `yaml:"LogGroup"`
+			LogStream       string `yaml:"LogStream"`
+			MetricNamespace string `yaml:"MetricNamespace"` // Add this line
+		} `yaml:"Logging"`
 	} `yaml:"Logging"`
 }
 

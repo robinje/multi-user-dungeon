@@ -39,6 +39,7 @@ def prompt_for_parameters(template_name):
         return {
             "LogGroupName": input("Enter the name for the CloudWatch Log Group [default: /mud/game-logs]: ") or "/mud/game-logs",
             "RetentionInDays": input("Enter the number of days to retain logs [default: 30]: ") or "30",
+            "MetricNamespace": input("Enter the namespace for CloudWatch Metrics [default: MUD/Application]: ") or "MUD/Application",
         }
     return {}
 
@@ -117,8 +118,9 @@ def update_configuration_file(config_updates):
         config.setdefault("Logging", {}).update({
             "ApplicationName": "mud",
             "LogLevel": 20,
-            "LogGroup": config_updates.get("LogGroupName", "/mud"),
+            "LogGroup": config_updates.get("CloudWatch", {}).get("LogGroupName", "/mud"),
             "LogStream": "application",
+            "MetricNamespace": config_updates.get("CloudWatch", {}).get("MetricNamespace", "MUD/Application"),
         })
         config["Cognito"].update({
             "UserPoolId": config_updates.get("UserPoolId", ""),
@@ -158,11 +160,12 @@ def main():
     deploy_stack(cloudformation_client, CODEBUILD_STACK_NAME, codebuild_template, codebuild_parameters)
     codebuild_outputs = get_stack_outputs(cloudformation_client, CODEBUILD_STACK_NAME)
 
-    # Deploy CloudWatch stack
+     # Deploy CloudWatch stack
     cloudwatch_parameters = prompt_for_parameters("cloudwatch")
     cloudwatch_template = load_template(CLOUDWATCH_TEMPLATE_PATH)
     deploy_stack(cloudformation_client, CLOUDWATCH_STACK_NAME, cloudwatch_template, cloudwatch_parameters)
     cloudwatch_outputs = get_stack_outputs(cloudformation_client, CLOUDWATCH_STACK_NAME)
+
 
     # Update configuration file with outputs from all stacks
     config_updates = {
