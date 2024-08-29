@@ -1,10 +1,12 @@
 package core
 
 import (
+	"log/slog"
 	"net"
 	"sync"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/ssh"
@@ -183,4 +185,15 @@ type ItemData struct {
 
 type PrototypesData struct {
 	ItemPrototypes []ItemData `json:"itemPrototypes"`
+}
+
+type CloudWatchHandler struct {
+	client    *cloudwatchlogs.Client
+	logGroup  string
+	logStream string
+	attrs     []slog.Attr
+}
+
+type MultiHandler struct {
+	handlers []slog.Handler
 }
