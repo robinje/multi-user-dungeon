@@ -5,12 +5,15 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"runtime"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/cloudwatch"
+	"github.com/aws/aws-sdk-go-v2/service/cloudwatch/types"
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs"
-	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs/types"
+	cwlogtypes "github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs/types"
 	"github.com/aws/aws-xray-sdk-go/xray"
 )
 
@@ -125,7 +128,7 @@ func (h *CloudWatchHandler) Handle(ctx context.Context, r slog.Record) error {
 	_, err := h.client.PutLogEvents(ctx, &cloudwatchlogs.PutLogEventsInput{
 		LogGroupName:  aws.String(h.logGroup),
 		LogStreamName: aws.String(h.logStream),
-		LogEvents: []types.InputLogEvent{
+		LogEvents: []cwlogtypes.InputLogEvent{
 			{
 				Message:   aws.String(message),
 				Timestamp: aws.Int64(time.Now().UnixNano() / int64(time.Millisecond)),
@@ -184,4 +187,53 @@ func (h *MultiHandler) WithGroup(name string) slog.Handler {
 		newHandlers[i] = handler.WithGroup(name)
 	}
 	return NewMultiHandler(newHandlers...)
+}
+
+func SendMetrics(s *Server, interval time.Duration) error {
+	cfg, err := config.LoadDefaultConfig(context.Background(), config.WithRegion(s.Config.Aws.Region))
+	if err != nil {
+		return fmt.Errorf("failed to load AWS SDK config: %w", err)
+	}
+
+	client := cloudwatch.NewFromConfig(cfg)
+
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			var m runtime.MemStats
+			runtime.ReadMemStats(&m)
+
+			playerCount := float64(len(s.Characters))
+			memoryUsageMB := float64(m.Alloc) / 1024 / 1024
+
+			_, err := client.PutMetricData(context.Background(), &cloudwatch.PutMetricDataInput{
+				Namespace: aws.String(s.Config.Logging.MetricNamespace),
+				MetricData: []types.MetricDatum{
+					{
+						MetricName: aws.String("PlayerCount"),
+						Unit:       types.StandardUnitCount,
+						Value:      aws.Float64(playerCount),
+					},
+					{
+						MetricName: aws.String("MemoryUsage"),
+						Unit:       types.StandardUnitMegabytes,
+						Value:      aws.Float64(memoryUsageMB),
+					},
+				},
+			})
+
+			if err != nil {
+				Logger.Error("Failed to send metrics to CloudWatch", "error", err)
+			} else {
+				Logger.Info("Sent metrics to CloudWatch", "playerCount", playerCount, "memoryUsageMB", memoryUsageMB)
+			}
+
+		case <-s.Context.Done():
+			Logger.Info("Stopping metrics collection due to context cancellation")
+			return nil
+		}
+	}
 }

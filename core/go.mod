@@ -6,6 +6,7 @@ require (
 	github.com/aws/aws-sdk-go v1.54.15
 	github.com/aws/aws-sdk-go-v2 v1.30.4
 	github.com/aws/aws-sdk-go-v2/config v1.27.31
+	github.com/aws/aws-sdk-go-v2/service/cloudwatch v1.40.5
 	github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs v1.37.5
 	github.com/aws/aws-xray-sdk-go v1.8.4
 	github.com/google/uuid v1.6.0

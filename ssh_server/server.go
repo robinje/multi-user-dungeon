@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"net"
@@ -22,6 +23,7 @@ func NewServer(config core.Configuration) (*core.Server, error) {
 		Port:        config.Server.Port,
 		PlayerIndex: &core.Index{},
 		Config:      config,
+		Context:     context.Background(),
 		StartTime:   time.Now(),
 		Rooms:       make(map[int64]*core.Room),
 		Characters:  make(map[uuid.UUID]*core.Character),
@@ -111,6 +113,13 @@ func main() {
 		core.Logger.Error("Failed to create server", "error", err)
 		return
 	}
+
+	// Start sending metrics
+	go func() {
+		if err := core.SendMetrics(server, 1*time.Minute); err != nil {
+			core.Logger.Error("Error in SendMetrics", "error", err)
+		}
+	}()
 
 	// Start the auto-save routine
 	go core.AutoSave(server)
