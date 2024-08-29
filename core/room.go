@@ -3,7 +3,6 @@ package core
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"sort"
 	"strconv"
@@ -108,7 +107,7 @@ func (kp *KeyPair) LoadRooms() (map[int64]*Room, error) {
 		// Load exits for this room
 		exits, err := kp.LoadExits(roomData.RoomID)
 		if err != nil {
-			log.Printf("Warning: Failed to load exits for room %d: %v", roomData.RoomID, err)
+			Logger.Warn("Failed to load exits for room", "room_id", roomData.RoomID, "error", err)
 		}
 		room.Exits = exits
 
@@ -116,7 +115,7 @@ func (kp *KeyPair) LoadRooms() (map[int64]*Room, error) {
 		for _, itemID := range roomData.ItemIDs {
 			item, err := kp.LoadItem(itemID, false)
 			if err != nil {
-				log.Printf("Warning: Failed to load item %s for room %d: %v", itemID, roomData.RoomID, err)
+				Logger.Warn("Failed to load item for room", "item_id", itemID, "room_id", roomData.RoomID, "error", err)
 				continue
 			}
 			room.AddItem(item)
@@ -231,7 +230,7 @@ func (kp *KeyPair) WriteRoom(room *Room) error {
 		}
 	}
 
-	log.Printf("Successfully wrote room %d to database", room.RoomID)
+	Logger.Info("Successfully wrote room to database", "room_id", room.RoomID)
 	return nil
 }
 
@@ -260,7 +259,7 @@ func NewRoom(RoomID int64, Area string, Title string, Description string) *Room 
 		Mutex:       sync.Mutex{},
 	}
 
-	log.Printf("Created room %s with ID %d", room.Title, room.RoomID)
+	Logger.Info("Created room", "room_title", room.Title, "room_id", room.RoomID)
 
 	return room
 }
@@ -270,7 +269,7 @@ func (r *Room) AddExit(exit *Exit) {
 }
 
 func Move(c *Character, direction string) {
-	log.Printf("Player %s is attempting to move %s", c.Name, direction)
+	Logger.Info("Player is attempting to move", "player_name", c.Name, "direction", direction)
 
 	c.Mutex.Lock()
 	defer c.Mutex.Unlock()
@@ -317,7 +316,7 @@ func Move(c *Character, direction string) {
 
 func SendRoomMessage(r *Room, message string) {
 
-	log.Printf("Sending message to room %d: %s", r.RoomID, message)
+	Logger.Info("Sending message to room", "room_id", r.RoomID, "message", message)
 
 	for _, character := range r.Characters {
 		character.Player.ToPlayer <- message
@@ -330,11 +329,11 @@ func SendRoomMessage(r *Room, message string) {
 func RoomInfo(r *Room, character *Character) string {
 
 	if r == nil {
-		log.Printf("Error: Attempted to get room info for nil room (Character: %s)", character.Name)
+		Logger.Error("Attempted to get room info for nil room", "character_name", character.Name)
 		return "\n\rError: You are not in a valid room.\n\r"
 	}
 	if character == nil {
-		log.Printf("Error: Attempted to get room info for nil character (Room ID: %d)", r.RoomID)
+		Logger.Error("Attempted to get room info for nil character", "room_id", r.RoomID)
 		return "\n\rError: Invalid character.\n\r"
 	}
 
@@ -379,7 +378,7 @@ func RoomInfo(r *Room, character *Character) string {
 
 func sortedExits(r *Room) []string {
 
-	log.Printf("Sorting exits for room %d", r.RoomID)
+	Logger.Info("Sorting exits for room", "room_id", r.RoomID)
 
 	if r.Exits == nil {
 		return []string{}
@@ -396,7 +395,7 @@ func sortedExits(r *Room) []string {
 func getOtherCharacters(r *Room, currentCharacter *Character) []string {
 
 	if r == nil || r.Characters == nil {
-		log.Printf("Warning: Room or Characters map is nil in getOtherCharacters")
+		Logger.Warn("Room or Characters map is nil in getOtherCharacters")
 		return []string{}
 	}
 
@@ -407,31 +406,31 @@ func getOtherCharacters(r *Room, currentCharacter *Character) []string {
 		}
 	}
 
-	log.Printf("Found %d other characters in room %d", len(otherCharacters), r.RoomID)
+	Logger.Info("Found other characters in room", "count", len(otherCharacters), "room_id", r.RoomID)
 	return otherCharacters
 }
 
 func getVisibleItems(r *Room) []string {
-	log.Printf("Getting visible items in room %d", r.RoomID)
+	Logger.Info("Getting visible items in room", "room_id", r.RoomID)
 
 	r.Mutex.Lock()
 	defer r.Mutex.Unlock()
 
 	if r.Items == nil {
-		log.Printf("Warning: Items map is nil for room %d", r.RoomID)
+		Logger.Warn("Items map is nil for room", "room_id", r.RoomID)
 		return []string{}
 	}
 
 	visibleItems := make([]string, 0, len(r.Items))
 	for itemID, item := range r.Items {
 		if item == nil {
-			log.Printf("Warning: Nil item found with ID %s in room %d", itemID, r.RoomID)
+			Logger.Warn("Nil item found with ID in room", "item_id", itemID, "room_id", r.RoomID)
 			continue
 		}
 		visibleItems = append(visibleItems, item.Name)
-		log.Printf("Found item %s (ID: %s) in room %d", item.Name, itemID, r.RoomID)
+		Logger.Info("Found item", "item_name", item.Name, "item_id", itemID)
 	}
 
-	log.Printf("Total visible items in room %d: %d", r.RoomID, len(visibleItems))
+	Logger.Info("Total visible items in room", "room_id", r.RoomID, "count", len(visibleItems))
 	return visibleItems
 }

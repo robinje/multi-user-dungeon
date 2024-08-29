@@ -20,7 +20,7 @@ var CommandHandlers = map[string]CommandHandler{
 	"who":       ExecuteWhoCommand,
 	"password":  ExecutePasswordCommand,
 	"challenge": ExecuteChallengeCommand,
-	"take":      ExecuteTakeCommand, // Add the new take command
+	"take":      ExecuteTakeCommand,
 	"get":       ExecuteTakeCommand, // Alias for take command
 	"drop":      ExecuteDropCommand,
 	"inventory": ExecuteInventoryCommand,
