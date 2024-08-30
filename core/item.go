@@ -3,7 +3,6 @@ package core
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -192,7 +191,7 @@ func (s *Server) SaveActiveItems() error {
 		return fmt.Errorf("server is nil")
 	}
 
-	log.Println("Starting to save active items...")
+	Logger.Info("Starting to save active items...")
 
 	// Collect all items from rooms and characters
 	itemsToSave := make(map[uuid.UUID]*Item)
@@ -201,13 +200,13 @@ func (s *Server) SaveActiveItems() error {
 	if s.Rooms != nil {
 		for roomID, room := range s.Rooms {
 			if room == nil {
-				log.Printf("Warning: Nil room found with ID %d", roomID)
+				Logger.Warn("Nil room found", "roomID", roomID)
 				continue
 			}
 			room.Mutex.Lock()
 			for itemID, item := range room.Items {
 				if item == nil {
-					log.Printf("Warning: Nil item found in room %d with ID %s", roomID, itemID)
+					Logger.Warn("Nil item found in room", "roomID", roomID, "itemID", itemID)
 					continue
 				}
 				itemsToSave[item.ID] = item
@@ -215,20 +214,20 @@ func (s *Server) SaveActiveItems() error {
 			room.Mutex.Unlock()
 		}
 	} else {
-		log.Println("Warning: Server Rooms map is nil")
+		Logger.Warn("Server Rooms map is nil")
 	}
 
 	// Items in character inventories
 	if s.Characters != nil {
 		for charName, character := range s.Characters {
 			if character == nil {
-				log.Printf("Warning: Nil character found with name %s", charName)
+				Logger.Warn("Nil character found", "characterName", charName)
 				continue
 			}
 			character.Mutex.Lock()
 			for itemName, item := range character.Inventory {
 				if item == nil {
-					log.Printf("Warning: Nil item found in inventory of character %s with name %s", charName, itemName)
+					Logger.Warn("Nil item found in inventory", "characterName", charName, "itemName", itemName)
 					continue
 				}
 				itemsToSave[item.ID] = item
@@ -236,7 +235,7 @@ func (s *Server) SaveActiveItems() error {
 			character.Mutex.Unlock()
 		}
 	} else {
-		log.Println("Warning: Server Characters map is nil")
+		Logger.Warn("Server Characters map is nil")
 	}
 
 	// Save all collected items
@@ -246,18 +245,18 @@ func (s *Server) SaveActiveItems() error {
 
 	for _, item := range itemsToSave {
 		if item == nil {
-			log.Println("Warning: Attempting to save a nil item, skipping")
+			Logger.Warn("Attempting to save a nil item, skipping")
 			continue
 		}
 		if err := s.Database.WriteItem(item); err != nil {
-			log.Printf("Error saving item %s (ID: %s): %v", item.Name, item.ID, err)
+			Logger.Error("Error saving item", "itemName", item.Name, "itemID", item.ID, "error", err)
 			// Continue saving other items even if one fails
 		} else {
-			log.Printf("Successfully saved item %s (ID: %s)", item.Name, item.ID)
+			Logger.Info("Successfully saved item", "itemName", item.Name, "itemID", item.ID)
 		}
 	}
 
-	log.Println("Finished saving active items")
+	Logger.Info("Finished saving active items")
 	return nil
 }
 
@@ -305,7 +304,7 @@ func (s *Server) CreateItemFromPrototype(prototypeID string) (*Item, error) {
 		for _, contentItem := range prototype.Contents {
 			newContentItem, err := s.CreateItemFromPrototype(contentItem.ID.String())
 			if err != nil {
-				log.Printf("Error creating content item from prototype %s: %v", contentItem.ID, err)
+				Logger.Error("Error creating content item from prototype", "prototypeID", contentItem.ID, "error", err)
 				continue
 			}
 			newItem.Contents = append(newItem.Contents, newContentItem)
@@ -316,7 +315,8 @@ func (s *Server) CreateItemFromPrototype(prototypeID string) (*Item, error) {
 		return nil, fmt.Errorf("failed to write new item to database: %w", err)
 	}
 
-	log.Printf("Created new item %s (ID: %s) from prototype %s", newItem.Name, newItem.ID, prototypeID)
+	Logger.Info("Created new item from prototype", "itemName", newItem.Name, "itemID", newItem.ID, "prototypeID", prototypeID)
+
 	return newItem, nil
 }
 
@@ -325,7 +325,7 @@ func (r *Room) AddItem(item *Item) {
 	defer r.Mutex.Unlock()
 
 	if item == nil {
-		log.Printf("Warning: Attempted to add nil item to room %d", r.RoomID)
+		Logger.Warn("Attempted to add nil item to room", "roomID", r.RoomID)
 		return
 	}
 
@@ -334,7 +334,7 @@ func (r *Room) AddItem(item *Item) {
 	}
 
 	r.Items[item.ID.String()] = item
-	log.Printf("Added item %s (ID: %s) to room %d", item.Name, item.ID, r.RoomID)
+	Logger.Info("Added item to room", "itemName", item.Name, "itemID", item.ID, "roomID", r.RoomID)
 }
 
 func (r *Room) RemoveItem(item *Item) {
@@ -342,12 +342,12 @@ func (r *Room) RemoveItem(item *Item) {
 	defer r.Mutex.Unlock()
 
 	if item == nil {
-		log.Printf("Warning: Attempted to remove nil item from room %d", r.RoomID)
+		Logger.Warn("Attempted to remove nil item from room", "roomID", r.RoomID)
 		return
 	}
 
 	delete(r.Items, item.ID.String())
-	log.Printf("Removed item %s (ID: %s) from room %d", item.Name, item.ID, r.RoomID)
+	Logger.Info("Removed item from room", "itemName", item.Name, "itemID", item.ID, "roomID", r.RoomID)
 }
 
 // Add a new method to clean up nil items
@@ -358,7 +358,7 @@ func (r *Room) CleanupNilItems() {
 	for id, item := range r.Items {
 		if item == nil {
 			delete(r.Items, id)
-			log.Printf("Removed nil item with ID %s from room %d", id, r.RoomID)
+			Logger.Info("Removed nil item from room", "itemID", id, "roomID", r.RoomID)
 		}
 	}
 }

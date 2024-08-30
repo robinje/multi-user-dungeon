@@ -1,7 +1,6 @@
 package core
 
 import (
-	"log"
 	"math"
 	"math/rand"
 	"time"
@@ -24,33 +23,33 @@ func Challenge(attacker, defender, balance float64) float64 {
 }
 
 func AutoSave(server *Server) {
-	log.Printf("Starting auto-save routine...")
+	Logger.Info("Starting auto-save routine...")
 
 	for {
 		// Sleep for the configured duration
 		time.Sleep(time.Duration(server.AutoSave) * time.Minute)
 
-		log.Println("Starting auto-save process...")
+		Logger.Info("Starting auto-save process...")
 
 		// Save active characters
 		if err := SaveActiveCharacters(server); err != nil {
-			log.Printf("Failed to save characters: %v", err)
+			Logger.Error("Failed to save characters", "error", err)
 		} else {
-			log.Println("Active characters saved successfully")
+			Logger.Info("Active characters saved successfully")
 		}
 
 		// Save active rooms
 		if err := SaveActiveRooms(server); err != nil {
-			log.Printf("Failed to save rooms: %v", err)
+			Logger.Error("Failed to save rooms", "error", err)
 		} else {
-			log.Println("Active rooms saved successfully")
+			Logger.Info("Active rooms saved successfully")
 		}
 
 		// Save active items
 		if err := server.SaveActiveItems(); err != nil {
-			log.Printf("Failed to save items: %v", err)
+			Logger.Error("Failed to save items", "error", err)
 		} else {
-			log.Println("Active items saved successfully")
+			Logger.Info("Active items saved successfully")
 		}
 
 		// Save active player records
@@ -60,15 +59,15 @@ func AutoSave(server *Server) {
 			if character.Player != nil {
 				err := server.Database.WritePlayer(character.Player)
 				if err != nil {
-					log.Printf("Failed to save player data for %s: %v", character.Player.Name, err)
+					Logger.Error("Failed to save player data", "player_name", character.Player.Name, "error", err)
 				} else {
 					savedPlayers++
 				}
 			}
 		}
 		server.Mutex.Unlock()
-		log.Printf("Saved %d active player records", savedPlayers)
+		Logger.Info("Saved active player records", "count", savedPlayers)
 
-		log.Println("Auto-save process completed")
+		Logger.Info("Auto-save process completed")
 	}
 }

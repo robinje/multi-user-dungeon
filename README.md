@@ -12,7 +12,8 @@ The current implementation includes an SSH server for secure authentication and 
 - [x] Implement a database for the game.
 - [x] Implement a character creation system.
 - [x] Implement a text colorization system.
-- [ ] Add Cloudwatch Logs and Metrics.
+- [x] Add Cloudwatch Logs and Metrics.
+- [x] Build an interactive password change system.
 - [ ] Construct the item system.
 - [ ] Develop game mechanics.
 - [ ] Design an ecenomic framework.
@@ -22,10 +23,12 @@ The current implementation includes an SSH server for secure authentication and 
 - [ ] Build a direct messaging system.
 - [ ] Develop more complex Non-Player Characters (NPCs) with basic AI.
 - [ ] Implement a dynamic content updating system.
-- [ ] Build an interactive password change system.
 - [ ] Implement a player-to-player trading system.
-- [ ] Develop more complex Non-Player Characters (NPCs) with basic AI.
-- [ ] Build an interactive password change system.
+- [ ] Create a crafting system for items.
+- [ ] Develop a weather and time system.
+- [ ] Implement a party system for cooperative gameplay.
+- [ ] Implement a magic system.
+
 
 ## TODO
 
@@ -42,18 +45,19 @@ The current implementation includes an SSH server for secure authentication and 
 - [x] Add wear item command.
 - [x] Add remove item command.
 - [x] Add examine item command.
+- [x] Implement Persistent Logging.
+- [x] Load item prototypes at start.
+- [x] Create function for creating items from prototypes.
+- [x] Ensure that a message is passed when a characters is added to the game.
 - [ ] Add a Message of the Day (MOTD) command.
-- [ ] Implement Persistent Logging.
 - [ ] Add the ability to delete characters.
 - [ ] Add the ability to delete accounts.
 - [ ] Implement an obscenity filter.
 - [ ] Validate graph of loaded rooms and exits.
-- [ ] Load item prototypes at start.
-- [ ] Create function for creating items from prototypes.
 - [ ] Add look at item command.
 - [ ] Improve the say commands.
 - [ ] Improve the input filters
-- [ ] Ensure that a message is passed when a characters is added to the game.
+
 
 
 ## Project Overview

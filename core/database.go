@@ -2,7 +2,6 @@ package core
 
 import (
 	"fmt"
-	"log"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -11,7 +10,7 @@ import (
 )
 
 func NewKeyPair(region string) (*KeyPair, error) {
-	log.Printf("Initializing DynamoDB client for region %s", region)
+	Logger.Info("Initializing DynamoDB client", "region", region)
 
 	sess, err := session.NewSession(&aws.Config{
 		Region: aws.String(region),
@@ -66,7 +65,7 @@ func (k *KeyPair) Put(tableName string, key map[string]*dynamodb.AttributeValue,
 		return fmt.Errorf("error updating item in table %s: %w", tableName, err)
 	}
 
-	log.Printf("Successfully updated item in table %s", tableName)
+	Logger.Info("Successfully updated item in table", "tableName", tableName)
 	return nil
 }
 

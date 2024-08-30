@@ -1,0 +1,53 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'CloudFormation template for CloudWatch Log Group, Metrics, and IAM Policy'
+
+Parameters:
+  LogGroupName:
+    Type: String
+    Description: Name for the CloudWatch Log Group
+    Default: '/mud/application'
+
+  MetricNamespace:
+    Type: String
+    Description: Namespace for CloudWatch Metrics
+    Default: 'MUD/Application'
+
+Resources:
+  MUDLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Ref LogGroupName
+      RetentionInDays: 30
+
+  MUDCloudWatchPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      Description: Allows writing to CloudWatch Logs and Metrics
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+            Resource: !GetAtt MUDLogGroup.Arn
+          - Effect: Allow
+            Action:
+              - cloudwatch:PutMetricData
+            Resource: '*'
+            Condition:
+              StringEquals:
+                'cloudwatch:namespace': !Ref MetricNamespace
+
+Outputs:
+  LogGroupName:
+    Description: Name of the created CloudWatch Log Group
+    Value: !Ref MUDLogGroup
+
+  MetricNamespace:
+    Description: Namespace for CloudWatch Metrics
+    Value: !Ref MetricNamespace
+
+  CloudWatchPolicyArn:
+    Description: ARN of the IAM Managed Policy for CloudWatch access
+    Value: !Ref MUDCloudWatchPolicy

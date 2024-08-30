@@ -1,10 +1,13 @@
 package core
 
 import (
+	"context"
+	"log/slog"
 	"net"
 	"sync"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/ssh"
@@ -17,16 +20,32 @@ type Index struct {
 }
 
 type Configuration struct {
-	Port           uint16  `json:"Port"`
-	UserPoolID     string  `json:"UserPoolId"`
-	ClientSecret   string  `json:"UserPoolClientSecret"`
-	UserPoolRegion string  `json:"UserPoolRegion"`
-	ClientID       string  `json:"UserPoolClientId"`
-	DataFile       string  `json:"DataFile"`
-	Balance        float64 `json:"Balance"`
-	AutoSave       uint16  `json:"AutoSave"`
-	Essence        uint16  `json:"StartingEssence"`
-	Health         uint16  `json:"StartingHealth"`
+	Server struct {
+		Port uint16 `yaml:"Port"`
+	} `yaml:"Server"`
+	Aws struct {
+		Region string `yaml:"Region"`
+	} `yaml:"Aws"`
+	Cognito struct {
+		UserPoolID     string `yaml:"UserPoolId"`
+		ClientSecret   string `yaml:"UserPoolClientSecret"`
+		ClientID       string `yaml:"UserPoolClientId"`
+		UserPoolDomain string `yaml:"UserPoolDomain"`
+		UserPoolArn    string `yaml:"UserPoolArn"`
+	} `yaml:"Cognito"`
+	Game struct {
+		Balance         float64 `yaml:"Balance"`
+		AutoSave        uint16  `yaml:"AutoSave"`
+		StartingEssence uint16  `yaml:"StartingEssence"`
+		StartingHealth  uint16  `yaml:"StartingHealth"`
+	} `yaml:"Game"`
+	Logging struct {
+		ApplicationName string `yaml:"ApplicationName"`
+		LogLevel        int    `yaml:"LogLevel"`
+		LogGroup        string `yaml:"LogGroup"`
+		LogStream       string `yaml:"LogStream"`
+		MetricNamespace string `yaml:"MetricNamespace"`
+	} `yaml:"Logging"`
 }
 
 type KeyPair struct {
@@ -53,6 +72,7 @@ type Server struct {
 	Essence         uint16
 	Items           map[uint64]*Item
 	ItemPrototypes  map[uint64]*Item
+	Context         context.Context
 	Mutex           sync.Mutex
 }
 
@@ -183,4 +203,15 @@ type ItemData struct {
 
 type PrototypesData struct {
 	ItemPrototypes []ItemData `json:"itemPrototypes"`
+}
+
+type CloudWatchHandler struct {
+	client    *cloudwatchlogs.Client
+	logGroup  string
+	logStream string
+	attrs     []slog.Attr
+}
+
+type MultiHandler struct {
+	handlers []slog.Handler
 }
