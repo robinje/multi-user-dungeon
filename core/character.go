@@ -1,13 +1,13 @@
 package core
 
 import (
-	"encoding/json"
 	"fmt"
-	"log"
-	"strconv"
 	"strings"
 
-	bolt "go.etcd.io/bbolt"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/dynamodb"
+	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
+	"github.com/google/uuid"
 )
 
 // WearLocations defines all possible locations where an item can be worn
@@ -35,7 +35,7 @@ func (c *Character) ToData() *CharacterData {
 	}
 
 	return &CharacterData{
-		Index:      c.Index,
+		Index:      c.ID.String(),
 		PlayerID:   c.Player.PlayerID,
 		Name:       c.Name,
 		Attributes: c.Attributes,
@@ -48,7 +48,11 @@ func (c *Character) ToData() *CharacterData {
 }
 
 func (c *Character) FromData(cd *CharacterData) error {
-	c.Index = cd.Index
+	Index, err := uuid.Parse(cd.Index)
+	if err != nil {
+		return fmt.Errorf("parse character index: %w", err)
+	}
+	c.ID = Index
 	c.Name = cd.Name
 	c.Attributes = cd.Attributes
 	c.Abilities = cd.Abilities
@@ -57,7 +61,7 @@ func (c *Character) FromData(cd *CharacterData) error {
 
 	room, exists := c.Server.Rooms[cd.RoomID]
 	if !exists {
-		log.Printf("room with ID %d not found", cd.RoomID)
+		Logger.Warn("Room not found", "roomID", cd.RoomID)
 		room = c.Server.Rooms[0]
 	}
 	c.Room = room
@@ -66,7 +70,7 @@ func (c *Character) FromData(cd *CharacterData) error {
 	for key, objID := range cd.Inventory {
 		obj, err := c.Server.Database.LoadItem(objID, false)
 		if err != nil {
-			log.Printf("Error loading object %s for character %s: %v", objID, c.Name, err)
+			Logger.Error("Error loading object for character", "objectID", objID, "characterName", c.Name, "error", err)
 			continue
 		}
 		c.Inventory[key] = obj
@@ -76,14 +80,9 @@ func (c *Character) FromData(cd *CharacterData) error {
 }
 
 func (s *Server) NewCharacter(name string, player *Player, room *Room, archetypeName string) *Character {
-	characterIndex, err := s.Database.NextIndex("Characters")
-	if err != nil {
-		log.Printf("Error generating character index: %v", err)
-		return nil
-	}
 
 	character := &Character{
-		Index:      characterIndex,
+		ID:         uuid.New(),
 		Room:       room,
 		Name:       name,
 		Player:     player,
@@ -113,54 +112,34 @@ func (s *Server) NewCharacter(name string, player *Player, room *Room, archetype
 
 // WriteCharacter persists a character to the database.
 func (kp *KeyPair) WriteCharacter(character *Character) error {
-	character.Mutex.Lock()
-	defer character.Mutex.Unlock()
-
 	characterData := character.ToData()
-	jsonData, err := json.Marshal(characterData)
+	av, err := dynamodbattribute.MarshalMap(characterData)
 	if err != nil {
-		return fmt.Errorf("marshal character data: %w", err)
+		return fmt.Errorf("error marshalling character data: %w", err)
 	}
 
-	return kp.db.Update(func(tx *bolt.Tx) error {
-		bucket, err := tx.CreateBucketIfNotExists([]byte("Characters"))
-		if err != nil {
-			return fmt.Errorf("create characters bucket: %w", err)
-		}
+	key := map[string]*dynamodb.AttributeValue{
+		"Index": {S: aws.String(character.ID.String())},
+	}
 
-		indexKey := strconv.FormatUint(character.Index, 10)
-		if err := bucket.Put([]byte(indexKey), jsonData); err != nil {
-			return fmt.Errorf("write character data: %w", err)
-		}
+	err = kp.Put("characters", key, av)
+	if err != nil {
+		return fmt.Errorf("error writing character data: %w", err)
+	}
 
-		log.Printf("Successfully wrote character %s with Index %d to database", character.Name, character.Index)
-		return nil
-	})
+	Logger.Info("Successfully wrote character to database", "characterName", character.Name, "characterID", character.ID)
+	return nil
 }
 
-func (kp *KeyPair) LoadCharacter(characterIndex uint64, player *Player, server *Server) (*Character, error) {
-	var characterData []byte
-	err := kp.db.View(func(tx *bolt.Tx) error {
-		bucket := tx.Bucket([]byte("Characters"))
-		if bucket == nil {
-			return fmt.Errorf("characters bucket not found")
-		}
-		indexKey := fmt.Sprintf("%d", characterIndex)
-		characterData = bucket.Get([]byte(indexKey))
-		return nil
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	if characterData == nil {
-		return nil, fmt.Errorf("character not found")
+func (kp *KeyPair) LoadCharacter(characterID uuid.UUID, player *Player, server *Server) (*Character, error) {
+	key := map[string]*dynamodb.AttributeValue{
+		"Index": {S: aws.String(characterID.String())},
 	}
 
 	var cd CharacterData
-	if err := json.Unmarshal(characterData, &cd); err != nil {
-		return nil, fmt.Errorf("error unmarshalling character data: %w", err)
+	err := kp.Get("characters", key, &cd)
+	if err != nil {
+		return nil, fmt.Errorf("error loading character data: %w", err)
 	}
 
 	character := &Character{
@@ -176,16 +155,16 @@ func (kp *KeyPair) LoadCharacter(characterIndex uint64, player *Player, server *
 	if character.Room != nil {
 		character.Room.Mutex.Lock()
 		if character.Room.Characters == nil {
-			character.Room.Characters = make(map[uint64]*Character)
+			character.Room.Characters = make(map[uuid.UUID]*Character)
 		}
-		character.Room.Characters[character.Index] = character
+		character.Room.Characters[character.ID] = character
 		character.Room.Mutex.Unlock()
-		log.Printf("Added character %s (ID: %d) to room %d", character.Name, character.Index, character.Room.RoomID)
+		Logger.Info("Added character to room", "characterName", character.Name, "characterID", character.ID, "roomID", character.Room.RoomID)
 	} else {
-		log.Printf("Warning: Character %s (ID: %d) loaded without a valid room", character.Name, character.Index)
+		Logger.Warn("Character loaded without a valid room", "characterName", character.Name, "characterID", character.ID)
 	}
 
-	log.Printf("Loaded character %s (Index %d) in Room %d", character.Name, character.Index, character.Room.RoomID)
+	Logger.Info("Loaded character in room", "characterName", character.Name, "characterID", character.ID, "roomID", character.Room.RoomID)
 
 	return character, nil
 }
@@ -193,29 +172,21 @@ func (kp *KeyPair) LoadCharacter(characterIndex uint64, player *Player, server *
 func (kp *KeyPair) LoadCharacterNames() (map[string]bool, error) {
 	names := make(map[string]bool)
 
-	err := kp.db.View(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte("Characters"))
-		if b == nil {
-			return fmt.Errorf("characters bucket not found")
-		}
+	var characters []struct {
+		Name string `dynamodbav:"Name"`
+	}
 
-		return b.ForEach(func(k, v []byte) error {
-			var cd CharacterData
-			if err := json.Unmarshal(v, &cd); err != nil {
-				log.Printf("Error unmarshalling character data: %v", err)
-			}
+	err := kp.Scan("characters", &characters)
+	if err != nil {
+		return nil, fmt.Errorf("error scanning characters: %w", err)
+	}
 
-			names[strings.ToLower(cd.Name)] = true
-			return nil
-		})
-	})
+	for _, character := range characters {
+		names[strings.ToLower(character.Name)] = true
+	}
 
 	if len(names) == 0 {
 		return names, fmt.Errorf("no characters found")
-	}
-
-	if err != nil {
-		return names, fmt.Errorf("error reading from BoltDB: %w", err)
 	}
 
 	return names, nil
@@ -225,7 +196,7 @@ func SaveActiveCharacters(s *Server) error {
 	s.Mutex.Lock()
 	defer s.Mutex.Unlock()
 
-	log.Println("Saving active characters...")
+	Logger.Info("Saving active characters...")
 
 	for _, character := range s.Characters {
 		err := s.Database.WriteCharacter(character)
@@ -234,7 +205,7 @@ func SaveActiveCharacters(s *Server) error {
 		}
 	}
 
-	log.Println("Active characters saved successfully.")
+	Logger.Info("Active characters saved successfully.")
 
 	return nil
 }
@@ -283,7 +254,7 @@ func WearItem(c *Character, item *Item) error {
 
 func ListInventory(c *Character) string {
 
-	log.Printf("Character %s is listing inventory", c.Name)
+	Logger.Debug("Character is listing inventory", "characterName", c.Name)
 
 	c.Mutex.Lock()
 	defer c.Mutex.Unlock()
@@ -318,7 +289,7 @@ func ListInventory(c *Character) string {
 
 func AddToInventory(c *Character, item *Item) {
 
-	log.Printf("Character %s is adding item %s to inventory", c.Name, item.Name)
+	Logger.Debug("Character is adding item to inventory", "characterName", c.Name, "itemName", item.Name)
 
 	c.Mutex.Lock()
 	defer c.Mutex.Unlock()
@@ -335,7 +306,7 @@ func AddToInventory(c *Character, item *Item) {
 
 func FindInInventory(c *Character, itemName string) *Item {
 
-	log.Printf("Character %s is searching inventory for item %s", c.Name, itemName)
+	Logger.Debug("Character is searching inventory for item", "characterName", c.Name, "itemName", itemName)
 
 	c.Mutex.Lock()
 	defer c.Mutex.Unlock()
@@ -353,7 +324,7 @@ func FindInInventory(c *Character, itemName string) *Item {
 
 func RemoveFromInventory(c *Character, item *Item) {
 
-	log.Printf("Character %s is removing item %s from inventory", c.Name, item.Name)
+	Logger.Debug("Character is removing item from inventory", "characterName", c.Name, "itemName", item.Name)
 
 	c.Mutex.Lock()
 	defer c.Mutex.Unlock()
@@ -370,7 +341,7 @@ func RemoveFromInventory(c *Character, item *Item) {
 
 func CanCarryItem(c *Character, item *Item) bool {
 
-	log.Printf("Character %s is checking if they can carry item %s", c.Name, item.Name)
+	Logger.Info("Character is checking if they can carry item", "characterName", c.Name, "itemName", item.Name)
 
 	// Placeholder implementation
 	return true

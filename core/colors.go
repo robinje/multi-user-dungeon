@@ -2,7 +2,6 @@ package core
 
 import (
 	"fmt"
-	"log"
 )
 
 // ColorMap maps color names to ANSI color codes.
@@ -20,7 +19,7 @@ var ColorMap = map[string]string{
 // ApplyColor applies the specified color to the text if the color exists in ColorMap.
 func ApplyColor(colorName, text string) string {
 
-	log.Printf("Applying color %s to text: %s", colorName, text)
+	Logger.Debug("Applying color to text", "colorName", colorName, "text", text)
 
 	if colorCode, exists := ColorMap[colorName]; exists {
 		return fmt.Sprintf("\033[%sm%s\033[0m", colorCode, text)

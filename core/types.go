@@ -1,12 +1,15 @@
 package core
 
 import (
+	"context"
+	"log/slog"
 	"net"
 	"sync"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs"
+	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/google/uuid"
-	bolt "go.etcd.io/bbolt"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -17,22 +20,37 @@ type Index struct {
 }
 
 type Configuration struct {
-	Port           uint16  `json:"Port"`
-	UserPoolID     string  `json:"UserPoolId"`
-	ClientSecret   string  `json:"UserPoolClientSecret"`
-	UserPoolRegion string  `json:"UserPoolRegion"`
-	ClientID       string  `json:"UserPoolClientId"`
-	DataFile       string  `json:"DataFile"`
-	Balance        float64 `json:"Balance"`
-	AutoSave       uint16  `json:"AutoSave"`
-	Essence        uint16  `json:"StartingEssence"`
-	Health         uint16  `json:"StartingHealth"`
+	Server struct {
+		Port uint16 `yaml:"Port"`
+	} `yaml:"Server"`
+	Aws struct {
+		Region string `yaml:"Region"`
+	} `yaml:"Aws"`
+	Cognito struct {
+		UserPoolID     string `yaml:"UserPoolId"`
+		ClientSecret   string `yaml:"UserPoolClientSecret"`
+		ClientID       string `yaml:"UserPoolClientId"`
+		UserPoolDomain string `yaml:"UserPoolDomain"`
+		UserPoolArn    string `yaml:"UserPoolArn"`
+	} `yaml:"Cognito"`
+	Game struct {
+		Balance         float64 `yaml:"Balance"`
+		AutoSave        uint16  `yaml:"AutoSave"`
+		StartingEssence uint16  `yaml:"StartingEssence"`
+		StartingHealth  uint16  `yaml:"StartingHealth"`
+	} `yaml:"Game"`
+	Logging struct {
+		ApplicationName string `yaml:"ApplicationName"`
+		LogLevel        int    `yaml:"LogLevel"`
+		LogGroup        string `yaml:"LogGroup"`
+		LogStream       string `yaml:"LogStream"`
+		MetricNamespace string `yaml:"MetricNamespace"`
+	} `yaml:"Logging"`
 }
 
 type KeyPair struct {
-	db    *bolt.DB
-	file  string
-	Mutex sync.Mutex // Mutex to synchronize write access
+	db    *dynamodb.DynamoDB
+	Mutex sync.Mutex
 }
 
 type Server struct {
@@ -46,7 +64,7 @@ type Server struct {
 	Database        *KeyPair
 	PlayerIndex     *Index
 	CharacterExists map[string]bool
-	Characters      map[string]*Character
+	Characters      map[uuid.UUID]*Character
 	Balance         float64
 	AutoSave        uint16
 	Archetypes      *ArchetypesData
@@ -54,6 +72,7 @@ type Server struct {
 	Essence         uint16
 	Items           map[uint64]*Item
 	ItemPrototypes  map[uint64]*Item
+	Context         context.Context
 	Mutex           sync.Mutex
 }
 
@@ -70,7 +89,7 @@ type Player struct {
 	Server        *Server
 	ConsoleWidth  int
 	ConsoleHeight int
-	CharacterList map[string]uint64
+	CharacterList map[string]uuid.UUID
 	Character     *Character
 	LoginTime     time.Time
 	PasswordHash  string
@@ -78,30 +97,29 @@ type Player struct {
 }
 
 type PlayerData struct {
-	Name          string
-	CharacterList map[string]uint64
+	Name          string            `json:"name" dynamodbav:"Name"`
+	CharacterList map[string]string `json:"characterList" dynamodbav:"CharacterList"`
 }
 
 type Room struct {
-	RoomID      int64
-	Area        string
-	Title       string
-	Description string
-	Exits       map[string]*Exit
-	Characters  map[uint64]*Character
-	Items       map[string]*Item
-	Mutex       sync.Mutex
+	RoomID      int64                    `json:"roomID" dynamodbav:"RoomID"`
+	Area        string                   `json:"area" dynamodbav:"Area"`
+	Title       string                   `json:"title" dynamodbav:"Title"`
+	Description string                   `json:"description" dynamodbav:"Description"`
+	Exits       map[string]*Exit         `json:"-"`
+	Characters  map[uuid.UUID]*Character `json:"-"`
+	Items       map[string]*Item         `json:"-"`
+	Mutex       sync.Mutex               `json:"-"`
 }
 
 type Exit struct {
-	ExitID     int64
-	TargetRoom int64
-	Visible    bool
-	Direction  string
+	TargetRoom int64  `json:"targetRoom" dynamodbav:"TargetRoom"`
+	Visible    bool   `json:"visible" dynamodbav:"Visible"`
+	Direction  string `json:"direction" dynamodbav:"Direction"`
 }
 
 type Character struct {
-	Index      uint64
+	ID         uuid.UUID
 	Player     *Player
 	Name       string
 	Attributes map[string]float64
@@ -116,22 +134,22 @@ type Character struct {
 
 // CharacterData for unmarshalling character.
 type CharacterData struct {
-	Index      uint64             `json:"index"`
-	PlayerID   string             `json:"playerID"`
-	Name       string             `json:"name"`
-	Attributes map[string]float64 `json:"attributes"`
-	Abilities  map[string]float64 `json:"abilities"`
-	Essence    float64            `json:"essence"`
-	Health     float64            `json:"health"`
-	RoomID     int64              `json:"roomID"`
-	Inventory  map[string]string  `json:"inventory"` // Changed to map[string]string for UUIDs
+	Index      string             `json:"index" dynamodbav:"Index"`
+	PlayerID   string             `json:"playerID" dynamodbav:"PlayerID"`
+	Name       string             `json:"name" dynamodbav:"Name"`
+	Attributes map[string]float64 `json:"attributes" dynamodbav:"Attributes"`
+	Abilities  map[string]float64 `json:"abilities" dynamodbav:"Abilities"`
+	Essence    float64            `json:"essence" dynamodbav:"Essence"`
+	Health     float64            `json:"health" dynamodbav:"Health"`
+	RoomID     int64              `json:"roomID" dynamodbav:"RoomID"`
+	Inventory  map[string]string  `json:"inventory" dynamodbav:"Inventory"`
 }
 
 type Archetype struct {
-	Name        string             `json:"name"`
-	Description string             `json:"description"`
-	Attributes  map[string]float64 `json:"Attributes"`
-	Abilities   map[string]float64 `json:"Abilities"`
+	Name        string             `json:"name" dynamodbav:"Name"`
+	Description string             `json:"description" dynamodbav:"Description"`
+	Attributes  map[string]float64 `json:"Attributes" dynamodbav:"Attributes"`
+	Abilities   map[string]float64 `json:"Abilities" dynamodbav:"Abilities"`
 }
 
 type ArchetypesData struct {
@@ -162,27 +180,38 @@ type Item struct {
 }
 
 type ItemData struct {
-	ID          string            `json:"id"`
-	Name        string            `json:"name"`
-	Description string            `json:"description"`
-	Mass        float64           `json:"mass"`
-	Value       uint64            `json:"value"`
-	Stackable   bool              `json:"stackable"`
-	MaxStack    uint32            `json:"max_stack"`
-	Quantity    uint32            `json:"quantity"`
-	Wearable    bool              `json:"wearable"`
-	WornOn      []string          `json:"worn_on"`
-	Verbs       map[string]string `json:"verbs"`
-	Overrides   map[string]string `json:"overrides"`
-	TraitMods   map[string]int8   `json:"trait_mods"`
-	Container   bool              `json:"container"`
-	Contents    []string          `json:"contents"`
-	IsPrototype bool              `json:"is_prototype"`
-	IsWorn      bool              `json:"is_worn"`
-	CanPickUp   bool              `json:"can_pick_up"`
-	Metadata    map[string]string `json:"metadata"`
+	ID          string            `json:"id" dynamodbav:"ID"`
+	Name        string            `json:"name" dynamodbav:"Name"`
+	Description string            `json:"description" dynamodbav:"Description"`
+	Mass        float64           `json:"mass" dynamodbav:"Mass"`
+	Value       uint64            `json:"value" dynamodbav:"Value"`
+	Stackable   bool              `json:"stackable" dynamodbav:"Stackable"`
+	MaxStack    uint32            `json:"max_stack" dynamodbav:"MaxStack"`
+	Quantity    uint32            `json:"quantity" dynamodbav:"Quantity"`
+	Wearable    bool              `json:"wearable" dynamodbav:"Wearable"`
+	WornOn      []string          `json:"worn_on" dynamodbav:"WornOn"`
+	Verbs       map[string]string `json:"verbs" dynamodbav:"Verbs"`
+	Overrides   map[string]string `json:"overrides" dynamodbav:"Overrides"`
+	TraitMods   map[string]int8   `json:"trait_mods" dynamodbav:"TraitMods"`
+	Container   bool              `json:"container" dynamodbav:"Container"`
+	Contents    []string          `json:"contents" dynamodbav:"Contents"`
+	IsPrototype bool              `json:"is_prototype" dynamodbav:"IsPrototype"`
+	IsWorn      bool              `json:"is_worn" dynamodbav:"IsWorn"`
+	CanPickUp   bool              `json:"can_pick_up" dynamodbav:"CanPickUp"`
+	Metadata    map[string]string `json:"metadata" dynamodbav:"Metadata"`
 }
 
 type PrototypesData struct {
 	ItemPrototypes []ItemData `json:"itemPrototypes"`
+}
+
+type CloudWatchHandler struct {
+	client    *cloudwatchlogs.Client
+	logGroup  string
+	logStream string
+	attrs     []slog.Attr
+}
+
+type MultiHandler struct {
+	handlers []slog.Handler
 }

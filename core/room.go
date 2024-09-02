@@ -1,17 +1,18 @@
 package core
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
 
-	bolt "go.etcd.io/bbolt"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/dynamodb"
+	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
+	"github.com/google/uuid"
 )
 
 func LoadRoomsFromJSON(fileName string) (map[int64]*Room, error) {
@@ -50,7 +51,7 @@ func LoadRoomsFromJSON(fileName string) (map[int64]*Room, error) {
 			Title:       roomData.Title,
 			Description: roomData.Description,
 			Exits:       make(map[string]*Exit),
-			Characters:  make(map[uint64]*Character),
+			Characters:  make(map[uuid.UUID]*Character),
 			Items:       make(map[string]*Item),
 		}
 
@@ -74,124 +75,86 @@ func LoadRoomsFromJSON(fileName string) (map[int64]*Room, error) {
 	return rooms, nil
 }
 
-func (k *KeyPair) StoreRooms(rooms map[int64]*Room) error {
-	return k.db.Update(func(tx *bolt.Tx) error {
-		roomsBucket, err := tx.CreateBucketIfNotExists([]byte("Rooms"))
+func (kp *KeyPair) StoreRooms(rooms map[int64]*Room) error {
+	for _, room := range rooms {
+		err := kp.WriteRoom(room)
 		if err != nil {
-			return err
+			return fmt.Errorf("error storing room %d: %w", room.RoomID, err)
 		}
-
-		exitsBucket, err := tx.CreateBucketIfNotExists([]byte("Exits"))
-		if err != nil {
-			return err
-		}
-
-		for _, room := range rooms {
-			roomData := struct {
-				RoomID      int64    `json:"RoomID"`
-				Area        string   `json:"Area"`
-				Title       string   `json:"Title"`
-				Description string   `json:"Description"`
-				ItemIDs     []string `json:"ItemIDs"`
-			}{
-				RoomID:      room.RoomID,
-				Area:        room.Area,
-				Title:       room.Title,
-				Description: room.Description,
-				ItemIDs:     make([]string, 0, len(room.Items)),
-			}
-
-			for itemID := range room.Items {
-				roomData.ItemIDs = append(roomData.ItemIDs, itemID)
-			}
-
-			roomBytes, err := json.Marshal(roomData)
-			if err != nil {
-				return fmt.Errorf("error marshaling room data: %v", err)
-			}
-
-			roomKey := strconv.FormatInt(room.RoomID, 10)
-			if err := roomsBucket.Put([]byte(roomKey), roomBytes); err != nil {
-				return fmt.Errorf("error writing room data: %v", err)
-			}
-
-			for dir, exit := range room.Exits {
-				exitData, err := json.Marshal(exit)
-				if err != nil {
-					return fmt.Errorf("error marshaling exit data: %v", err)
-				}
-
-				exitKey := fmt.Sprintf("%d_%s", room.RoomID, dir)
-				if err := exitsBucket.Put([]byte(exitKey), exitData); err != nil {
-					return fmt.Errorf("error writing exit data: %v", err)
-				}
-			}
-		}
-
-		return nil
-	})
+	}
+	return nil
 }
 
 func (kp *KeyPair) LoadRooms() (map[int64]*Room, error) {
 	rooms := make(map[int64]*Room)
 
-	err := kp.db.View(func(tx *bolt.Tx) error {
-		roomsBucket := tx.Bucket([]byte("Rooms"))
-		if roomsBucket == nil {
-			return fmt.Errorf("rooms bucket not found")
-		}
+	var roomsData []struct {
+		RoomID      int64    `dynamodbav:"RoomID"`
+		Area        string   `dynamodbav:"Area"`
+		Title       string   `dynamodbav:"Title"`
+		Description string   `dynamodbav:"Description"`
+		ItemIDs     []string `dynamodbav:"ItemIDs"`
+	}
 
-		exitsBucket := tx.Bucket([]byte("Exits"))
-		if exitsBucket == nil {
-			return fmt.Errorf("exits bucket not found")
-		}
-
-		return roomsBucket.ForEach(func(k, v []byte) error {
-			var roomData struct {
-				RoomID      int64    `json:"RoomID"`
-				Area        string   `json:"Area"`
-				Title       string   `json:"Title"`
-				Description string   `json:"Description"`
-				ItemIDs     []string `json:"ItemIDs"`
-			}
-			if err := json.Unmarshal(v, &roomData); err != nil {
-				return fmt.Errorf("error unmarshalling room data: %w", err)
-			}
-
-			room := NewRoom(roomData.RoomID, roomData.Area, roomData.Title, roomData.Description)
-
-			// Load exits for this room
-			exitPrefix := fmt.Sprintf("%d_", roomData.RoomID)
-			c := exitsBucket.Cursor()
-			for k, v := c.Seek([]byte(exitPrefix)); k != nil && bytes.HasPrefix(k, []byte(exitPrefix)); k, v = c.Next() {
-				var exit Exit
-				if err := json.Unmarshal(v, &exit); err != nil {
-					return fmt.Errorf("error unmarshalling exit data: %w", err)
-				}
-				room.AddExit(&exit)
-			}
-
-			// Load items (existing code)
-			for _, itemID := range roomData.ItemIDs {
-				item, err := kp.LoadItem(itemID, false)
-				if err != nil {
-					log.Printf("Warning: Failed to load item %s for room %d: %v", itemID, roomData.RoomID, err)
-					continue
-				}
-				room.AddItem(item)
-			}
-
-			room.CleanupNilItems()
-			rooms[room.RoomID] = room
-			return nil
-		})
-	})
-
+	err := kp.Scan("rooms", &roomsData)
 	if err != nil {
-		return nil, fmt.Errorf("error reading room data from BoltDB: %w", err)
+		return nil, fmt.Errorf("error scanning rooms: %w", err)
+	}
+
+	for _, roomData := range roomsData {
+		room := NewRoom(roomData.RoomID, roomData.Area, roomData.Title, roomData.Description)
+
+		// Load exits for this room
+		exits, err := kp.LoadExits(roomData.RoomID)
+		if err != nil {
+			Logger.Warn("Failed to load exits for room", "room_id", roomData.RoomID, "error", err)
+		}
+		room.Exits = exits
+
+		// Load items
+		for _, itemID := range roomData.ItemIDs {
+			item, err := kp.LoadItem(itemID, false)
+			if err != nil {
+				Logger.Warn("Failed to load item for room", "item_id", itemID, "room_id", roomData.RoomID, "error", err)
+				continue
+			}
+			room.AddItem(item)
+		}
+
+		room.CleanupNilItems()
+		rooms[room.RoomID] = room
 	}
 
 	return rooms, nil
+}
+
+func (kp *KeyPair) LoadExits(roomID int64) (map[string]*Exit, error) {
+	exits := make(map[string]*Exit)
+
+	var exitsData []struct {
+		RoomID     int64  `dynamodbav:"RoomID"`
+		Direction  string `dynamodbav:"Direction"`
+		TargetRoom int64  `dynamodbav:"TargetRoom"`
+		Visible    bool   `dynamodbav:"Visible"`
+	}
+
+	err := kp.Query("exits", "RoomID = :roomID", map[string]*dynamodb.AttributeValue{
+		":roomID": {N: aws.String(strconv.FormatInt(roomID, 10))},
+	}, &exitsData)
+
+	if err != nil {
+		return nil, fmt.Errorf("error querying exits: %w", err)
+	}
+
+	for _, exitData := range exitsData {
+		exits[exitData.Direction] = &Exit{
+			TargetRoom: exitData.TargetRoom,
+			Visible:    exitData.Visible,
+			Direction:  exitData.Direction,
+		}
+	}
+
+	return exits, nil
 }
 
 func DisplayRooms(rooms map[int64]*Room) {
@@ -205,55 +168,69 @@ func DisplayRooms(rooms map[int64]*Room) {
 }
 
 func (kp *KeyPair) WriteRoom(room *Room) error {
-	// Create a serializable version of the room data
 	roomData := struct {
-		RoomID      int64            `json:"RoomID"`
-		Area        string           `json:"Area"`
-		Title       string           `json:"Title"`
-		Description string           `json:"Description"`
-		Exits       map[string]*Exit `json:"Exits"`
-		ItemIDs     []string         `json:"ItemIDs"`
+		RoomID      int64    `dynamodbav:"RoomID"`
+		Area        string   `dynamodbav:"Area"`
+		Title       string   `dynamodbav:"Title"`
+		Description string   `dynamodbav:"Description"`
+		ItemIDs     []string `dynamodbav:"ItemIDs"`
 	}{
 		RoomID:      room.RoomID,
 		Area:        room.Area,
 		Title:       room.Title,
 		Description: room.Description,
-		Exits:       room.Exits,
 		ItemIDs:     make([]string, 0, len(room.Items)),
 	}
 
-	// Collect item IDs
 	for itemID := range room.Items {
 		roomData.ItemIDs = append(roomData.ItemIDs, itemID)
 	}
 
-	// Serialize the room data
-	serializedRoom, err := json.Marshal(roomData)
+	av, err := dynamodbattribute.MarshalMap(roomData)
 	if err != nil {
-		return fmt.Errorf("error serializing room data: %w", err)
+		return fmt.Errorf("error marshalling room data: %w", err)
 	}
 
-	// Write the room data to the database
-	err = kp.db.Update(func(tx *bolt.Tx) error {
-		roomsBucket, err := tx.CreateBucketIfNotExists([]byte("Rooms"))
-		if err != nil {
-			return fmt.Errorf("error creating/accessing Rooms bucket: %w", err)
-		}
-
-		roomKey := strconv.FormatInt(room.RoomID, 10)
-		err = roomsBucket.Put([]byte(roomKey), serializedRoom)
-		if err != nil {
-			return fmt.Errorf("error writing room data: %w", err)
-		}
-
-		return nil
-	})
-
-	if err != nil {
-		return fmt.Errorf("database transaction failed: %w", err)
+	key := map[string]*dynamodb.AttributeValue{
+		"RoomID": {N: aws.String(strconv.FormatInt(room.RoomID, 10))},
 	}
 
-	log.Printf("Successfully wrote room %d to database", room.RoomID)
+	err = kp.Put("rooms", key, av)
+	if err != nil {
+		return fmt.Errorf("error writing room data: %w", err)
+	}
+
+	// Write exits
+	for direction, exit := range room.Exits {
+		exitData := struct {
+			RoomID     int64  `dynamodbav:"RoomID"`
+			Direction  string `dynamodbav:"Direction"`
+			TargetRoom int64  `dynamodbav:"TargetRoom"`
+			Visible    bool   `dynamodbav:"Visible"`
+		}{
+			RoomID:     room.RoomID,
+			Direction:  direction,
+			TargetRoom: exit.TargetRoom,
+			Visible:    exit.Visible,
+		}
+
+		av, err := dynamodbattribute.MarshalMap(exitData)
+		if err != nil {
+			return fmt.Errorf("error marshalling exit data: %w", err)
+		}
+
+		exitKey := map[string]*dynamodb.AttributeValue{
+			"RoomID":    {N: aws.String(strconv.FormatInt(room.RoomID, 10))},
+			"Direction": {S: aws.String(direction)},
+		}
+
+		err = kp.Put("exits", exitKey, av)
+		if err != nil {
+			return fmt.Errorf("error writing exit data: %w", err)
+		}
+	}
+
+	Logger.Info("Successfully wrote room to database", "room_id", room.RoomID)
 	return nil
 }
 
@@ -277,12 +254,12 @@ func NewRoom(RoomID int64, Area string, Title string, Description string) *Room 
 		Title:       Title,
 		Description: Description,
 		Exits:       make(map[string]*Exit),
-		Characters:  make(map[uint64]*Character),
+		Characters:  make(map[uuid.UUID]*Character),
 		Items:       make(map[string]*Item),
 		Mutex:       sync.Mutex{},
 	}
 
-	log.Printf("Created room %s with ID %d", room.Title, room.RoomID)
+	Logger.Info("Created room", "room_title", room.Title, "room_id", room.RoomID)
 
 	return room
 }
@@ -292,7 +269,7 @@ func (r *Room) AddExit(exit *Exit) {
 }
 
 func Move(c *Character, direction string) {
-	log.Printf("Player %s is attempting to move %s", c.Name, direction)
+	Logger.Info("Player is attempting to move", "player_name", c.Name, "direction", direction)
 
 	c.Mutex.Lock()
 	defer c.Mutex.Unlock()
@@ -317,7 +294,7 @@ func Move(c *Character, direction string) {
 	// Safely remove the character from the old room
 	oldRoom := c.Room
 	oldRoom.Mutex.Lock()
-	delete(oldRoom.Characters, c.Index)
+	delete(oldRoom.Characters, c.ID) // Changed from c.Index to c.ID
 	oldRoom.Mutex.Unlock()
 	SendRoomMessage(oldRoom, fmt.Sprintf("\n\r%s has left going %s.\n\r", c.Name, direction))
 
@@ -327,9 +304,9 @@ func Move(c *Character, direction string) {
 	// Safely add the character to the new room
 	newRoom.Mutex.Lock()
 	if newRoom.Characters == nil {
-		newRoom.Characters = make(map[uint64]*Character)
+		newRoom.Characters = make(map[uuid.UUID]*Character) // Changed from uint64 to uuid.UUID
 	}
-	newRoom.Characters[c.Index] = c
+	newRoom.Characters[c.ID] = c // Changed from c.Index to c.ID
 	newRoom.Mutex.Unlock()
 
 	SendRoomMessage(newRoom, fmt.Sprintf("\n\r%s has arrived.\n\r", c.Name))
@@ -339,7 +316,7 @@ func Move(c *Character, direction string) {
 
 func SendRoomMessage(r *Room, message string) {
 
-	log.Printf("Sending message to room %d: %s", r.RoomID, message)
+	Logger.Info("Sending message to room", "room_id", r.RoomID, "message", message)
 
 	for _, character := range r.Characters {
 		character.Player.ToPlayer <- message
@@ -352,11 +329,11 @@ func SendRoomMessage(r *Room, message string) {
 func RoomInfo(r *Room, character *Character) string {
 
 	if r == nil {
-		log.Printf("Error: Attempted to get room info for nil room (Character: %s)", character.Name)
+		Logger.Error("Attempted to get room info for nil room", "character_name", character.Name)
 		return "\n\rError: You are not in a valid room.\n\r"
 	}
 	if character == nil {
-		log.Printf("Error: Attempted to get room info for nil character (Room ID: %d)", r.RoomID)
+		Logger.Error("Attempted to get room info for nil character", "room_id", r.RoomID)
 		return "\n\rError: Invalid character.\n\r"
 	}
 
@@ -401,7 +378,7 @@ func RoomInfo(r *Room, character *Character) string {
 
 func sortedExits(r *Room) []string {
 
-	log.Printf("Sorting exits for room %d", r.RoomID)
+	Logger.Info("Sorting exits for room", "room_id", r.RoomID)
 
 	if r.Exits == nil {
 		return []string{}
@@ -418,7 +395,7 @@ func sortedExits(r *Room) []string {
 func getOtherCharacters(r *Room, currentCharacter *Character) []string {
 
 	if r == nil || r.Characters == nil {
-		log.Printf("Warning: Room or Characters map is nil in getOtherCharacters")
+		Logger.Warn("Room or Characters map is nil in getOtherCharacters")
 		return []string{}
 	}
 
@@ -429,31 +406,31 @@ func getOtherCharacters(r *Room, currentCharacter *Character) []string {
 		}
 	}
 
-	log.Printf("Found %d other characters in room %d", len(otherCharacters), r.RoomID)
+	Logger.Info("Found other characters in room", "count", len(otherCharacters), "room_id", r.RoomID)
 	return otherCharacters
 }
 
 func getVisibleItems(r *Room) []string {
-	log.Printf("Getting visible items in room %d", r.RoomID)
+	Logger.Info("Getting visible items in room", "room_id", r.RoomID)
 
 	r.Mutex.Lock()
 	defer r.Mutex.Unlock()
 
 	if r.Items == nil {
-		log.Printf("Warning: Items map is nil for room %d", r.RoomID)
+		Logger.Warn("Items map is nil for room", "room_id", r.RoomID)
 		return []string{}
 	}
 
 	visibleItems := make([]string, 0, len(r.Items))
 	for itemID, item := range r.Items {
 		if item == nil {
-			log.Printf("Warning: Nil item found with ID %s in room %d", itemID, r.RoomID)
+			Logger.Warn("Nil item found with ID in room", "item_id", itemID, "room_id", r.RoomID)
 			continue
 		}
 		visibleItems = append(visibleItems, item.Name)
-		log.Printf("Found item %s (ID: %s) in room %d", item.Name, itemID, r.RoomID)
+		Logger.Info("Found item", "item_name", item.Name, "item_id", itemID)
 	}
 
-	log.Printf("Total visible items in room %d: %d", r.RoomID, len(visibleItems))
+	Logger.Info("Total visible items in room", "room_id", r.RoomID, "count", len(visibleItems))
 	return visibleItems
 }

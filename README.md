@@ -12,6 +12,8 @@ The current implementation includes an SSH server for secure authentication and 
 - [x] Implement a database for the game.
 - [x] Implement a character creation system.
 - [x] Implement a text colorization system.
+- [x] Add Cloudwatch Logs and Metrics.
+- [x] Build an interactive password change system.
 - [ ] Construct the item system.
 - [ ] Develop game mechanics.
 - [ ] Design an ecenomic framework.
@@ -21,10 +23,12 @@ The current implementation includes an SSH server for secure authentication and 
 - [ ] Build a direct messaging system.
 - [ ] Develop more complex Non-Player Characters (NPCs) with basic AI.
 - [ ] Implement a dynamic content updating system.
-- [ ] Build an interactive password change system.
 - [ ] Implement a player-to-player trading system.
-- [ ] Develop more complex Non-Player Characters (NPCs) with basic AI.
-- [ ] Build an interactive password change system.
+- [ ] Create a crafting system for items.
+- [ ] Develop a weather and time system.
+- [ ] Implement a party system for cooperative gameplay.
+- [ ] Implement a magic system.
+
 
 ## TODO
 
@@ -41,43 +45,61 @@ The current implementation includes an SSH server for secure authentication and 
 - [x] Add wear item command.
 - [x] Add remove item command.
 - [x] Add examine item command.
+- [x] Implement Persistent Logging.
+- [x] Load item prototypes at start.
+- [x] Create function for creating items from prototypes.
+- [x] Ensure that a message is passed when a characters is added to the game.
 - [ ] Add a Message of the Day (MOTD) command.
-- [ ] Implement Persistent Logging.
 - [ ] Add the ability to delete characters.
 - [ ] Add the ability to delete accounts.
 - [ ] Implement an obscenity filter.
 - [ ] Validate graph of loaded rooms and exits.
-- [ ] Load item prototypes at start.
-- [ ] Create function for creating items from prototypes.
 - [ ] Add look at item command.
 - [ ] Improve the say commands.
 - [ ] Improve the input filters
-- [ ] Ensure that a message is passed when a characters is added to the game.
 
+
+
+## Project Overview
+
+The engine is primarily written in Go (version 1.22) with an SSH server for secure authentication and communication between the player and the server. Additionally, there are database utility scripts written in Python (version 3.12) and various deployment scripts.
+
+Key components:
+- Go server (v1.22) for game logic and player interactions
+- Python (v3.12) scripts for database management and deployment
+- AWS services for database (DynamoDB) and Identity Provider (Cognito)
+- CloudFormation templates for AWS resource management
 
 ## Deployment
 
-Deploying the server involves several steps, from setting up your environment to running the server. Follow these steps to ensure a smooth deployment process:
+Deploying the server involves several steps:
 
-1. **Install Go**: The server is written in Go, so you need to have Go installed on your system. Download it from the [Go website](https://golang.org/).
+1. Ensure you have Go 1.22 and Python 3.12 installed.
+2. Clone the repository.
+3. Install the required Python packages:
+   ```
+   pip install -r requirements/scripts-requirements.txt
+   ```
+4. Set up your AWS credentials (access key ID and secret access key) in your environment variables or AWS credentials file.
+5. Run the deployment script:
+   ```
+   python scripts/deploy.py
+   ```
+   This script will create the necessary AWS resources using CloudFormation.
+6. Once deployment is complete, build and run the server:
+   ```
+   go build ./ssh_server
+   ./ssh_server
+   ```
 
-2. **Set Up AWS Account**: An AWS account is required for deploying certain components of the server, such as the authentication system. Sign up for an account [here](https://aws.amazon.com/) if you don't already have one.
+## Development
 
-3. **Configure AWS Credentials**: Ensure you have AWS credentials configured on your machine. These credentials should have sufficient permissions to create a Cognito user pool and the necessary IAM policies and roles. You can configure your credentials by using the AWS CLI and running `aws configure`.
-
-4. **Deploy Cognito and IAM Resources**:
-
-   - Navigate to the `scripts` directory within the project.
-   - Run the `deploy_cognito.py` script using the command `python deploy_cognito.py`. This script will create the Cognito instance along with the required IAM policies and roles. It will also generate the `config.json` file needed to run the server. Ensure you have Python installed on your machine to execute this script.
-
-5. **Install Go Dependencies**: Before starting the server, you need to install the necessary Go dependencies. In the root directory of the project, run `go mod download` to fetch all required packages.
-
-6. **Initalize the Database**: The server uses a BoltDB database for the world data. You can initialize the database by running the `data_loader.go` script located in the `database` directory. Run the script using the command `go run .`. The output will be the `test_data.bolt` file, which contains the initial world data. Copy this file to the `mud` directory.
-
-7. **Start the Server**: Finally, you can start the server by running `go run .` from the root directory of the project. This command compiles and runs the Go application, starting up your MUD server.
-
-Ensure all steps are completed without errors before trying to connect to the server. If you encounter any issues during deployment, refer to the specific tool's documentation for troubleshooting advice.
+- The `core/` directory contains the main game logic and types.
+- The `ssh_server/` directory contains the main server implementation.
+- The `database/` directory contains Python scripts for database management.
+- The `scripts/` directory contains deployment and utility scripts.
 
 ## License
 
 This project is licensed under the Apache 2.0 License. See the LICENSE file for more details.
+

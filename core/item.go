@@ -3,11 +3,12 @@ package core
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/dynamodb"
+	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
 	"github.com/google/uuid"
-	bolt "go.etcd.io/bbolt"
 )
 
 func DisplayPrototypes(prototypes *PrototypesData) {
@@ -36,127 +37,99 @@ func LoadPrototypesFromJSON(fileName string) (*PrototypesData, error) {
 }
 
 func (kp *KeyPair) StorePrototypes(prototypes *PrototypesData) error {
-	return kp.db.Update(func(tx *bolt.Tx) error {
-		bucket, err := tx.CreateBucketIfNotExists([]byte("ItemPrototypes"))
+	for _, prototype := range prototypes.ItemPrototypes {
+		av, err := dynamodbattribute.MarshalMap(prototype)
 		if err != nil {
-			return err
+			return fmt.Errorf("error marshalling prototype %s: %w", prototype.Name, err)
 		}
 
-		for _, prototype := range prototypes.ItemPrototypes {
-			fmt.Println("Writing", prototype.Name)
-			data, err := json.Marshal(prototype)
-			if err != nil {
-				return err
-			}
-			if err := bucket.Put([]byte(prototype.ID), data); err != nil {
-				return err
-			}
+		key := map[string]*dynamodb.AttributeValue{
+			"ID": {S: aws.String(prototype.ID)},
 		}
-		return nil
-	})
+
+		err = kp.Put("prototypes", key, av)
+		if err != nil {
+			return fmt.Errorf("error storing prototype %s: %w", prototype.Name, err)
+		}
+
+		fmt.Printf("Stored prototype: %s\n", prototype.Name)
+	}
+
+	return nil
 }
 
 func (kp *KeyPair) LoadPrototypes() (*PrototypesData, error) {
 	prototypesData := &PrototypesData{}
 
-	err := kp.db.View(func(tx *bolt.Tx) error {
-		bucket := tx.Bucket([]byte("ItemPrototypes"))
-		if bucket == nil {
-			return fmt.Errorf("ItemPrototypes bucket does not exist")
-		}
-
-		return bucket.ForEach(func(k, v []byte) error {
-			var itemData ItemData
-			if err := json.Unmarshal(v, &itemData); err != nil {
-				return err
-			}
-
-			// Validate UUID
-			if _, err := uuid.Parse(itemData.ID); err != nil {
-				return fmt.Errorf("invalid UUID for item %s: %v", itemData.Name, err)
-			}
-
-			fmt.Printf("Reading %s (ID: %s)\n", itemData.Name, itemData.ID)
-			prototypesData.ItemPrototypes = append(prototypesData.ItemPrototypes, itemData)
-			return nil
-		})
-	})
-
+	var itemPrototypes []ItemData
+	err := kp.Scan("prototypes", &itemPrototypes)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error scanning prototypes: %w", err)
+	}
+
+	prototypesData.ItemPrototypes = itemPrototypes
+
+	for _, prototype := range prototypesData.ItemPrototypes {
+		fmt.Printf("Loaded prototype: %s - %s\n", prototype.Name, prototype.Description)
 	}
 
 	return prototypesData, nil
 }
 
 func (k *KeyPair) LoadItem(id string, isPrototype bool) (*Item, error) {
-	var objectData []byte
-	bucketName := "Items"
+	tableName := "items"
 	if isPrototype {
-		bucketName = "ItemPrototypes"
+		tableName = "prototypes"
 	}
 
-	err := k.db.View(func(tx *bolt.Tx) error {
-		bucket := tx.Bucket([]byte(bucketName))
-		if bucket == nil {
-			return fmt.Errorf("%s bucket not found", bucketName)
-		}
-		objectData = bucket.Get([]byte(id))
-		return nil
-	})
+	key := map[string]*dynamodb.AttributeValue{
+		"ID": {S: aws.String(id)},
+	}
 
+	var itemData ItemData
+	err := k.Get(tableName, key, &itemData)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error loading item data: %w", err)
 	}
 
-	if objectData == nil {
-		return nil, fmt.Errorf("object not found")
-	}
-
-	var od ItemData
-	if err := json.Unmarshal(objectData, &od); err != nil {
-		return nil, fmt.Errorf("error unmarshalling object data: %v", err)
-	}
-
-	itemID, err := uuid.Parse(od.ID)
+	itemID, err := uuid.Parse(itemData.ID)
 	if err != nil {
-		return nil, fmt.Errorf("error parsing item ID: %v", err)
+		return nil, fmt.Errorf("error parsing item ID: %w", err)
 	}
 
-	object := &Item{
+	item := &Item{
 		ID:          itemID,
-		Name:        od.Name,
-		Description: od.Description,
-		Mass:        od.Mass,
-		Value:       od.Value,
-		Stackable:   od.Stackable,
-		MaxStack:    od.MaxStack,
-		Quantity:    od.Quantity,
-		Wearable:    od.Wearable,
-		WornOn:      od.WornOn,
-		Verbs:       od.Verbs,
-		Overrides:   od.Overrides,
-		TraitMods:   od.TraitMods,
-		Container:   od.Container,
-		IsPrototype: od.IsPrototype,
-		IsWorn:      od.IsWorn,
-		CanPickUp:   od.CanPickUp,
-		Metadata:    od.Metadata,
+		Name:        itemData.Name,
+		Description: itemData.Description,
+		Mass:        itemData.Mass,
+		Value:       itemData.Value,
+		Stackable:   itemData.Stackable,
+		MaxStack:    itemData.MaxStack,
+		Quantity:    itemData.Quantity,
+		Wearable:    itemData.Wearable,
+		WornOn:      itemData.WornOn,
+		Verbs:       itemData.Verbs,
+		Overrides:   itemData.Overrides,
+		TraitMods:   itemData.TraitMods,
+		Container:   itemData.Container,
+		IsPrototype: itemData.IsPrototype,
+		IsWorn:      itemData.IsWorn,
+		CanPickUp:   itemData.CanPickUp,
+		Metadata:    itemData.Metadata,
 	}
 
-	// Load contents if the item is a container
-	if object.Container {
-		object.Contents = make([]*Item, 0, len(od.Contents))
-		for _, contentID := range od.Contents {
+	if item.Container {
+		item.Contents = make([]*Item, 0, len(itemData.Contents))
+		for _, contentID := range itemData.Contents {
 			contentItem, err := k.LoadItem(contentID, false)
 			if err != nil {
-				return nil, fmt.Errorf("error loading content item %s: %v", contentID, err)
+				return nil, fmt.Errorf("error loading content item %s: %w", contentID, err)
 			}
-			object.Contents = append(object.Contents, contentItem)
+			item.Contents = append(item.Contents, contentItem)
 		}
 	}
 
-	return object, nil
+	return item, nil
 }
 
 func (k *KeyPair) WriteItem(obj *Item) error {
@@ -165,11 +138,11 @@ func (k *KeyPair) WriteItem(obj *Item) error {
 		contentIDs = append(contentIDs, contentItem.ID.String())
 		// Recursively write contained items
 		if err := k.WriteItem(contentItem); err != nil {
-			return fmt.Errorf("error writing content item %s: %v", contentItem.ID, err)
+			return fmt.Errorf("error writing content item %s: %w", contentItem.ID, err)
 		}
 	}
 
-	objData := ItemData{
+	itemData := ItemData{
 		ID:          obj.ID.String(),
 		Name:        obj.Name,
 		Description: obj.Description,
@@ -191,31 +164,26 @@ func (k *KeyPair) WriteItem(obj *Item) error {
 		Metadata:    obj.Metadata,
 	}
 
-	serializedData, err := json.Marshal(objData)
+	av, err := dynamodbattribute.MarshalMap(itemData)
 	if err != nil {
-		return fmt.Errorf("error marshalling object data: %v", err)
+		return fmt.Errorf("error marshalling item data: %w", err)
 	}
 
-	bucketName := "Items"
+	tableName := "items"
 	if obj.IsPrototype {
-		bucketName = "ItemPrototypes"
+		tableName = "prototypes"
 	}
 
-	err = k.db.Update(func(tx *bolt.Tx) error {
-		bucket, err := tx.CreateBucketIfNotExists([]byte(bucketName))
-		if err != nil {
-			return fmt.Errorf("create bucket: %s", err)
-		}
+	key := map[string]*dynamodb.AttributeValue{
+		"ID": {S: aws.String(obj.ID.String())},
+	}
 
-		err = bucket.Put([]byte(obj.ID.String()), serializedData)
-		if err != nil {
-			return fmt.Errorf("failed to write object data: %v", err)
-		}
+	err = k.Put(tableName, key, av)
+	if err != nil {
+		return fmt.Errorf("error writing item data: %w", err)
+	}
 
-		return nil
-	})
-
-	return err
+	return nil
 }
 
 func (s *Server) SaveActiveItems() error {
@@ -223,7 +191,7 @@ func (s *Server) SaveActiveItems() error {
 		return fmt.Errorf("server is nil")
 	}
 
-	log.Println("Starting to save active items...")
+	Logger.Info("Starting to save active items...")
 
 	// Collect all items from rooms and characters
 	itemsToSave := make(map[uuid.UUID]*Item)
@@ -232,13 +200,13 @@ func (s *Server) SaveActiveItems() error {
 	if s.Rooms != nil {
 		for roomID, room := range s.Rooms {
 			if room == nil {
-				log.Printf("Warning: Nil room found with ID %d", roomID)
+				Logger.Warn("Nil room found", "roomID", roomID)
 				continue
 			}
 			room.Mutex.Lock()
 			for itemID, item := range room.Items {
 				if item == nil {
-					log.Printf("Warning: Nil item found in room %d with ID %s", roomID, itemID)
+					Logger.Warn("Nil item found in room", "roomID", roomID, "itemID", itemID)
 					continue
 				}
 				itemsToSave[item.ID] = item
@@ -246,20 +214,20 @@ func (s *Server) SaveActiveItems() error {
 			room.Mutex.Unlock()
 		}
 	} else {
-		log.Println("Warning: Server Rooms map is nil")
+		Logger.Warn("Server Rooms map is nil")
 	}
 
 	// Items in character inventories
 	if s.Characters != nil {
 		for charName, character := range s.Characters {
 			if character == nil {
-				log.Printf("Warning: Nil character found with name %s", charName)
+				Logger.Warn("Nil character found", "characterName", charName)
 				continue
 			}
 			character.Mutex.Lock()
 			for itemName, item := range character.Inventory {
 				if item == nil {
-					log.Printf("Warning: Nil item found in inventory of character %s with name %s", charName, itemName)
+					Logger.Warn("Nil item found in inventory", "characterName", charName, "itemName", itemName)
 					continue
 				}
 				itemsToSave[item.ID] = item
@@ -267,7 +235,7 @@ func (s *Server) SaveActiveItems() error {
 			character.Mutex.Unlock()
 		}
 	} else {
-		log.Println("Warning: Server Characters map is nil")
+		Logger.Warn("Server Characters map is nil")
 	}
 
 	// Save all collected items
@@ -277,18 +245,18 @@ func (s *Server) SaveActiveItems() error {
 
 	for _, item := range itemsToSave {
 		if item == nil {
-			log.Println("Warning: Attempting to save a nil item, skipping")
+			Logger.Warn("Attempting to save a nil item, skipping")
 			continue
 		}
 		if err := s.Database.WriteItem(item); err != nil {
-			log.Printf("Error saving item %s (ID: %s): %v", item.Name, item.ID, err)
+			Logger.Error("Error saving item", "itemName", item.Name, "itemID", item.ID, "error", err)
 			// Continue saving other items even if one fails
 		} else {
-			log.Printf("Successfully saved item %s (ID: %s)", item.Name, item.ID)
+			Logger.Info("Successfully saved item", "itemName", item.Name, "itemID", item.ID)
 		}
 	}
 
-	log.Println("Finished saving active items")
+	Logger.Info("Finished saving active items")
 	return nil
 }
 
@@ -336,7 +304,7 @@ func (s *Server) CreateItemFromPrototype(prototypeID string) (*Item, error) {
 		for _, contentItem := range prototype.Contents {
 			newContentItem, err := s.CreateItemFromPrototype(contentItem.ID.String())
 			if err != nil {
-				log.Printf("Error creating content item from prototype %s: %v", contentItem.ID, err)
+				Logger.Error("Error creating content item from prototype", "prototypeID", contentItem.ID, "error", err)
 				continue
 			}
 			newItem.Contents = append(newItem.Contents, newContentItem)
@@ -347,7 +315,8 @@ func (s *Server) CreateItemFromPrototype(prototypeID string) (*Item, error) {
 		return nil, fmt.Errorf("failed to write new item to database: %w", err)
 	}
 
-	log.Printf("Created new item %s (ID: %s) from prototype %s", newItem.Name, newItem.ID, prototypeID)
+	Logger.Info("Created new item from prototype", "itemName", newItem.Name, "itemID", newItem.ID, "prototypeID", prototypeID)
+
 	return newItem, nil
 }
 
@@ -356,7 +325,7 @@ func (r *Room) AddItem(item *Item) {
 	defer r.Mutex.Unlock()
 
 	if item == nil {
-		log.Printf("Warning: Attempted to add nil item to room %d", r.RoomID)
+		Logger.Warn("Attempted to add nil item to room", "roomID", r.RoomID)
 		return
 	}
 
@@ -365,7 +334,7 @@ func (r *Room) AddItem(item *Item) {
 	}
 
 	r.Items[item.ID.String()] = item
-	log.Printf("Added item %s (ID: %s) to room %d", item.Name, item.ID, r.RoomID)
+	Logger.Info("Added item to room", "itemName", item.Name, "itemID", item.ID, "roomID", r.RoomID)
 }
 
 func (r *Room) RemoveItem(item *Item) {
@@ -373,12 +342,12 @@ func (r *Room) RemoveItem(item *Item) {
 	defer r.Mutex.Unlock()
 
 	if item == nil {
-		log.Printf("Warning: Attempted to remove nil item from room %d", r.RoomID)
+		Logger.Warn("Attempted to remove nil item from room", "roomID", r.RoomID)
 		return
 	}
 
 	delete(r.Items, item.ID.String())
-	log.Printf("Removed item %s (ID: %s) from room %d", item.Name, item.ID, r.RoomID)
+	Logger.Info("Removed item from room", "itemName", item.Name, "itemID", item.ID, "roomID", r.RoomID)
 }
 
 // Add a new method to clean up nil items
@@ -389,7 +358,7 @@ func (r *Room) CleanupNilItems() {
 	for id, item := range r.Items {
 		if item == nil {
 			delete(r.Items, id)
-			log.Printf("Removed nil item with ID %s from room %d", id, r.RoomID)
+			Logger.Info("Removed nil item from room", "itemID", id, "roomID", r.RoomID)
 		}
 	}
 }
