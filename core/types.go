@@ -143,6 +143,7 @@ type CharacterData struct {
 	Health     float64            `json:"health" dynamodbav:"Health"`
 	RoomID     int64              `json:"roomID" dynamodbav:"RoomID"`
 	Inventory  map[string]string  `json:"inventory" dynamodbav:"Inventory"`
+	MotD       []string           `json:"motd" dynamodbav:"MotD"`
 }
 
 type Archetype struct {
@@ -214,4 +215,10 @@ type CloudWatchHandler struct {
 
 type MultiHandler struct {
 	handlers []slog.Handler
+}
+
+type MOTD struct {
+	ID        uuid.UUID `json:"id" dynamodbav:"ID"`
+	Message   string    `json:"message" dynamodbav:"Message"`
+	CreatedAt time.Time `json:"createdAt" dynamodbav:"CreatedAt"`
 }
