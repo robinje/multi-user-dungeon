@@ -74,6 +74,7 @@ type Server struct {
 	ItemPrototypes  map[uint64]*Item
 	Context         context.Context
 	Mutex           sync.Mutex
+	ActiveMotDs     []*MOTD
 }
 
 type Player struct {
@@ -94,11 +95,13 @@ type Player struct {
 	LoginTime     time.Time
 	PasswordHash  string
 	Mutex         sync.Mutex
+	SeenMotDs     map[uuid.UUID]bool
 }
 
 type PlayerData struct {
 	Name          string            `json:"name" dynamodbav:"Name"`
 	CharacterList map[string]string `json:"characterList" dynamodbav:"CharacterList"`
+	SeenMotDs     map[string]bool   `json:"seenMotDs" dynamodbav:"SeenMotDs"`
 }
 
 type Room struct {
@@ -143,7 +146,6 @@ type CharacterData struct {
 	Health     float64            `json:"health" dynamodbav:"Health"`
 	RoomID     int64              `json:"roomID" dynamodbav:"RoomID"`
 	Inventory  map[string]string  `json:"inventory" dynamodbav:"Inventory"`
-	MotD       []string           `json:"motd" dynamodbav:"MotD"`
 }
 
 type Archetype struct {
@@ -218,7 +220,8 @@ type MultiHandler struct {
 }
 
 type MOTD struct {
-	ID        uuid.UUID `json:"id" dynamodbav:"ID"`
+	ID        uuid.UUID `json:"motdID" dynamodbav:"motdID"`
+	Active    bool      `json:"active" dynamodbav:"Active"`
 	Message   string    `json:"message" dynamodbav:"Message"`
 	CreatedAt time.Time `json:"createdAt" dynamodbav:"CreatedAt"`
 }
