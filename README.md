@@ -57,6 +57,7 @@ The current implementation includes an SSH server for secure authentication and 
 - [ ] Add look at item command.
 - [ ] Improve the say commands.
 - [ ] Improve the input filters
+- [ ] Create administrative interface.
 
 
 
