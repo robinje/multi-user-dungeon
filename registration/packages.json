@@ -1,19 +1,17 @@
 {
   "name": "player-registration-application",
-  "version": "0.1.0",
-  "description": "A player registration and password reset application using AWS Cognito",
+  "version": "0.2.0",
+  "description": "Web UI for Cognito User Registration and Management",
   "main": "app.js",
   "scripts": {
-    "start": "node app.js",
-    "lint": "eslint .",
-    "test": "echo \"No tests specified\" && exit 0"
-  },
-  "author": "Jason E. Robinson",
-  "license": "Apache-2.0",
-  "devDependencies": {
-    "eslint": "^8.57.0"
+    "start": "lite-server"
   },
   "dependencies": {
-    "amazon-cognito-identity-js": "^6.3.7"
-  }
+    "amazon-cognito-identity-js": "^6.3.12",
+    "aws-sdk": "^2.1691.0",
+    "lite-server": "^2.6.1"
+  },
+  "devDependencies": {},
+  "author": "Jason E. Robinson",
+  "license": "Apache-2.0"
 }

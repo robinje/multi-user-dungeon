@@ -1,30 +1,35 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Player Registration and Confirmation</title>
-    <link rel="stylesheet" href="styles.css">
-  </head>
-  <body>
-    <h2>Player Registration</h2>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>User Registration</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Register an Account</h1>
     <form id="registrationForm">
-      <input type="email" id="email" placeholder="Email" required />
-      <input type="text" id="givenName" placeholder="First Name" />
-      <input type="text" id="familyName" placeholder="Last Name" />
-      <input type="password" id="password" placeholder="Password" required />
-      <div id="passwordFeedback"></div>
+      <input type="email" id="email" placeholder="Email" required>
+      <input type="password" id="password" placeholder="Password" required>
+      <input type="password" id="confirmPassword" placeholder="Confirm Password" required>
       <button type="submit">Register</button>
     </form>
 
-    <form id="confirmationForm" style="display: none">
-      <h2>Confirm Registration</h2>
-      <p>Please check your email for the confirmation code.</p>
-      <input type="text" id="confirmationCode" placeholder="Confirmation Code" required />
-      <button type="submit">Confirm Registration</button>
+    <h2>Reset Password</h2>
+    <form id="resetPasswordForm">
+      <input type="email" id="resetEmail" placeholder="Email" required>
+      <button type="submit">Send Reset Link</button>
     </form>
 
-    <script src="https://sdk.amazonaws.com/js/aws-sdk-2.283.1.min.js"></script>
-    <script src="app.js" type="module"></script>
-  </body>
+    <h2>Update Password</h2>
+    <form id="updatePasswordForm">
+      <input type="email" id="updateEmail" placeholder="Email" required>
+      <input type="password" id="newPassword" placeholder="New Password" required>
+      <button type="submit">Update Password</button>
+    </form>
+  </div>
+
+  <script src="app.js"></script>
+</body>
 </html>
