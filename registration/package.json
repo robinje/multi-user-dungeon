@@ -2,14 +2,22 @@
   "name": "player-registration-application",
   "version": "0.2.0",
   "description": "Web UI for Cognito User Registration and Management",
-  "main": "app.js",
+  "main": "app.js",  
   "scripts": {
-    "start": "lite-server"
+    "start": "webpack serve --open",
+    "build": "webpack"
   },
   "dependencies": {
     "amazon-cognito-identity-js": "^6.3.12",
-    "aws-sdk": "^2.1691.0",
-    "lite-server": "^2.6.1"
+    "aws-sdk": "^2.1691.0"
+  },
+  "devDependencies": {
+    "webpack": "^5.64.1",
+    "webpack-cli": "^4.9.1",
+    "webpack-dev-server": "^4.7.1",
+    "html-webpack-plugin": "^5.5.0",
+    "css-loader": "^6.5.1",
+    "style-loader": "^3.3.1"
   },
   "author": "Jason E. Robinson",
   "license": "Apache-2.0",
