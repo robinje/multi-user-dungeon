@@ -11,7 +11,7 @@
     "aws-sdk": "^2.1691.0",
     "lite-server": "^2.6.1"
   },
-  "devDependencies": {},
   "author": "Jason E. Robinson",
-  "license": "Apache-2.0"
+  "license": "Apache-2.0",
+  "keywords": []
 }
