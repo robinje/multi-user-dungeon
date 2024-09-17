@@ -72,7 +72,18 @@ func NewServer(config core.Configuration) (*core.Server, error) {
 		return nil, fmt.Errorf("failed to load rooms: %v", err)
 	}
 
+	// Load active MOTDs
+	activeMOTDs, err := server.Database.GetAllMOTDs()
+	if err != nil {
+		core.Logger.Error("Failed to load active MOTDs", "error", err)
+		// Consider whether to return an error here or just continue with an empty MOTD list
+	} else {
+		server.ActiveMotDs = activeMOTDs
+		core.Logger.Info("Loaded active MOTDs", "count", len(activeMOTDs))
+	}
+
 	return server, nil
+
 }
 
 func loadConfiguration(configFile string) (core.Configuration, error) {
