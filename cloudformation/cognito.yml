@@ -74,19 +74,16 @@ Resources:
       ClientName: !Ref AppClientName
       GenerateSecret: true
       ExplicitAuthFlows:
-        - USER_PASSWORD_AUTH
-      SupportedIdentityProviders:
-        - COGNITO
+        - ALLOW_ADMIN_USER_PASSWORD_AUTH
+        - ALLOW_USER_PASSWORD_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+        - ALLOW_CUSTOM_AUTH
+        - ALLOW_USER_SRP_AUTH
+      PreventUserExistenceErrors: ENABLED
       CallbackURLs:
         - !Ref CallbackURL
       LogoutURLs:
         - !Ref SignOutURL
-      AllowedOAuthFlows:
-        - implicit
-      AllowedOAuthScopes:
-        - openid
-        - email
-        - profile
 
   CognitoUserPoolDomain:
     Type: AWS::Cognito::UserPoolDomain
