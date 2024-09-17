@@ -263,7 +263,7 @@ func handleChannels(server *core.Server, sshConn *ssh.ServerConn, channels <-cha
 			core.Logger.Info("Player connected", "player_name", p.Name)
 
 			// Send welcome message
-			p.ToPlayer <- fmt.Sprintf("Welcome to the game, %s!\n\r", p.Name)
+			core.DisplayUnseenMOTDs(server, p)
 
 			// Character Selection Dialog
 			character, _ := core.SelectCharacter(p, server)

@@ -6,6 +6,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
+	"github.com/google/uuid"
 )
 
 func (k *KeyPair) GetAllMOTDs() ([]*MOTD, error) {
@@ -31,4 +32,47 @@ func (k *KeyPair) GetAllMOTDs() ([]*MOTD, error) {
 	}
 
 	return motds, nil
+}
+
+// TODO: Rework the 'server.ActiveMotDs' into a map.
+func DisplayUnseenMOTDs(server *Server, player *Player) {
+	if server == nil || player == nil {
+		Logger.Error("Invalid server or player object")
+		return
+	}
+
+	Logger.Info("Displaying MOTDs for player", "playerName", player.Name)
+
+	defaultMOTDID, _ := uuid.Parse("00000000-0000-0000-0000-000000000000")
+	welcomeDisplayed := false
+
+	// First, look for and display the welcome message
+	for _, motd := range server.ActiveMotDs {
+		if motd != nil && motd.ID == defaultMOTDID {
+			player.ToPlayer <- fmt.Sprintf("\n\r%s\n\r", motd.Message)
+			welcomeDisplayed = true
+			break
+		}
+	}
+
+	// If no welcome message was found, display a generic one
+	if !welcomeDisplayed {
+		player.ToPlayer <- "\n\rWelcome to the game!\n\r"
+	}
+
+	// Then display other unseen MOTDs
+	for _, motd := range server.ActiveMotDs {
+		if motd == nil || motd.ID == defaultMOTDID {
+			continue
+		}
+
+		// Check if the player has already seen this MOTD
+		if !player.SeenMotDs[motd.ID] {
+			// Display the MOTD to the player
+			player.ToPlayer <- fmt.Sprintf("\n\r%s\n\r", motd.Message)
+
+			// Mark the MOTD as seen
+			player.SeenMotDs[motd.ID] = true
+		}
+	}
 }
