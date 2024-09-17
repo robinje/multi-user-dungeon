@@ -1,5 +1,5 @@
-AWSTemplateFormatVersion: '2010-09-09'
-Description: 'DynamoDB tables for Multi-User Dungeon game'
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "DynamoDB tables for Multi-User Dungeon game"
 
 Resources:
   PlayersTable:
@@ -109,7 +109,7 @@ Resources:
     Properties:
       ManagedPolicyName: MUDDynamoDBReadWritePolicy
       PolicyDocument:
-        Version: '2012-10-17'
+        Version: "2012-10-17"
         Statement:
           - Effect: Allow
             Action:
@@ -122,13 +122,13 @@ Resources:
               - dynamodb:Query
               - dynamodb:Scan
             Resource:
-              - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/players'
-              - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/characters'
-              - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/rooms'
-              - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/exits'
-              - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/items'
-              - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/prototypes'
-              - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/archetypes'
+              - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/players"
+              - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/characters"
+              - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/rooms"
+              - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/exits"
+              - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/items"
+              - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/prototypes"
+              - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/archetypes"
 
 Outputs:
   PlayersTableArn:
@@ -154,7 +154,7 @@ Outputs:
   ItemPrototypesTableArn:
     Description: "ARN of the ItemPrototypes table"
     Value: !GetAtt ItemPrototypesTable.Arn
-    
+
   ArchetypesTableArn:
     Description: "ARN of the Archetypes table"
     Value: !GetAtt ArchetypesTable.Arn
