@@ -10,7 +10,13 @@ import (
 
 func (k *KeyPair) GetAllMOTDs() ([]*MOTD, error) {
 	input := &dynamodb.ScanInput{
-		TableName: aws.String("motd"),
+		TableName:        aws.String("motd"),
+		FilterExpression: aws.String("active = :active"),
+		ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{
+			":active": {
+				BOOL: aws.Bool(true),
+			},
+		},
 	}
 
 	result, err := k.db.Scan(input)
