@@ -49,7 +49,7 @@ The current implementation includes an SSH server for secure authentication and 
 - [x] Load item prototypes at start.
 - [x] Create function for creating items from prototypes.
 - [x] Ensure that a message is passed when a characters is added to the game.
-- [ ] Add a Message of the Day (MOTD) command.
+- [x] Add a Message of the Day (MOTD) command.
 - [ ] Add the ability to delete characters.
 - [ ] Add the ability to delete accounts.
 - [ ] Implement an obscenity filter.
@@ -57,6 +57,7 @@ The current implementation includes an SSH server for secure authentication and 
 - [ ] Add look at item command.
 - [ ] Improve the say commands.
 - [ ] Improve the input filters
+- [ ] Create administrative interface.
 
 
 

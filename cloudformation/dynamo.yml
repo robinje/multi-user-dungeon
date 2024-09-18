@@ -104,6 +104,20 @@ Resources:
         ReadCapacityUnits: 2
         WriteCapacityUnits: 2
 
+  MOTDTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: motd
+      AttributeDefinitions:
+        - AttributeName: motdID
+          AttributeType: S
+      KeySchema:
+        - AttributeName: motdID
+          KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 2
+        WriteCapacityUnits: 2
+
   MUDDynamoDBPolicy:
     Type: AWS::IAM::ManagedPolicy
     Properties:
@@ -129,6 +143,7 @@ Resources:
               - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/items'
               - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/prototypes'
               - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/archetypes'
+              - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/motd'
 
 Outputs:
   PlayersTableArn:
@@ -158,6 +173,10 @@ Outputs:
   ArchetypesTableArn:
     Description: "ARN of the Archetypes table"
     Value: !GetAtt ArchetypesTable.Arn
+
+  MOTDTableArn:
+    Description: "ARN of the MotD table"
+    Value: !GetAtt MOTDTable.Arn
 
   MUDDynamoDBPolicyArn:
     Description: "ARN of the MUD DynamoDB Read/Write Policy"
