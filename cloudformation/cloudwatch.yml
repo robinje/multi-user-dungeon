@@ -1,16 +1,16 @@
-AWSTemplateFormatVersion: '2010-09-09'
-Description: 'CloudFormation template for CloudWatch Log Group, Metrics, and IAM Policy'
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "CloudFormation template for CloudWatch Log Group, Metrics, and IAM Policy"
 
 Parameters:
   LogGroupName:
     Type: String
     Description: Name for the CloudWatch Log Group
-    Default: '/mud/application'
+    Default: "/mud/application"
 
   MetricNamespace:
     Type: String
     Description: Namespace for CloudWatch Metrics
-    Default: 'MUD/Application'
+    Default: "MUD/Application"
 
 Resources:
   MUDLogGroup:
@@ -24,7 +24,7 @@ Resources:
     Properties:
       Description: Allows writing to CloudWatch Logs and Metrics
       PolicyDocument:
-        Version: '2012-10-17'
+        Version: "2012-10-17"
         Statement:
           - Effect: Allow
             Action:
@@ -34,10 +34,10 @@ Resources:
           - Effect: Allow
             Action:
               - cloudwatch:PutMetricData
-            Resource: '*'
+            Resource: "*"
             Condition:
               StringEquals:
-                'cloudwatch:namespace': !Ref MetricNamespace
+                "cloudwatch:namespace": !Ref MetricNamespace
 
 Outputs:
   LogGroupName:

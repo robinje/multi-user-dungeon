@@ -29,7 +29,6 @@ The current implementation includes an SSH server for secure authentication and 
 - [ ] Implement a party system for cooperative gameplay.
 - [ ] Implement a magic system.
 
-
 ## TODO
 
 - [x] Fix output formatting for the client.
@@ -59,13 +58,12 @@ The current implementation includes an SSH server for secure authentication and 
 - [ ] Improve the input filters
 - [ ] Create administrative interface.
 
-
-
 ## Project Overview
 
 The engine is primarily written in Go (version 1.22) with an SSH server for secure authentication and communication between the player and the server. Additionally, there are database utility scripts written in Python (version 3.12) and various deployment scripts.
 
 Key components:
+
 - Go server (v1.22) for game logic and player interactions
 - Python (v3.12) scripts for database management and deployment
 - AWS services for database (DynamoDB) and Identity Provider (Cognito)
@@ -103,4 +101,3 @@ Deploying the server involves several steps:
 ## License
 
 This project is licensed under the Apache 2.0 License. See the LICENSE file for more details.
-
