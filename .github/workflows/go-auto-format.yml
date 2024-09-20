@@ -1,4 +1,4 @@
-name: Auto-format
+name: Go Format and Check
 
 on:
   push:
@@ -11,7 +11,7 @@ permissions:
   contents: write
 
 jobs:
-  auto-format:
+  format-and-check:
     runs-on: ubuntu-latest
     steps:
       - name: Check out code
@@ -22,22 +22,41 @@ jobs:
         with:
           go-version: 1.22
 
-      - name: Auto format and commit
+      - name: Install govulncheck
+        run: go install golang.org/x/vuln/cmd/govulncheck@latest
+
+      - name: Configure Git
         run: |
           git fetch -q
           git checkout ${{github.head_ref}} --progress
           git config --global user.name 'Dark Relics Automatic'
           git config --global user.email 'contact@darkrelics.net'
           git pull
-          cd ./core
-          go fmt ./...
-          go mod tidy
-          cd ../ssh_server
-          go fmt ./...
-          go mod tidy
-          cd ..
+
+      - name: Format and check code
+        run: |
+          for dir in core ssh_server; do
+            cd ./$dir
+            echo "Processing $dir directory"
+            go fmt ./...
+            go mod tidy
+            go vet ./...
+            govulncheck ./...
+            cd ..
+          done
+
+      - name: Check for changes
+        id: git-check
+        run: |
           git add . -v
-          if ! git diff-index --quiet HEAD; then
-            git commit -m "Apply Autoformatting" --allow-empty
-            git push -v
+          if git diff-index --quiet HEAD; then
+            echo "changes=false" >> $GITHUB_OUTPUT
+          else
+            echo "changes=true" >> $GITHUB_OUTPUT
           fi
+
+      - name: Commit and push changes
+        if: steps.git-check.outputs.changes == 'true'
+        run: |
+          git commit -m "Apply formatting and update dependencies" --allow-empty
+          git push -v

@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>User Registration</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="container">
+      <h1>Register an Account</h1>
+      <form id="registrationForm">
+        <input type="email" id="email" placeholder="Email" required />
+        <input type="password" id="password" placeholder="Password" required />
+        <input type="password" id="confirmPassword" placeholder="Confirm Password" required />
+        <button type="submit">Register</button>
+      </form>
+
+      <h2>Reset Password</h2>
+      <form id="resetPasswordForm">
+        <input type="email" id="resetEmail" placeholder="Email" required />
+        <button type="submit">Send Reset Link</button>
+      </form>
+
+      <h2>Update Password</h2>
+      <form id="updatePasswordForm">
+        <input type="email" id="updateEmail" placeholder="Email" required />
+        <input type="password" id="newPassword" placeholder="New Password" required />
+        <button type="submit">Update Password</button>
+      </form>
+    </div>
+  </body>
+</html>

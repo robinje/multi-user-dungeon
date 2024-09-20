@@ -1,5 +1,5 @@
-import yaml
 import boto3
+import yaml
 from botocore.exceptions import ClientError
 
 # Constants for stack names
@@ -17,6 +17,7 @@ CLOUDWATCH_TEMPLATE_PATH = "../cloudformation/cloudwatch.yml"
 # Configuration file path
 CONFIG_PATH = "../ssh_server/config.yml"
 
+
 def prompt_for_parameters(template_name):
     if template_name == "cognito":
         return {
@@ -24,7 +25,9 @@ def prompt_for_parameters(template_name):
             "AppClientName": input("Enter the Name of the app client [default: mud-app-client]: ") or "mud-app-client",
             "CallbackURL": input("Enter the URL of the callback for the app client [default: https://localhost:3000/callback]: ")
             or "https://localhost:3000/callback",
-            "SignOutURL": input("Enter the URL of the sign-out page for the app client [default: https://localhost:3000/sign-out]: ")
+            "SignOutURL": input(
+                "Enter the URL of the sign-out page for the app client [default: https://localhost:3000/sign-out]: "
+            )
             or "https://localhost:3000/sign-out",
             "ReplyEmailAddress": input("Enter the email address to send from: "),
         }
@@ -39,13 +42,16 @@ def prompt_for_parameters(template_name):
         return {
             "LogGroupName": input("Enter the name for the CloudWatch Log Group [default: /mud/game-logs]: ") or "/mud/game-logs",
             "RetentionInDays": input("Enter the number of days to retain logs [default: 30]: ") or "30",
-            "MetricNamespace": input("Enter the namespace for CloudWatch Metrics [default: MUD/Application]: ") or "MUD/Application",
+            "MetricNamespace": input("Enter the namespace for CloudWatch Metrics [default: MUD/Application]: ")
+            or "MUD/Application",
         }
     return {}
+
 
 def load_template(template_path):
     with open(template_path, "r", encoding="utf-8") as file:
         return file.read()
+
 
 def deploy_stack(client, stack_name, template_body, parameters):
     cf_parameters = [{"ParameterKey": k, "ParameterValue": v} for k, v in parameters.items()]
@@ -70,6 +76,7 @@ def deploy_stack(client, stack_name, template_body, parameters):
     except ClientError as err:
         print(f"Error in stack operation: {err}")
 
+
 def stack_exists(client, stack_name):
     try:
         client.describe_stacks(StackName=stack_name)
@@ -77,16 +84,19 @@ def stack_exists(client, stack_name):
     except client.exceptions.ClientError:
         return False
 
+
 def wait_for_stack_completion(client, stack_name):
     print(f"Waiting for stack {stack_name} to complete...")
     waiter = client.get_waiter("stack_create_complete")
     waiter.wait(StackName=stack_name)
     print("Stack operation completed.")
 
+
 def get_stack_outputs(client, stack_name):
     stack = client.describe_stacks(StackName=stack_name)
     outputs = stack["Stacks"][0]["Outputs"]
     return {output["OutputKey"]: output["OutputValue"] for output in outputs}
+
 
 def update_configuration_file(config_updates):
     try:
@@ -109,26 +119,32 @@ def update_configuration_file(config_updates):
         config.setdefault("Server", {})["Port"] = config.get("Port", 9050)
         config.setdefault("Aws", {})["Region"] = config.get("Region", "us-east-1")
         config.setdefault("Cognito", {}).update(config_updates.get("Cognito", {}))
-        config.setdefault("Game", {}).update({
-            "Balance": config.get("Balance", 0.25),
-            "AutoSave": config.get("AutoSave", 5),
-            "StartingHealth": config.get("StartingHealth", 10),
-            "StartingEssence": config.get("StartingEssence", 3),
-        })
-        config.setdefault("Logging", {}).update({
-            "ApplicationName": "mud",
-            "LogLevel": 20,
-            "LogGroup": config_updates.get("CloudWatch", {}).get("LogGroupName", "/mud"),
-            "LogStream": "application",
-            "MetricNamespace": config_updates.get("CloudWatch", {}).get("MetricNamespace", "MUD/Application"),
-        })
-        config["Cognito"].update({
-            "UserPoolId": config_updates.get("UserPoolId", ""),
-            "UserPoolClientSecret": config_updates.get("UserPoolClientSecret", ""),
-            "UserPoolClientId": config_updates.get("UserPoolClientId", ""),
-            "UserPoolDomain": config_updates.get("UserPoolDomain", ""),
-            "UserPoolArn": config_updates.get("UserPoolArn", ""),
-        })
+        config.setdefault("Game", {}).update(
+            {
+                "Balance": config.get("Balance", 0.25),
+                "AutoSave": config.get("AutoSave", 5),
+                "StartingHealth": config.get("StartingHealth", 10),
+                "StartingEssence": config.get("StartingEssence", 3),
+            }
+        )
+        config.setdefault("Logging", {}).update(
+            {
+                "ApplicationName": "mud",
+                "LogLevel": 20,
+                "LogGroup": config_updates.get("CloudWatch", {}).get("LogGroupName", "/mud"),
+                "LogStream": "application",
+                "MetricNamespace": config_updates.get("CloudWatch", {}).get("MetricNamespace", "MUD/Application"),
+            }
+        )
+        config["Cognito"].update(
+            {
+                "UserPoolId": config_updates.get("UserPoolId", ""),
+                "UserPoolClientSecret": config_updates.get("UserPoolClientSecret", ""),
+                "UserPoolClientId": config_updates.get("UserPoolClientId", ""),
+                "UserPoolDomain": config_updates.get("UserPoolDomain", ""),
+                "UserPoolArn": config_updates.get("UserPoolArn", ""),
+            }
+        )
 
         with open(CONFIG_PATH, "w", encoding="utf-8") as file:
             yaml.dump(config, file, default_flow_style=False)
@@ -136,6 +152,7 @@ def update_configuration_file(config_updates):
         print("Configuration file updated successfully.")
     except Exception as err:
         print(f"An error occurred while updating configuration file: {err}")
+
 
 def main():
     cloudformation_client = boto3.client("cloudformation")
@@ -160,12 +177,11 @@ def main():
     deploy_stack(cloudformation_client, CODEBUILD_STACK_NAME, codebuild_template, codebuild_parameters)
     codebuild_outputs = get_stack_outputs(cloudformation_client, CODEBUILD_STACK_NAME)
 
-     # Deploy CloudWatch stack
+    # Deploy CloudWatch stack
     cloudwatch_parameters = prompt_for_parameters("cloudwatch")
     cloudwatch_template = load_template(CLOUDWATCH_TEMPLATE_PATH)
     deploy_stack(cloudformation_client, CLOUDWATCH_STACK_NAME, cloudwatch_template, cloudwatch_parameters)
     cloudwatch_outputs = get_stack_outputs(cloudformation_client, CLOUDWATCH_STACK_NAME)
-
 
     # Update configuration file with outputs from all stacks
     config_updates = {
@@ -175,6 +191,7 @@ def main():
         "CloudWatch": cloudwatch_outputs,
     }
     update_configuration_file(config_updates)
+
 
 if __name__ == "__main__":
     main()

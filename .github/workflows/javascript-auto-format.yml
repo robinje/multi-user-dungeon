@@ -1,0 +1,38 @@
+name: JavaScript Auto Format
+
+on:
+  pull_request:
+    branches: "**"
+  push:
+    branches: [develop, qa, prod]
+
+permissions:
+  pull-requests: write
+  contents: write
+
+jobs:
+  auto-format-javascript:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install JavaScript Autoformatting Tools
+        run: |
+          npm install npm@latest --location=global
+          npm install prettier --location=global
+      - name: Autoformat JavaScript Files
+        run: |
+          git fetch -q
+          git checkout ${{github.head_ref}} --progress
+          git pull -q
+          git config --global user.name "Dark Relics Automatic"
+          git config --global user.email "contact@darkrelics.net"
+          npx prettier . -u --print-width 132 -w
+          git add . -vv
+          if ! git diff-index --quiet HEAD; then
+              git commit -m "Apply JS Autoformatting"
+              git push -vv
+          fi
