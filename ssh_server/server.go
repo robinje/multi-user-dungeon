@@ -49,9 +49,10 @@ func NewServer(config core.Configuration) (*core.Server, error) {
 
 	core.Logger.Info("Loading character names from database...")
 
-	server.CharacterExists, err = server.Database.LoadCharacterNames()
+	// Load the bloom filter from the database
+	err = server.InitializeBloomFilter()
 	if err != nil {
-		core.Logger.Error("Error loading character names from database", "error", err)
+		core.Logger.Error("Error initializing bloom filter", "error", err)
 	}
 
 	server.Archetypes, err = server.Database.LoadArchetypes()

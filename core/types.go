@@ -64,7 +64,6 @@ type Server struct {
 	Rooms                map[int64]*Room
 	Database             *KeyPair
 	PlayerIndex          *Index
-	CharacterExists      map[string]bool // Remove
 	CharacterBloomFilter *bloom.BloomFilter
 	Characters           map[uuid.UUID]*Character
 	Balance              float64
