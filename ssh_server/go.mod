@@ -31,6 +31,8 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sts v1.30.5 // indirect
 	github.com/aws/aws-xray-sdk-go v1.8.4 // indirect
 	github.com/aws/smithy-go v1.20.4 // indirect
+	github.com/bits-and-blooms/bitset v1.14.3 // indirect
+	github.com/bits-and-blooms/bloom/v3 v3.7.0 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/klauspost/compress v1.17.2 // indirect
