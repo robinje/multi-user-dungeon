@@ -9,6 +9,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
+	"github.com/bits-and-blooms/bloom/v3"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/ssh"
 )
@@ -54,27 +55,27 @@ type KeyPair struct {
 }
 
 type Server struct {
-	Port            uint16
-	Listener        net.Listener
-	SSHConfig       *ssh.ServerConfig
-	PlayerCount     uint64
-	Config          Configuration
-	StartTime       time.Time
-	Rooms           map[int64]*Room
-	Database        *KeyPair
-	PlayerIndex     *Index
-	CharacterExists map[string]bool
-	Characters      map[uuid.UUID]*Character
-	Balance         float64
-	AutoSave        uint16
-	Archetypes      *ArchetypesData
-	Health          uint16
-	Essence         uint16
-	Items           map[uint64]*Item
-	ItemPrototypes  map[uint64]*Item
-	Context         context.Context
-	Mutex           sync.Mutex
-	ActiveMotDs     []*MOTD
+	Port                 uint16
+	Listener             net.Listener
+	SSHConfig            *ssh.ServerConfig
+	PlayerCount          uint64
+	Config               Configuration
+	StartTime            time.Time
+	Rooms                map[int64]*Room
+	Database             *KeyPair
+	PlayerIndex          *Index
+	CharacterBloomFilter *bloom.BloomFilter
+	Characters           map[uuid.UUID]*Character
+	Balance              float64
+	AutoSave             uint16
+	Archetypes           *ArchetypesData
+	Health               uint16
+	Essence              uint16
+	Items                map[uint64]*Item
+	ItemPrototypes       map[uint64]*Item
+	Context              context.Context
+	Mutex                sync.Mutex
+	ActiveMotDs          []*MOTD
 }
 
 type Player struct {

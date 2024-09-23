@@ -7,8 +7,11 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
+	"github.com/bits-and-blooms/bloom/v3"
 	"github.com/google/uuid"
 )
+
+const FalsePositiveRate = 0.01 // 1% false positive rate
 
 // WearLocations defines all possible locations where an item can be worn
 var WearLocations = map[string]bool{
@@ -93,6 +96,8 @@ func (s *Server) NewCharacter(name string, player *Player, room *Room, archetype
 		Inventory:  make(map[string]*Item),
 		Server:     s,
 	}
+
+	s.AddCharacterName(name)
 
 	if archetypeName != "" {
 		if archetype, ok := s.Archetypes.Archetypes[archetypeName]; ok {
@@ -190,6 +195,36 @@ func (kp *KeyPair) LoadCharacterNames() (map[string]bool, error) {
 	}
 
 	return names, nil
+}
+
+func (server *Server) InitializeBloomFilter() error {
+	characterNames, err := server.Database.LoadCharacterNames()
+	if err != nil {
+		return fmt.Errorf("failed to load character names: %w", err)
+	}
+
+	n := uint(len(characterNames))
+	fpRate := FalsePositiveRate
+
+	server.CharacterBloomFilter = bloom.NewWithEstimates(n, fpRate)
+
+	for name := range characterNames {
+		server.CharacterBloomFilter.Add([]byte(strings.ToLower(name)))
+	}
+
+	return nil
+}
+
+func (server *Server) AddCharacterName(name string) {
+	server.Mutex.Lock()
+	defer server.Mutex.Unlock()
+
+	server.CharacterBloomFilter.AddString(strings.ToLower(name))
+}
+
+func (server *Server) CharacterNameExists(name string) bool {
+
+	return server.CharacterBloomFilter.TestString(strings.ToLower(name))
 }
 
 func SaveActiveCharacters(s *Server) error {

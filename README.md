@@ -1,3 +1,16 @@
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+![GitHub](https://img.shields.io/badge/github-%23121011.svg?style=for-the-badge&logo=github&logoColor=white)
+![Dependabot](https://img.shields.io/badge/dependabot-025E8C?style=for-the-badge&logo=dependabot&logoColor=white)
+![GitHub Actions](https://img.shields.io/badge/github%20actions-%232671E5.svg?style=for-the-badge&logo=githubactions&logoColor=white)
+![AWS](https://img.shields.io/badge/AWS-%23FF9900.svg?style=for-the-badge&logo=amazon-aws&logoColor=white)
+![AmazonDynamoDB](https://img.shields.io/badge/Amazon%20DynamoDB-4053D6?style=for-the-badge&logo=Amazon%20DynamoDB&logoColor=white)
+![Webpack](https://img.shields.io/badge/webpack-%238DD6F9.svg?style=for-the-badge&logo=webpack&logoColor=black)
+![Go](https://img.shields.io/badge/go-%2300ADD8.svg?style=for-the-badge&logo=go&logoColor=white)
+![Python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54)
+![JavaScript](https://img.shields.io/badge/javascript-%23323330.svg?style=for-the-badge&logo=javascript&logoColor=%23F7DF1E)
+![Linux](https://img.shields.io/badge/Linux-FCC624?style=for-the-badge&logo=linux&logoColor=black)
+![Windows](https://img.shields.io/badge/Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white)
+
 # Multi-User Dungeon Engine
 
 The goal of this project is to create a commercial-quality multi-user dungeon (MUD) engine that is flexible enough to be used as either a conventional MUD or an interactive fiction game.
@@ -16,7 +29,7 @@ The current implementation includes an SSH server for secure authentication and 
 - [x] Build an interactive password change system.
 - [ ] Construct the item system.
 - [ ] Develop game mechanics.
-- [ ] Design an ecenomic framework.
+- [ ] Design an economic framework
 - [ ] Implement a world creation system.
 - [ ] Develop simple Non-Player Characters (NPCs).
 - [ ] Design and implement a quest system.
@@ -47,8 +60,9 @@ The current implementation includes an SSH server for secure authentication and 
 - [x] Implement Persistent Logging.
 - [x] Load item prototypes at start.
 - [x] Create function for creating items from prototypes.
-- [x] Ensure that a message is passed when a characters is added to the game.
+- [x] Ensure that a message is passed when a character is added to the game.
 - [x] Add a Message of the Day (MOTD) command.
+- [x] Add Bloom Filter to check for existing characters names being used.
 - [ ] Add the ability to delete characters.
 - [ ] Add the ability to delete accounts.
 - [ ] Implement an obscenity filter.

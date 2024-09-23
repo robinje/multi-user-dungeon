@@ -306,8 +306,8 @@ func CreateCharacter(player *Player, server *Server) (*Character, error) {
 		return nil, fmt.Errorf("character name must be 15 characters or fewer")
 	}
 
-	if server.CharacterExists[strings.ToLower(charName)] {
-		return nil, fmt.Errorf("character already exists")
+	if server.CharacterNameExists(charName) {
+		return nil, fmt.Errorf("character name already exists")
 	}
 
 	var selectedArchetype string
