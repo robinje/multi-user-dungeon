@@ -100,7 +100,7 @@ type Player struct {
 }
 
 type PlayerData struct {
-	Name          string            `json:"name" dynamodbav:"Name"`
+	PlayerName    string            `json:"name" dynamodbav:"PlayerName"`
 	CharacterList map[string]string `json:"characterList" dynamodbav:"CharacterList"`
 	SeenMotDs     map[string]bool   `json:"seenMotDs" dynamodbav:"SeenMotDs"`
 }

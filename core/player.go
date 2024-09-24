@@ -18,7 +18,7 @@ import (
 
 func (k *KeyPair) WritePlayer(player *Player) error {
 	pd := PlayerData{
-		Name:          player.Name,
+		PlayerName:    player.Name,
 		CharacterList: make(map[string]string),
 	}
 
@@ -33,7 +33,7 @@ func (k *KeyPair) WritePlayer(player *Player) error {
 	}
 
 	key := map[string]*dynamodb.AttributeValue{
-		"Name": {S: aws.String(player.Name)},
+		"PlayerName": {S: aws.String(player.Name)},
 	}
 
 	err = k.Put("players", key, av)
@@ -57,8 +57,8 @@ func (k *KeyPair) ReadPlayer(playerName string) (string, map[string]uuid.UUID, e
 		return "", nil, fmt.Errorf("player not found")
 	}
 
-	if pd.Name == "" {
-		pd.Name = playerName
+	if pd.PlayerName == "" {
+		pd.PlayerName = playerName
 	}
 
 	characterList := make(map[string]uuid.UUID)
@@ -71,8 +71,8 @@ func (k *KeyPair) ReadPlayer(playerName string) (string, map[string]uuid.UUID, e
 		characterList[name] = id
 	}
 
-	Logger.Info("Successfully read player data", "playerName", pd.Name, "characterCount", len(characterList))
-	return pd.Name, characterList, nil
+	Logger.Info("Successfully read player data", "playerName", pd.PlayerName, "characterCount", len(characterList))
+	return pd.PlayerName, characterList, nil
 }
 
 func PlayerInput(p *Player) {
