@@ -158,11 +158,11 @@ func (kp *KeyPair) LoadExits(roomID int64) (map[string]*Exit, error) {
 }
 
 func DisplayRooms(rooms map[int64]*Room) {
-	fmt.Println("Rooms:")
+	Logger.Info("Displaying rooms")
 	for _, room := range rooms {
-		fmt.Printf("Room %d: %s\n", room.RoomID, room.Title)
+		Logger.Info("Room", "room_id", room.RoomID, "title", room.Title)
 		for _, exit := range room.Exits {
-			fmt.Printf("  Exit %s to room %d\n", exit.Direction, exit.TargetRoom)
+			Logger.Info("  Exit", "direction", exit.Direction, "target_room", exit.TargetRoom)
 		}
 	}
 }

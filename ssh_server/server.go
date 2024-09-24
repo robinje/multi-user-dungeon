@@ -108,16 +108,18 @@ func main() {
 
 	config, err := loadConfiguration(*configFile)
 	if err != nil {
-		fmt.Printf("Error loading configuration: %v\n", err)
+		core.Logger.Error("Error loading configuration", "error", err)
 		return
 	}
 
 	// Initialize logging
 	err = core.InitializeLogging(&config)
 	if err != nil {
-		fmt.Printf("Error initializing logging: %v\n", err)
+		core.Logger.Error("Error initializing logging", "error", err)
 		return
 	}
+
+	core.Logger.Info("Configuration loaded", "config", config)
 
 	server, err := NewServer(config)
 	if err != nil {

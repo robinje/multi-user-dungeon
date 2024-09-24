@@ -12,7 +12,7 @@ import (
 
 func DisplayArchetypes(archetypes *ArchetypesData) {
 	for key, archetype := range archetypes.Archetypes {
-		fmt.Println(key, archetype)
+		Logger.Debug("Archetype", "name", key, "description", archetype.Description)
 	}
 }
 
@@ -27,7 +27,7 @@ func (kp *KeyPair) LoadArchetypes() (*ArchetypesData, error) {
 
 	for _, archetype := range archetypes {
 		archetypesData.Archetypes[archetype.Name] = archetype
-		fmt.Printf("Loaded archetype '%s': %s\n", archetype.Name, archetype.Description)
+		Logger.Debug("Loaded archetype", "name", archetype.Name, "description", archetype.Description)
 	}
 
 	return archetypesData, nil
@@ -68,7 +68,7 @@ func LoadArchetypesFromJSON(fileName string) (*ArchetypesData, error) {
 	}
 
 	for key, archetype := range data.Archetypes {
-		fmt.Printf("Loaded archetype '%s': %s - %s\n", key, archetype.Name, archetype.Description)
+		Logger.Debug("Loaded archetype", "name", key, "description", archetype.Description)
 	}
 
 	return &data, nil
