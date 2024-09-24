@@ -148,7 +148,10 @@ func Authenticate(username, password string, config core.Configuration) bool {
 
 	core.Logger.Info("Authenticating user", "username", username)
 
-	_, err := core.SignInUser(username, password, config)
+	response, err := core.SignInUser(username, password, config)
+
+	core.Logger.Info("Response", "response", response)
+
 	if err != nil {
 		core.Logger.Error("Authentication attempt failed for user", "username", username, "error", err)
 		return false
