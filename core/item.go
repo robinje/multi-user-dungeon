@@ -13,7 +13,7 @@ import (
 
 func DisplayPrototypes(prototypes *PrototypesData) {
 	for _, prototype := range prototypes.ItemPrototypes {
-		fmt.Printf("ID: %s, Name: %s, Description: %s\n", prototype.ID, prototype.Name, prototype.Description)
+		Logger.Debug("Prototype", "name", prototype.Name, "description", prototype.Description)
 	}
 }
 
@@ -30,7 +30,7 @@ func LoadPrototypesFromJSON(fileName string) (*PrototypesData, error) {
 	}
 
 	for _, prototype := range data.ItemPrototypes {
-		fmt.Printf("Loaded prototype: %s - %s\n", prototype.Name, prototype.Description)
+		Logger.Debug("Loaded prototype", "name", prototype.Name, "description", prototype.Description)
 	}
 
 	return &data, nil
@@ -52,7 +52,7 @@ func (kp *KeyPair) StorePrototypes(prototypes *PrototypesData) error {
 			return fmt.Errorf("error storing prototype %s: %w", prototype.Name, err)
 		}
 
-		fmt.Printf("Stored prototype: %s\n", prototype.Name)
+		Logger.Debug("Stored prototype", "name", prototype.Name)
 	}
 
 	return nil
@@ -70,7 +70,7 @@ func (kp *KeyPair) LoadPrototypes() (*PrototypesData, error) {
 	prototypesData.ItemPrototypes = itemPrototypes
 
 	for _, prototype := range prototypesData.ItemPrototypes {
-		fmt.Printf("Loaded prototype: %s - %s\n", prototype.Name, prototype.Description)
+		Logger.Debug("Loaded prototype", "name", prototype.Name, "description", prototype.Description)
 	}
 
 	return prototypesData, nil

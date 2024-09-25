@@ -61,6 +61,7 @@ func NewServer(config core.Configuration) (*core.Server, error) {
 	}
 
 	// Add a default room
+	server.Rooms = make(map[int64]*core.Room)
 
 	server.Rooms[0] = core.NewRoom(0, "The Void", "The Void", "You are in a void of nothingness. If you are here, something has gone terribly wrong.")
 
@@ -68,9 +69,14 @@ func NewServer(config core.Configuration) (*core.Server, error) {
 
 	core.Logger.Info("Loading rooms from database...")
 
-	server.Rooms, err = server.Database.LoadRooms()
+	loadedRooms, err := server.Database.LoadRooms()
 	if err != nil {
-		return nil, fmt.Errorf("failed to load rooms: %v", err)
+		core.Logger.Info("Error loading rooms from database", "error", err)
+	}
+
+	// Merge loaded rooms with existing rooms, preserving the default room
+	for id, room := range loadedRooms {
+		server.Rooms[id] = room
 	}
 
 	// Load active MOTDs
@@ -108,16 +114,18 @@ func main() {
 
 	config, err := loadConfiguration(*configFile)
 	if err != nil {
-		fmt.Printf("Error loading configuration: %v\n", err)
+		core.Logger.Error("Error loading configuration", "error", err)
 		return
 	}
 
 	// Initialize logging
 	err = core.InitializeLogging(&config)
 	if err != nil {
-		fmt.Printf("Error initializing logging: %v\n", err)
+		core.Logger.Error("Error initializing logging", "error", err)
 		return
 	}
+
+	core.Logger.Info("Configuration loaded", "config", config)
 
 	server, err := NewServer(config)
 	if err != nil {
@@ -146,7 +154,10 @@ func Authenticate(username, password string, config core.Configuration) bool {
 
 	core.Logger.Info("Authenticating user", "username", username)
 
-	_, err := core.SignInUser(username, password, config)
+	response, err := core.SignInUser(username, password, config)
+
+	core.Logger.Debug("Response", "response", response)
+
 	if err != nil {
 		core.Logger.Error("Authentication attempt failed for user", "username", username, "error", err)
 		return false
@@ -305,7 +316,7 @@ func parseDims(b []byte) (width, height int) {
 // HandleSSHRequests handles SSH requests from the client
 func HandleSSHRequests(player *core.Player, requests <-chan *ssh.Request) {
 
-	core.Logger.Info("Handling SSH requests for player", "player_name", player.Name)
+	core.Logger.Debug("Handling SSH requests for player", "player_name", player.Name)
 
 	for req := range requests {
 		switch req.Type {

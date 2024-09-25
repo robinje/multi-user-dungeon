@@ -61,7 +61,7 @@ Resources:
       Environment:
         Type: LINUX_CONTAINER
         ComputeType: BUILD_GENERAL1_SMALL
-        Image: aws/codebuild/standard:5.0
+        Image: aws/codebuild/standard:7.0
         EnvironmentVariables:
           - Name: USER_POOL_ID
             Value: !Ref UserPoolId
@@ -72,7 +72,7 @@ Resources:
       Source:
         Type: GITHUB
         Location: !Ref GitHubSourceRepo
-        BuildSpec: "buildspec.yml"
+        BuildSpec: buildspec/registration.yml
       TimeoutInMinutes: 15
 
 Outputs:

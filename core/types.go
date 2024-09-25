@@ -100,7 +100,7 @@ type Player struct {
 }
 
 type PlayerData struct {
-	Name          string            `json:"name" dynamodbav:"Name"`
+	PlayerName    string            `json:"name" dynamodbav:"PlayerName"`
 	CharacterList map[string]string `json:"characterList" dynamodbav:"CharacterList"`
 	SeenMotDs     map[string]bool   `json:"seenMotDs" dynamodbav:"SeenMotDs"`
 }
@@ -138,15 +138,15 @@ type Character struct {
 
 // CharacterData for unmarshalling character.
 type CharacterData struct {
-	Index      string             `json:"index" dynamodbav:"Index"`
-	PlayerID   string             `json:"playerID" dynamodbav:"PlayerID"`
-	Name       string             `json:"name" dynamodbav:"Name"`
-	Attributes map[string]float64 `json:"attributes" dynamodbav:"Attributes"`
-	Abilities  map[string]float64 `json:"abilities" dynamodbav:"Abilities"`
-	Essence    float64            `json:"essence" dynamodbav:"Essence"`
-	Health     float64            `json:"health" dynamodbav:"Health"`
-	RoomID     int64              `json:"roomID" dynamodbav:"RoomID"`
-	Inventory  map[string]string  `json:"inventory" dynamodbav:"Inventory"`
+	CharacterID string             `json:"CharacterID" dynamodbav:"CharacterID"`
+	PlayerName  string             `json:"PlayerName" dynamodbav:"PlayerName"`
+	Name        string             `json:"Name" dynamodbav:"Name"`
+	Attributes  map[string]float64 `json:"Attributes" dynamodbav:"Attributes"`
+	Abilities   map[string]float64 `json:"Abilities" dynamodbav:"Abilities"`
+	Essence     float64            `json:"Essence" dynamodbav:"Essence"`
+	Health      float64            `json:"Health" dynamodbav:"Health"`
+	RoomID      int64              `json:"RoomID" dynamodbav:"RoomID"`
+	Inventory   map[string]string  `json:"Inventory" dynamodbav:"Inventory"`
 }
 
 type Archetype struct {

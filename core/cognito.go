@@ -63,8 +63,13 @@ func SignInUser(email, password string, config Configuration) (*cognitoidentityp
 		return nil, handleCognitoError(err, email)
 	}
 
+	// Check for NEW_PASSWORD_REQUIRED challenge
+	if authOutput.ChallengeName != nil && *authOutput.ChallengeName == cognitoidentityprovider.ChallengeNameTypeNewPasswordRequired {
+		return authOutput, nil // Return the challenge, not an error
+	}
+
 	if authOutput.AuthenticationResult == nil {
-		return authOutput, fmt.Errorf("authentication successful for user %s, but no AuthenticationResult returned", email)
+		return nil, fmt.Errorf("unexpected authentication result for user %s", email)
 	}
 
 	return authOutput, nil
