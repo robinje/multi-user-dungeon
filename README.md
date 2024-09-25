@@ -77,6 +77,7 @@ The current implementation includes an SSH server for secure authentication and 
 - [ ] Improve the input filters
 - [ ] Create administrative interface.
 - [ ] Force Password Resets when needed.
+- [ ] Allow starting room to me set by Archtype.
 
 ## Project Overview
 
