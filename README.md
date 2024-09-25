@@ -76,6 +76,7 @@ The current implementation includes an SSH server for secure authentication and 
 - [ ] Improve the say commands.
 - [ ] Improve the input filters
 - [ ] Create administrative interface.
+- [ ] Force Password Resets when needed.
 
 ## Project Overview
 

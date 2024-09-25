@@ -199,17 +199,17 @@ func (kp *KeyPair) LoadCharacterNames() (map[string]bool, error) {
 
 func (server *Server) InitializeBloomFilter() error {
 	characterNames, err := server.Database.LoadCharacterNames()
-	if err != nil {
+	if err != nil && err.Error() != "no characters found" {
 		return fmt.Errorf("failed to load character names: %w", err)
 	}
 
-	n := uint(len(characterNames))
+	n := uint(max(len(characterNames), 100)) // Use at least 100 as the initial size
 	fpRate := FalsePositiveRate
 
 	server.CharacterBloomFilter = bloom.NewWithEstimates(n, fpRate)
 
 	for name := range characterNames {
-		server.CharacterBloomFilter.Add([]byte(strings.ToLower(name)))
+		server.CharacterBloomFilter.AddString(strings.ToLower(name))
 	}
 
 	return nil
