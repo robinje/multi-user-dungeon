@@ -19,9 +19,3 @@ Logging:
   MetricNamespace: MUD/Application
 Server:
   Port: 9050
-
-
-
-
-
-
