@@ -32,51 +32,52 @@ var WearLocations = map[string]bool{
 }
 
 func (c *Character) ToData() *CharacterData {
-	inventoryIDs := make(map[string]string, len(c.Inventory))
-	for name, obj := range c.Inventory {
-		inventoryIDs[name] = obj.ID.String()
+	inventoryIDs := make(map[string]string)
+	for name, item := range c.Inventory {
+		inventoryIDs[name] = item.ID.String()
 	}
 
 	return &CharacterData{
-		Index:      c.ID.String(),
-		PlayerID:   c.Player.PlayerID,
-		Name:       c.Name,
-		Attributes: c.Attributes,
-		Abilities:  c.Abilities,
-		Essence:    c.Essence,
-		Health:     c.Health,
-		RoomID:     c.Room.RoomID,
-		Inventory:  inventoryIDs,
+		CharacterID: c.ID.String(),
+		PlayerName:  c.Player.Name,
+		Name:        c.Name,
+		Attributes:  c.Attributes,
+		Abilities:   c.Abilities,
+		Essence:     c.Essence,
+		Health:      c.Health,
+		RoomID:      c.Room.RoomID,
+		Inventory:   inventoryIDs,
 	}
 }
 
-func (c *Character) FromData(cd *CharacterData) error {
-	Index, err := uuid.Parse(cd.Index)
+func (c *Character) FromData(cd *CharacterData, server *Server) error {
+	var err error
+	c.ID, err = uuid.Parse(cd.CharacterID)
 	if err != nil {
-		return fmt.Errorf("parse character index: %w", err)
+		return fmt.Errorf("parse character ID: %w", err)
 	}
-	c.ID = Index
 	c.Name = cd.Name
 	c.Attributes = cd.Attributes
 	c.Abilities = cd.Abilities
 	c.Essence = cd.Essence
 	c.Health = cd.Health
 
-	room, exists := c.Server.Rooms[cd.RoomID]
+	room, exists := server.Rooms[cd.RoomID]
 	if !exists {
 		Logger.Warn("Room not found", "roomID", cd.RoomID)
-		room = c.Server.Rooms[0]
+		room = server.Rooms[0]
 	}
 	c.Room = room
+	c.Server = server
 
-	c.Inventory = make(map[string]*Item, len(cd.Inventory))
-	for key, objID := range cd.Inventory {
-		obj, err := c.Server.Database.LoadItem(objID, false)
+	c.Inventory = make(map[string]*Item)
+	for name, itemID := range cd.Inventory {
+		item, err := server.Database.LoadItem(itemID, false)
 		if err != nil {
-			Logger.Error("Error loading object for character", "objectID", objID, "characterName", c.Name, "error", err)
+			Logger.Error("Error loading item for character", "itemID", itemID, "characterName", c.Name, "error", err)
 			continue
 		}
-		c.Inventory[key] = obj
+		c.Inventory[name] = item
 	}
 
 	return nil
@@ -124,7 +125,7 @@ func (kp *KeyPair) WriteCharacter(character *Character) error {
 	}
 
 	key := map[string]*dynamodb.AttributeValue{
-		"Index": {S: aws.String(character.ID.String())},
+		"CharacterID": {S: aws.String(character.ID.String())},
 	}
 
 	err = kp.Put("characters", key, av)
@@ -138,7 +139,7 @@ func (kp *KeyPair) WriteCharacter(character *Character) error {
 
 func (kp *KeyPair) LoadCharacter(characterID uuid.UUID, player *Player, server *Server) (*Character, error) {
 	key := map[string]*dynamodb.AttributeValue{
-		"Index": {S: aws.String(characterID.String())},
+		"CharacterID": {S: aws.String(characterID.String())},
 	}
 
 	var cd CharacterData
@@ -152,7 +153,7 @@ func (kp *KeyPair) LoadCharacter(characterID uuid.UUID, player *Player, server *
 		Player: player,
 	}
 
-	if err := character.FromData(&cd); err != nil {
+	if err := character.FromData(&cd, server); err != nil {
 		return nil, fmt.Errorf("error loading character from data: %w", err)
 	}
 
