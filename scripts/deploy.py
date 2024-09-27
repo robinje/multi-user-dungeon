@@ -1,6 +1,7 @@
 """
 Multi User Dunegoen Deployment Script
 """
+
 import traceback
 
 import boto3
