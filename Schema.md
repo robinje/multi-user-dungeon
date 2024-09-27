@@ -5,7 +5,6 @@
 | `PlayerID` | `STRING` | Email of the player. |
 | `CharacterList` | `MAP` | A map of the player's character and their UUID |
 | `SeenMotDs` | `LIST` | List of viewed messages of the day.
-| --- | --- | --- |
 
 The `PlayerID` is the email address of the player.
 
