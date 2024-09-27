@@ -18,13 +18,19 @@ import (
 
 func (k *KeyPair) WritePlayer(player *Player) error {
 	pd := PlayerData{
-		PlayerName:    player.Name,
+		PlayerID:      player.PlayerID,
 		CharacterList: make(map[string]string),
+		SeenMotDs:     make([]string, len(player.SeenMotDs)),
 	}
 
-	// Convert UUID to string
+	// Convert UUID to string for CharacterList
 	for charName, charID := range player.CharacterList {
 		pd.CharacterList[charName] = charID.String()
+	}
+
+	// Convert UUID to string for SeenMotDs
+	for i, motdID := range player.SeenMotDs {
+		pd.SeenMotDs[i] = motdID.String()
 	}
 
 	av, err := dynamodbattribute.MarshalMap(pd)
@@ -33,7 +39,7 @@ func (k *KeyPair) WritePlayer(player *Player) error {
 	}
 
 	key := map[string]*dynamodb.AttributeValue{
-		"PlayerName": {S: aws.String(player.Name)},
+		"PlayerID": {S: aws.String(player.PlayerID)},
 	}
 
 	err = k.Put("players", key, av)
@@ -41,24 +47,20 @@ func (k *KeyPair) WritePlayer(player *Player) error {
 		return fmt.Errorf("error storing player data: %w", err)
 	}
 
-	Logger.Info("Successfully wrote player data", "playerName", player.Name, "characterCount", len(player.CharacterList))
+	Logger.Info("Successfully wrote player data", "playerName", player.PlayerID, "characterCount", len(player.CharacterList), "seenMotDCount", len(player.SeenMotDs))
 	return nil
 }
 
-func (k *KeyPair) ReadPlayer(playerName string) (string, map[string]uuid.UUID, error) {
+func (k *KeyPair) ReadPlayer(playerName string) (string, map[string]uuid.UUID, []uuid.UUID, error) {
 	key := map[string]*dynamodb.AttributeValue{
-		"Name": {S: aws.String(playerName)},
+		"PlayerID": {S: aws.String(playerName)},
 	}
 
 	var pd PlayerData
 	err := k.Get("players", key, &pd)
 	if err != nil {
 		Logger.Error("Error reading player data", "error", err)
-		return "", nil, fmt.Errorf("player not found")
-	}
-
-	if pd.PlayerName == "" {
-		pd.PlayerName = playerName
+		return "", nil, nil, fmt.Errorf("player not found")
 	}
 
 	characterList := make(map[string]uuid.UUID)
@@ -71,12 +73,22 @@ func (k *KeyPair) ReadPlayer(playerName string) (string, map[string]uuid.UUID, e
 		characterList[name] = id
 	}
 
-	Logger.Info("Successfully read player data", "playerName", pd.PlayerName, "characterCount", len(characterList))
-	return pd.PlayerName, characterList, nil
+	seenMotDs := make([]uuid.UUID, len(pd.SeenMotDs))
+	for i, idString := range pd.SeenMotDs {
+		id, err := uuid.Parse(idString)
+		if err != nil {
+			Logger.Error("Error parsing UUID for seen MOTD", "index", i, "error", err)
+			continue
+		}
+		seenMotDs[i] = id
+	}
+
+	Logger.Info("Successfully read player data", "playerName", pd.PlayerID, "characterCount", len(characterList), "seenMotDCount", len(seenMotDs))
+	return pd.PlayerID, characterList, seenMotDs, nil
 }
 
 func PlayerInput(p *Player) {
-	Logger.Info("Player input goroutine started", "playerName", p.Name)
+	Logger.Info("Player input goroutine started", "playerName", p.PlayerID)
 
 	var inputBuffer bytes.Buffer
 	const maxBufferSize = 1024 // Maximum input size in bytes
@@ -87,11 +99,11 @@ func PlayerInput(p *Player) {
 		char, _, err := reader.ReadRune()
 		if err != nil {
 			if err == io.EOF {
-				Logger.Info("Player disconnected", "playerName", p.Name, "error", err)
+				Logger.Info("Player disconnected", "playerName", p.PlayerID, "error", err)
 				p.PlayerError <- err
 				break
 			} else {
-				Logger.Error("Error reading from player", "playerName", p.Name, "error", err)
+				Logger.Error("Error reading from player", "playerName", p.PlayerID, "error", err)
 				p.PlayerError <- err
 				continue
 			}
@@ -99,7 +111,7 @@ func PlayerInput(p *Player) {
 
 		if p.Echo && char != '\n' && char != '\r' {
 			if _, err := p.Connection.Write([]byte(string(char))); err != nil {
-				Logger.Error("Failed to echo character to player", "playerName", p.Name, "error", err)
+				Logger.Error("Failed to echo character to player", "playerName", p.PlayerID, "error", err)
 			}
 		}
 
@@ -112,7 +124,7 @@ func PlayerInput(p *Player) {
 		}
 
 		if inputBuffer.Len() >= maxBufferSize {
-			Logger.Warn("Input buffer overflow, discarding input", "playerName", p.Name)
+			Logger.Warn("Input buffer overflow, discarding input", "playerName", p.PlayerID)
 			p.ToPlayer <- "\n\rInput too long, discarded.\n\r"
 			inputBuffer.Reset()
 			continue
@@ -126,20 +138,20 @@ func PlayerInput(p *Player) {
 
 func PlayerOutput(p *Player) {
 
-	Logger.Info("Player output goroutine started", "playerName", p.Name)
+	Logger.Info("Player output goroutine started", "playerName", p.PlayerID)
 
 	for message := range p.ToPlayer {
 		// Append carriage return and newline for SSH protocol compatibility
 		messageToSend := message
 		if _, err := p.Connection.Write([]byte(messageToSend)); err != nil {
-			Logger.Error("Failed to send message to player", "playerName", p.Name, "error", err)
+			Logger.Error("Failed to send message to player", "playerName", p.PlayerID, "error", err)
 			// Consider whether to continue or break based on your error handling policy
 			continue
 		}
 	}
 
 	// Optionally, perform any cleanup here after the channel is closed and loop exits
-	Logger.Info("Message channel closed for player", "playerName", p.Name)
+	Logger.Info("Message channel closed for player", "playerName", p.PlayerID)
 }
 
 func InputLoop(c *Character) {
@@ -168,7 +180,7 @@ func InputLoop(c *Character) {
 				} else {
 					// Execute the command
 					shouldQuit = ExecuteCommand(c, verb, tokens)
-					Logger.Info("Player issued command", "playerName", c.Player.Name, "command", strings.Join(tokens, " "))
+					Logger.Info("Player issued command", "playerName", c.Player.PlayerID, "command", strings.Join(tokens, " "))
 				}
 				lastCommand = ""
 				if !shouldQuit {
@@ -178,7 +190,7 @@ func InputLoop(c *Character) {
 
 		case inputLine, more := <-c.Player.FromPlayer:
 			if !more {
-				Logger.Info("Input channel closed for player", "playerName", c.Player.Name)
+				Logger.Info("Input channel closed for player", "playerName", c.Player.PlayerID)
 				shouldQuit = true
 				break
 			}
@@ -206,7 +218,7 @@ func InputLoop(c *Character) {
 }
 
 func SelectCharacter(player *Player, server *Server) (*Character, error) {
-	Logger.Info("Player is selecting a character", "playerName", player.Name)
+	Logger.Info("Player is selecting a character", "playerName", player.PlayerID)
 
 	var options []string
 
@@ -254,7 +266,7 @@ func SelectCharacter(player *Player, server *Server) (*Character, error) {
 			characterID := player.CharacterList[characterName]
 			character, err = server.Database.LoadCharacter(characterID, player, server)
 			if err != nil {
-				Logger.Error("Error loading character for player", "characterName", characterName, "playerName", player.Name, "error", err)
+				Logger.Error("Error loading character for player", "characterName", characterName, "playerName", player.PlayerID, "error", err)
 				player.ToPlayer <- fmt.Sprintf("Error loading character: %v\n\r", err)
 				continue
 			}
@@ -287,7 +299,7 @@ func SelectCharacter(player *Player, server *Server) (*Character, error) {
 }
 
 func (s *Server) CreateCharacter(player *Player) (*Character, error) {
-	Logger.Info("Player is creating a new character", "playerName", player.Name)
+	Logger.Info("Player is creating a new character", "playerName", player.PlayerID)
 
 	player.ToPlayer <- "\n\rEnter your character name: "
 
@@ -369,7 +381,7 @@ func (s *Server) CreateCharacter(player *Player) (*Character, error) {
 	player.CharacterList[charName] = character.ID
 	player.Mutex.Unlock()
 
-	Logger.Info("Added character to player's character list", "characterName", charName, "characterID", character.ID, "playerName", player.Name)
+	Logger.Info("Added character to player's character list", "characterName", charName, "characterID", character.ID, "playerName", player.PlayerID)
 
 	// Save the character to the database
 	err := s.Database.WriteCharacter(character)
@@ -381,11 +393,11 @@ func (s *Server) CreateCharacter(player *Player) (*Character, error) {
 	// Save the updated player data
 	err = s.Database.WritePlayer(player)
 	if err != nil {
-		Logger.Error("Error saving player data", "playerName", player.Name, "error", err)
+		Logger.Error("Error saving player data", "playerName", player.PlayerID, "error", err)
 		return nil, fmt.Errorf("failed to save player data")
 	}
 
-	Logger.Info("Successfully created and saved character for player", "characterName", charName, "characterID", character.ID, "playerName", player.Name)
+	Logger.Info("Successfully created and saved character for player", "characterName", charName, "characterID", character.ID, "playerName", player.PlayerID)
 
 	return character, nil
 }

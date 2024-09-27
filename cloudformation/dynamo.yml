@@ -7,10 +7,10 @@ Resources:
     Properties:
       TableName: players
       AttributeDefinitions:
-        - AttributeName: PlayerName
+        - AttributeName: PlayerID
           AttributeType: S
       KeySchema:
-        - AttributeName: PlayerName
+        - AttributeName: PlayerID
           KeyType: HASH
       ProvisionedThroughput:
         ReadCapacityUnits: 2

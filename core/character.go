@@ -39,7 +39,7 @@ func (c *Character) ToData() *CharacterData {
 
 	return &CharacterData{
 		CharacterID: c.ID.String(),
-		PlayerName:  c.Player.Name,
+		PlayerID:    c.Player.PlayerID,
 		Name:        c.Name,
 		Attributes:  c.Attributes,
 		Abilities:   c.Abilities,

@@ -81,7 +81,6 @@ type Server struct {
 type Player struct {
 	PlayerID      string
 	Index         uint64
-	Name          string
 	ToPlayer      chan string
 	FromPlayer    chan string
 	PlayerError   chan error
@@ -96,13 +95,13 @@ type Player struct {
 	LoginTime     time.Time
 	PasswordHash  string
 	Mutex         sync.Mutex
-	SeenMotDs     map[uuid.UUID]bool
+	SeenMotDs     []uuid.UUID
 }
 
 type PlayerData struct {
-	PlayerName    string            `json:"name" dynamodbav:"PlayerName"`
+	PlayerID      string            `json:"PlayerID" dynamodbav:"PlayerID"`
 	CharacterList map[string]string `json:"characterList" dynamodbav:"CharacterList"`
-	SeenMotDs     map[string]bool   `json:"seenMotDs" dynamodbav:"SeenMotDs"`
+	SeenMotDs     []string          `json:"seenMotDs" dynamodbav:"SeenMotDs"`
 }
 
 type Room struct {
@@ -139,7 +138,7 @@ type Character struct {
 // CharacterData for unmarshalling character.
 type CharacterData struct {
 	CharacterID string             `json:"CharacterID" dynamodbav:"CharacterID"`
-	PlayerName  string             `json:"PlayerName" dynamodbav:"PlayerName"`
+	PlayerID    string             `json:"PlayerID" dynamodbav:"PlayerID"`
 	Name        string             `json:"Name" dynamodbav:"Name"`
 	Attributes  map[string]float64 `json:"Attributes" dynamodbav:"Attributes"`
 	Abilities   map[string]float64 `json:"Abilities" dynamodbav:"Abilities"`
