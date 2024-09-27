@@ -1,5 +1,6 @@
 ---
 AWSTemplateFormatVersion: "2010-09-09"
+Description: "CloudFormation template for CodeBuild Project and IAM Policy"
 
 Parameters:
   UserPoolId:

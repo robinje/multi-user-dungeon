@@ -7,7 +7,7 @@ import boto3
 
 def add_or_update_motd(message, active=True, is_welcome=False):
     dynamodb = boto3.resource("dynamodb")
-    table = dynamodb.Table("motd")
+    table = dynamodb.Table("motd")  # type: ignore
 
     motd_id = "00000000-0000-0000-0000-000000000000" if is_welcome else str(uuid.uuid4())
 

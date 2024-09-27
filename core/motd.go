@@ -34,14 +34,13 @@ func (k *KeyPair) GetAllMOTDs() ([]*MOTD, error) {
 	return motds, nil
 }
 
-// TODO: Rework the 'server.ActiveMotDs' into a map.
 func DisplayUnseenMOTDs(server *Server, player *Player) {
 	if server == nil || player == nil {
 		Logger.Error("Invalid server or player object")
 		return
 	}
 
-	Logger.Info("Displaying MOTDs for player", "playerName", player.Name)
+	Logger.Info("Displaying MOTDs for player", "playerName", player.PlayerID)
 
 	defaultMOTDID, _ := uuid.Parse("00000000-0000-0000-0000-000000000000")
 	welcomeDisplayed := false
@@ -67,12 +66,26 @@ func DisplayUnseenMOTDs(server *Server, player *Player) {
 		}
 
 		// Check if the player has already seen this MOTD
-		if !player.SeenMotDs[motd.ID] {
+		seenMOTD := false
+		for _, seenID := range player.SeenMotDs {
+			if seenID == motd.ID {
+				seenMOTD = true
+				break
+			}
+		}
+
+		if !seenMOTD {
 			// Display the MOTD to the player
 			player.ToPlayer <- fmt.Sprintf("\n\r%s\n\r", motd.Message)
 
 			// Mark the MOTD as seen
-			player.SeenMotDs[motd.ID] = true
+			player.SeenMotDs = append(player.SeenMotDs, motd.ID)
 		}
+	}
+
+	// Save the updated player data
+	err := server.Database.WritePlayer(player)
+	if err != nil {
+		Logger.Error("Error saving player data after displaying MOTDs", "playerName", player.PlayerID, "error", err)
 	}
 }

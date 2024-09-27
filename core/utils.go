@@ -59,7 +59,7 @@ func AutoSave(server *Server) {
 			if character.Player != nil {
 				err := server.Database.WritePlayer(character.Player)
 				if err != nil {
-					Logger.Error("Failed to save player data", "player_name", character.Player.Name, "error", err)
+					Logger.Error("Failed to save player data", "player_name", character.Player.PlayerID, "error", err)
 				} else {
 					savedPlayers++
 				}
