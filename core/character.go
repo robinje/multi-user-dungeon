@@ -38,15 +38,15 @@ func (c *Character) ToData() *CharacterData {
 	}
 
 	return &CharacterData{
-		CharacterID: c.ID.String(),
-		PlayerID:    c.Player.PlayerID,
-		Name:        c.Name,
-		Attributes:  c.Attributes,
-		Abilities:   c.Abilities,
-		Essence:     c.Essence,
-		Health:      c.Health,
-		RoomID:      c.Room.RoomID,
-		Inventory:   inventoryIDs,
+		CharacterID:   c.ID.String(),
+		PlayerID:      c.Player.PlayerID,
+		CharacterName: c.Name,
+		Attributes:    c.Attributes,
+		Abilities:     c.Abilities,
+		Essence:       c.Essence,
+		Health:        c.Health,
+		RoomID:        c.Room.RoomID,
+		Inventory:     inventoryIDs,
 	}
 }
 
@@ -56,7 +56,7 @@ func (c *Character) FromData(cd *CharacterData, server *Server) error {
 	if err != nil {
 		return fmt.Errorf("parse character ID: %w", err)
 	}
-	c.Name = cd.Name
+	c.Name = cd.CharacterName
 	c.Attributes = cd.Attributes
 	c.Abilities = cd.Abilities
 	c.Essence = cd.Essence
