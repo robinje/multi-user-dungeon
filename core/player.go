@@ -60,7 +60,7 @@ func (k *KeyPair) ReadPlayer(playerName string) (string, map[string]uuid.UUID, [
 	err := k.Get("players", key, &pd)
 	if err != nil {
 		Logger.Error("Error reading player data", "error", err)
-		return "", nil, nil, fmt.Errorf("player not found")
+		return "", nil, nil, fmt.Errorf("player not found: %w", err)
 	}
 
 	characterList := make(map[string]uuid.UUID)
@@ -73,14 +73,14 @@ func (k *KeyPair) ReadPlayer(playerName string) (string, map[string]uuid.UUID, [
 		characterList[name] = id
 	}
 
-	seenMotDs := make([]uuid.UUID, len(pd.SeenMotDs))
-	for i, idString := range pd.SeenMotDs {
+	seenMotDs := make([]uuid.UUID, 0, len(pd.SeenMotDs))
+	for _, idString := range pd.SeenMotDs {
 		id, err := uuid.Parse(idString)
 		if err != nil {
-			Logger.Error("Error parsing UUID for seen MOTD", "index", i, "error", err)
+			Logger.Error("Error parsing UUID for seen MOTD", "idString", idString, "error", err)
 			continue
 		}
-		seenMotDs[i] = id
+		seenMotDs = append(seenMotDs, id)
 	}
 
 	Logger.Info("Successfully read player data", "playerName", pd.PlayerID, "characterCount", len(characterList), "seenMotDCount", len(seenMotDs))
