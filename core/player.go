@@ -60,7 +60,7 @@ func (k *KeyPair) ReadPlayer(playerName string) (string, map[string]uuid.UUID, [
 	err := k.Get("players", key, &pd)
 	if err != nil {
 		Logger.Error("Error reading player data", "error", err)
-		return "", nil, nil, fmt.Errorf("player not found: %w", err)
+		return "", nil, nil, fmt.Errorf("player not found")
 	}
 
 	characterList := make(map[string]uuid.UUID)
