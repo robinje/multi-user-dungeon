@@ -71,9 +71,6 @@ func ExecuteQuitCommand(character *Character, tokens []string) bool {
 	// Send goodbye message
 	character.Player.ToPlayer <- "\n\rGoodbye!"
 
-	// Notify room
-	SendRoomMessage(character.Room, fmt.Sprintf("\n\r%s has left.\n\r", character.Name))
-
 	// Remove character from the room
 	character.Room.Mutex.Lock()
 	delete(character.Room.Characters, character.ID)
@@ -83,6 +80,9 @@ func ExecuteQuitCommand(character *Character, tokens []string) bool {
 	character.Server.Mutex.Lock()
 	delete(character.Server.Characters, character.ID)
 	character.Server.Mutex.Unlock()
+
+	// Notify room
+	SendRoomMessage(character.Room, fmt.Sprintf("\n\r%s has left.\n\r", character.Name))
 
 	// Save character state to database
 	err := character.Server.Database.WriteCharacter(character)
