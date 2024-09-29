@@ -1,0 +1,62 @@
+name: Dart Format and Analyze
+
+on:
+  push:
+    branches: [develop]
+  pull_request:
+    branches: "**"
+
+jobs:
+  format-and-analyze:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.x"
+          channel: "stable"
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Verify formatting
+        run: dart format --output=none --set-exit-if-changed .
+
+      - name: Analyze project source
+        run: flutter analyze
+
+      - name: Run tests
+        run: flutter test
+
+      - name: Check for any formatting changes
+        run: |
+          dart format .
+          git diff --exit-code
+        continue-on-error: true
+
+      - name: Configure Git
+        run: |
+          git fetch -q
+          git checkout ${{github.head_ref}} --progress
+          git config --global user.name "Dark Relics Automatic"
+          git config --global user.email "contact@darkrelics.net"
+          git pull
+
+          - name: Check for changes
+          id: git-check
+          run: |
+            git add . -vv
+            if git diff-index --quiet HEAD; then
+                echo "changes=false" >> $GITHUB_OUTPUT
+            else
+                echo "changes=true" >> $GITHUB_OUTPUT
+            fi
+
+          - name: Commit and push changes
+              if: steps.git-check.outputs.changes == 'true'
+              run: |
+              git commit -m "Apply Autoformatting" -vv
+              git push -vv
