@@ -14,11 +14,12 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// NewServer initializes a new server instance with the given configuration.
+// It sets up the database connection, loads game data, and prepares the server for incoming connections.
 func NewServer(config core.Configuration) (*core.Server, error) {
-
 	core.Logger.Info("Initializing server...")
 
-	// Initialize the server with the configuration
+	// Initialize the server struct with the provided configuration
 	server := &core.Server{
 		Port:        config.Server.Port,
 		PlayerIndex: &core.Index{},
@@ -35,63 +36,68 @@ func NewServer(config core.Configuration) (*core.Server, error) {
 
 	core.Logger.Info("Initializing database...")
 
-	// Initialize the database
+	// Initialize the database connection
 	var err error
 	server.Database, err = core.NewKeyPair(config.Aws.Region)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize database: %v", err)
 	}
 
-	// Establish the player index
+	// Initialize the player index (consider loading from persistent storage in future)
 	server.PlayerIndex.IndexID = 1
 
-	// Load the character names from the database
-
-	core.Logger.Info("Loading character names from database...")
-
-	// Load the bloom filter from the database
+	// Initialize the bloom filter for character names
+	core.Logger.Info("Initializing bloom filter...")
 	err = server.InitializeBloomFilter()
 	if err != nil {
 		core.Logger.Error("Error initializing bloom filter", "error", err)
+		// If bloom filter is critical, consider exiting
+		return nil, fmt.Errorf("failed to initialize bloom filter: %v", err)
 	}
 
+	// Load archetypes from the database
+	core.Logger.Info("Loading archetypes from database...")
 	server.Archetypes, err = server.Database.LoadArchetypes()
 	if err != nil {
 		core.Logger.Error("Error loading archetypes from database", "error", err)
+		// If archetypes are critical, consider exiting
+		return nil, fmt.Errorf("failed to load archetypes: %v", err)
 	}
 
-	// Add a default room
-	server.Rooms = make(map[int64]*core.Room)
+	// Add a default room if none exist
+	if len(server.Rooms) == 0 {
+		core.Logger.Info("Adding default room...")
+		server.Rooms[0] = core.NewRoom(0, "The Void", "The Void", "You are in a void of nothingness. If you are here, something has gone terribly wrong.")
+	}
 
-	server.Rooms[0] = core.NewRoom(0, "The Void", "The Void", "You are in a void of nothingness. If you are here, something has gone terribly wrong.")
-
-	// Load rooms into the server
-
+	// Load rooms from the database
 	core.Logger.Info("Loading rooms from database...")
-
 	loadedRooms, err := server.Database.LoadRooms()
 	if err != nil {
-		core.Logger.Info("Error loading rooms from database", "error", err)
+		core.Logger.Error("Error loading rooms from database", "error", err)
+		// Proceeding with default room(s) if rooms failed to load
+	} else {
+		// Merge loaded rooms with existing rooms, preserving the default room
+		for id, room := range loadedRooms {
+			server.Rooms[id] = room
+		}
 	}
 
-	// Merge loaded rooms with existing rooms, preserving the default room
-	for id, room := range loadedRooms {
-		server.Rooms[id] = room
-	}
-
-	// Load active MOTDs
+	// Load active MOTDs from the database
+	core.Logger.Info("Loading active MOTDs from database...")
 	activeMOTDs, err := server.Database.GetAllMOTDs()
 	if err != nil {
 		core.Logger.Error("Failed to load active MOTDs", "error", err)
+		// Proceeding without MOTDs if failed to load
 	} else {
 		server.ActiveMotDs = activeMOTDs
 		core.Logger.Info("Loaded active MOTDs", "count", len(activeMOTDs))
 	}
 
 	return server, nil
-
 }
 
+// loadConfiguration reads the configuration file and unmarshals it into a Configuration struct.
 func loadConfiguration(configFile string) (core.Configuration, error) {
 	var config core.Configuration
 
@@ -109,54 +115,57 @@ func loadConfiguration(configFile string) (core.Configuration, error) {
 }
 
 func main() {
+	// Parse command-line flags
 	configFile := flag.String("config", "config.yml", "Configuration file")
 	flag.Parse()
 
+	// Load configuration from the specified file
 	config, err := loadConfiguration(*configFile)
 	if err != nil {
-		core.Logger.Error("Error loading configuration", "error", err)
+		fmt.Printf("Error loading configuration: %v\n", err)
 		return
 	}
 
-	// Initialize logging
+	// Initialize logging based on the loaded configuration
 	err = core.InitializeLogging(&config)
 	if err != nil {
-		core.Logger.Error("Error initializing logging", "error", err)
+		fmt.Printf("Error initializing logging: %v\n", err)
 		return
 	}
 
 	core.Logger.Info("Configuration loaded", "config", config)
 
+	// Create a new server instance
 	server, err := NewServer(config)
 	if err != nil {
 		core.Logger.Error("Failed to create server", "error", err)
 		return
 	}
 
-	// Start sending metrics
+	// Start sending metrics in a separate goroutine
 	go func() {
 		if err := core.SendMetrics(server, 1*time.Minute); err != nil {
 			core.Logger.Error("Error in SendMetrics", "error", err)
 		}
 	}()
 
-	// Start the auto-save routine
+	// Start the auto-save routine in a separate goroutine
 	go core.AutoSave(server)
 
-	// Start the server
+	// Start the SSH server to accept incoming connections
 	if err := StartSSHServer(server); err != nil {
 		core.Logger.Error("Failed to start server", "error", err)
 		return
 	}
 }
 
+// Authenticate checks the provided username and password against the authentication system.
+// Returns true if authentication is successful, false otherwise.
 func Authenticate(username, password string, config core.Configuration) bool {
-
 	core.Logger.Info("Authenticating user", "username", username)
 
 	response, err := core.SignInUser(username, password, config)
-
-	core.Logger.Debug("Response", "response", response)
+	core.Logger.Debug("Authentication response", "response", response)
 
 	if err != nil {
 		core.Logger.Error("Authentication attempt failed for user", "username", username, "error", err)
@@ -165,20 +174,27 @@ func Authenticate(username, password string, config core.Configuration) bool {
 	return true
 }
 
+// StartSSHServer starts the SSH server to accept incoming player connections.
 func StartSSHServer(server *core.Server) error {
-
 	core.Logger.Info("Starting SSH server", "port", server.Port)
 
 	// Read the private key from disk
-	privateBytes, err := os.ReadFile("./server.key")
-	if err != nil {
-		return fmt.Errorf("failed to read private key: %v", err)
+	privateKeyPath := server.Config.Server.PrivateKeyPath
+	if privateKeyPath == "" {
+		privateKeyPath = "./server.key" // Default path if not specified
 	}
+	privateBytes, err := os.ReadFile(privateKeyPath)
+	if err != nil {
+		return fmt.Errorf("failed to read private key from %s: %v", privateKeyPath, err)
+	}
+
+	// Parse the private key
 	private, err := ssh.ParsePrivateKey(privateBytes)
 	if err != nil {
 		return fmt.Errorf("failed to parse private key: %v", err)
 	}
 
+	// Configure SSH server settings
 	server.SSHConfig = &ssh.ServerConfig{
 		PasswordCallback: func(conn ssh.ConnMetadata, password []byte) (*ssh.Permissions, error) {
 			// Authenticate the player
@@ -192,17 +208,20 @@ func StartSSHServer(server *core.Server) error {
 		},
 	}
 
+	// Add the host key to the SSH configuration
 	server.SSHConfig.AddHostKey(private)
 
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", server.Port))
+	// Start listening on the configured port
+	address := fmt.Sprintf(":%d", server.Port)
+	listener, err := net.Listen("tcp", address)
 	if err != nil {
 		return fmt.Errorf("failed to listen on port %d: %v", server.Port, err)
 	}
 
 	server.Listener = listener
-
 	core.Logger.Info("SSH server listening", "port", server.Port)
 
+	// Accept incoming connections in a loop
 	for {
 		conn, err := server.Listener.Accept()
 		if err != nil {
@@ -210,22 +229,27 @@ func StartSSHServer(server *core.Server) error {
 			continue
 		}
 
+		// Perform SSH handshake
 		sshConn, chans, reqs, err := ssh.NewServerConn(conn, server.SSHConfig)
 		if err != nil {
-			core.Logger.Error("Failed to handshake", "error", err)
+			core.Logger.Error("Failed to perform SSH handshake", "error", err)
 			continue
 		}
 
+		// Discard global requests
 		go ssh.DiscardRequests(reqs)
 
+		// Handle channels (e.g., sessions)
 		go handleChannels(server, sshConn, chans)
 	}
 }
 
+// handleChannels handles the channels opened by the SSH client.
 func handleChannels(server *core.Server, sshConn *ssh.ServerConn, channels <-chan ssh.NewChannel) {
 	core.Logger.Info("New connection", "address", sshConn.RemoteAddr().String(), "user", sshConn.User())
 
 	for newChannel := range channels {
+		// Accept the channel
 		channel, requests, err := newChannel.Accept()
 		if err != nil {
 			core.Logger.Error("Could not accept channel", "error", err)
@@ -238,8 +262,8 @@ func handleChannels(server *core.Server, sshConn *ssh.ServerConn, channels <-cha
 		// Attempt to read the player from the database
 		_, characterList, seenMotDs, err := server.Database.ReadPlayer(playerName)
 		if err != nil {
-			// If the player does not exist, create a new record
 			if err.Error() == "player not found" {
+				// Create a new player record if not found
 				core.Logger.Info("Creating new player record", "player_name", playerName)
 				characterList = make(map[string]uuid.UUID)
 				seenMotDs = []uuid.UUID{} // Initialize an empty slice for new players
@@ -280,7 +304,7 @@ func handleChannels(server *core.Server, sshConn *ssh.ServerConn, channels <-cha
 		go core.PlayerInput(player)
 		go core.PlayerOutput(player)
 
-		// Initialize player
+		// Initialize player session
 		go func(p *core.Player) {
 			defer p.Connection.Close()
 
@@ -290,46 +314,63 @@ func handleChannels(server *core.Server, sshConn *ssh.ServerConn, channels <-cha
 			core.DisplayUnseenMOTDs(server, p)
 
 			// Character Selection Dialog
-			character, _ := core.SelectCharacter(p, server)
+			character, err := core.SelectCharacter(p, server)
+			if err != nil {
+				core.Logger.Error("Error during character selection", "error", err)
+				return
+			}
 
+			// Enter the main input loop for the player
 			core.InputLoop(character)
 
+			// Close the player's output channel
 			close(player.ToPlayer)
 
-			server.Database.WriteCharacter(character)
+			// Save the player's character and data to the database
+			err = server.Database.WriteCharacter(character)
+			if err != nil {
+				core.Logger.Error("Error saving character", "character_id", character.ID, "error", err)
+			}
 
-			server.Database.WritePlayer(player)
+			err = server.Database.WritePlayer(player)
+			if err != nil {
+				core.Logger.Error("Error saving player data", "player_name", player.PlayerID, "error", err)
+			}
 
 			core.Logger.Info("Player disconnected", "player_name", p.PlayerID)
-			player = nil
 		}(player)
 	}
 }
 
-// Helper function to parse terminal dimensions from payload
+// parseDims parses terminal dimensions from the SSH payload.
 func parseDims(b []byte) (width, height int) {
 	width = int(b[0])<<24 | int(b[1])<<16 | int(b[2])<<8 | int(b[3])
 	height = int(b[4])<<24 | int(b[5])<<16 | int(b[6])<<8 | int(b[7])
 	return width, height
 }
 
-// HandleSSHRequests handles SSH requests from the client
+// HandleSSHRequests handles SSH requests from the client.
 func HandleSSHRequests(player *core.Player, requests <-chan *ssh.Request) {
-
 	core.Logger.Debug("Handling SSH requests for player", "player_name", player.PlayerID)
 
 	for req := range requests {
 		switch req.Type {
 		case "shell":
+			// Accept the shell request
 			req.Reply(true, nil)
 		case "pty-req":
+			// Parse terminal dimensions
 			termLen := req.Payload[3]
 			w, h := parseDims(req.Payload[termLen+4:])
 			player.ConsoleWidth, player.ConsoleHeight = w, h
 			req.Reply(true, nil)
 		case "window-change":
+			// Update terminal dimensions
 			w, h := parseDims(req.Payload)
 			player.ConsoleWidth, player.ConsoleHeight = w, h
+		default:
+			// Reject unsupported requests
+			req.Reply(false, nil)
 		}
 	}
 }

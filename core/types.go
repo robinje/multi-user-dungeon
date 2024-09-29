@@ -22,7 +22,8 @@ type Index struct {
 
 type Configuration struct {
 	Server struct {
-		Port uint16 `yaml:"Port"`
+		Port           uint16 `yaml:"Port"`
+		PrivateKeyPath string `yaml:"PrivateKeyPath"`
 	} `yaml:"Server"`
 	Aws struct {
 		Region string `yaml:"Region"`
