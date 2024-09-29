@@ -131,9 +131,9 @@ func (s *Server) NewCharacter(name string, player *Player, room *Room, archetype
 
 // WriteCharacter saves the character to the DynamoDB database.
 func (kp *KeyPair) WriteCharacter(character *Character) error {
+
 	characterData := character.ToData()
 
-	// Write the character data to the DynamoDB table with proper error handling
 	err := kp.Put("characters", characterData)
 	if err != nil {
 		Logger.Error("Error writing character data", "characterName", character.Name, "error", err)

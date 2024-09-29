@@ -21,8 +21,8 @@
 | `CharacterName` | `STRING` | Name of the character.                                       |
 | `RoomID`        | `NUMBER` | ID of the room the character is currently in.                |
 | `Inventory`     | `MAP`    | Map of inventory slots to item UUIDs.                        |
-| `Attributes`    | `MAP`    | Map of attribute names to their values (e.g., Strength: 10). |
-| `Abilities`     | `MAP`    | Map of ability names to their values (e.g., Stealth: 5).     |
+| `Attributes`    | `MAP`    | Map of attribute names to their values (e.g., Strength: 4). |
+| `Abilities`     | `MAP`    | Map of ability names to their values (e.g., Stealth: 3).     |
 | `Essence`       | `NUMBER` | The character's essence or magical energy.                   |
 | `Health`        | `NUMBER` | The character's current health points.                       |
 

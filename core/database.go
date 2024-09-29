@@ -29,7 +29,6 @@ func NewKeyPair(region string) (*KeyPair, error) {
 	}, nil
 }
 
-// Put replaces an item in the DynamoDB table using PutItem.
 func (k *KeyPair) Put(tableName string, item interface{}) error {
 	av, err := dynamodbattribute.MarshalMap(item)
 	if err != nil {

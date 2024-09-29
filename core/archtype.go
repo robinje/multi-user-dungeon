@@ -31,10 +31,9 @@ func (kp *KeyPair) LoadArchetypes() (*ArchetypesData, error) {
 	return archetypesData, nil
 }
 
-// StoreArchetypes stores all archetypes into the DynamoDB table using the updated Put method.
+// StoreArchetypes stores all archetypes into the DynamoDB table.
 func (kp *KeyPair) StoreArchetypes(archetypes *ArchetypesData) error {
 	for _, archetype := range archetypes.Archetypes {
-		// Use the updated Put method which includes the key within the item.
 		err := kp.Put("archetypes", archetype)
 		if err != nil {
 			return fmt.Errorf("error storing archetype %s: %w", archetype.Name, err)
