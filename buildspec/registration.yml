@@ -5,18 +5,33 @@ phases:
     runtime-versions:
       nodejs: 20
     commands:
-      - cd registration
-      - npm install
+      - echo Installing Flutter...
+      - git clone https://github.com/flutter/flutter.git -b stable
+      - export PATH="$PATH:`pwd`/flutter/bin"
+      - flutter config --no-analytics
+      - flutter doctor
+      - flutter config --enable-web
 
   pre_build:
     commands:
-      - npx eslint .
+      - cd registration
+      - flutter pub get
+      - flutter analyze
 
   build:
     commands:
-      - sed -i 's/YOUR_COGNITO_USER_POOL_ID/$USER_POOL_ID/' app.js
-      - sed -i 's/YOUR_COGNITO_CLIENT_ID/$CLIENT_ID/' app.js
+      - echo Replacing Cognito credentials...
+      - sed -i 's/YOUR_USER_POOL_ID/$USER_POOL_ID/' lib/main.dart
+      - sed -i 's/YOUR_CLIENT_ID/$CLIENT_ID/' lib/main.dart
+      - echo Building web application...
+      - flutter build web --release
 
   post_build:
     commands:
-      - aws s3 cp . s3://$S3_BUCKET_NAME/ --recursive --exclude "*" --include "*.html" --include "*.js"
+      - echo Uploading to S3...
+      - aws s3 cp build/web s3://$S3_BUCKET_NAME/ --recursive
+
+artifacts:
+  base-directory: registration/build/web
+  files:
+    - '**/*'

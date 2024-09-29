@@ -1,0 +1,15 @@
+name: cognito_email_verification
+description: A simple Flutter app for Cognito email verification
+
+dependencies:
+  flutter:
+    sdk: flutter
+  amazon_cognito_identity_dart_2: ^3.6.5
+  http: ^1.2.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true
