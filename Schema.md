@@ -1,9 +1,9 @@
 ## Player Table
 
-| Field           | Type     | Description                                         |
-| --------------- | -------- | --------------------------------------------------- |
-| `PlayerID`      | `STRING` | Email of the player.                                |
-| `CharacterList` | `MAP`    | Map of character names to their UUIDs.              |
+| Field           | Type     | Description                                               |
+| --------------- | -------- | --------------------------------------------------------- |
+| `PlayerID`      | `STRING` | Email of the player.                                      |
+| `CharacterList` | `MAP`    | Map of character names to their UUIDs.                    |
 | `SeenMotDs`     | `LIST`   | List of UUIDs of messages of the day the player has seen. |
 
 - **`PlayerID`**: The email address of the player, serving as the primary key.
@@ -14,17 +14,17 @@
 
 ## Character Table
 
-| Field           | Type     | Description                                                                                         |
-| --------------- | -------- | --------------------------------------------------------------------------------------------------- |
-| `CharacterID`   | `STRING` | UUID of the character.                                                                              |
-| `PlayerID`      | `STRING` | Email of the player who owns the character.                                                         |
-| `CharacterName` | `STRING` | Name of the character.                                                                              |
-| `RoomID`        | `NUMBER` | ID of the room the character is currently in.                                                       |
-| `Inventory`     | `MAP`    | Map of inventory slots to item UUIDs.                                                               |
-| `Attributes`    | `MAP`    | Map of attribute names to their values (e.g., Strength: 10).                                        |
-| `Abilities`     | `MAP`    | Map of ability names to their values (e.g., Stealth: 5).                                            |
-| `Essence`       | `NUMBER` | The character's essence or magical energy.                                                          |
-| `Health`        | `NUMBER` | The character's current health points.                                                              |
+| Field           | Type     | Description                                                  |
+| --------------- | -------- | ------------------------------------------------------------ |
+| `CharacterID`   | `STRING` | UUID of the character.                                       |
+| `PlayerID`      | `STRING` | Email of the player who owns the character.                  |
+| `CharacterName` | `STRING` | Name of the character.                                       |
+| `RoomID`        | `NUMBER` | ID of the room the character is currently in.                |
+| `Inventory`     | `MAP`    | Map of inventory slots to item UUIDs.                        |
+| `Attributes`    | `MAP`    | Map of attribute names to their values (e.g., Strength: 10). |
+| `Abilities`     | `MAP`    | Map of ability names to their values (e.g., Stealth: 5).     |
+| `Essence`       | `NUMBER` | The character's essence or magical energy.                   |
+| `Health`        | `NUMBER` | The character's current health points.                       |
 
 - **`CharacterID`**: The UUID of the character, serving as the primary key.
 - **`PlayerID`**: The email address of the player who owns this character.
@@ -40,13 +40,13 @@
 
 ## Rooms Table
 
-| Field         | Type     | Description                                              |
-| ------------- | -------- | -------------------------------------------------------- |
-| `RoomID`      | `NUMBER` | Unique identifier of the room.                           |
-| `Area`        | `STRING` | Name of the area or region the room belongs to.          |
-| `Title`       | `STRING` | Title or name of the room.                               |
-| `Description` | `STRING` | Text description of the room.                            |
-| `ItemIDs`     | `LIST`   | List of item UUIDs present in the room.                  |
+| Field         | Type     | Description                                     |
+| ------------- | -------- | ----------------------------------------------- |
+| `RoomID`      | `NUMBER` | Unique identifier of the room.                  |
+| `Area`        | `STRING` | Name of the area or region the room belongs to. |
+| `Title`       | `STRING` | Title or name of the room.                      |
+| `Description` | `STRING` | Text description of the room.                   |
+| `ItemIDs`     | `LIST`   | List of item UUIDs present in the room.         |
 
 - **`RoomID`**: Serves as the primary key for the room.
 - **`Area`**: The broader area or zone where the room is located.
@@ -58,12 +58,12 @@
 
 ## Exits Table
 
-| Field        | Type      | Description                                                |
-| ------------ | --------- | ---------------------------------------------------------- |
-| `RoomID`     | `NUMBER`  | ID of the room containing the exit.                        |
-| `Direction`  | `STRING`  | Direction of the exit (e.g., "north", "south").            |
-| `TargetRoom` | `NUMBER`  | ID of the room the exit leads to.                          |
-| `Visible`    | `BOOLEAN` | Indicates if the exit is visible to players.               |
+| Field        | Type      | Description                                     |
+| ------------ | --------- | ----------------------------------------------- |
+| `RoomID`     | `NUMBER`  | ID of the room containing the exit.             |
+| `Direction`  | `STRING`  | Direction of the exit (e.g., "north", "south"). |
+| `TargetRoom` | `NUMBER`  | ID of the room the exit leads to.               |
+| `Visible`    | `BOOLEAN` | Indicates if the exit is visible to players.    |
 
 - **Primary Key**: Composite key consisting of `RoomID` and `Direction`.
 - **`RoomID`**: The ID of the room where the exit is located.
@@ -75,27 +75,27 @@
 
 ## Items Table
 
-| Field         | Type      | Description                                                    |
-| ------------- | --------- | -------------------------------------------------------------- |
-| `ID`          | `STRING`  | UUID of the item.                                              |
-| `Name`        | `STRING`  | Name of the item.                                              |
-| `Description` | `STRING`  | Description of the item.                                       |
-| `Mass`        | `NUMBER`  | Weight or mass of the item.                                    |
-| `Value`       | `NUMBER`  | Monetary value of the item.                                    |
-| `Stackable`   | `BOOLEAN` | Indicates if the item can be stacked.                          |
-| `MaxStack`    | `NUMBER`  | Maximum number of items per stack.                             |
-| `Quantity`    | `NUMBER`  | Current quantity if stackable.                                 |
-| `Wearable`    | `BOOLEAN` | Indicates if the item can be worn.                             |
-| `WornOn`      | `STRING`  | Body part where the item can be worn (e.g., "head", "feet").   |
-| `Verbs`       | `MAP`     | Actions associated with the item (e.g., "eat": "You eat...").  |
-| `Overrides`   | `MAP`     | Overrides for default behaviors or properties.                 |
-| `TraitMods`   | `MAP`     | Modifications to character traits when item is used/worn.      |
-| `Container`   | `BOOLEAN` | Indicates if the item can contain other items.                 |
-| `Contents`    | `LIST`    | List of item UUIDs contained within this item.                 |
-| `IsPrototype` | `BOOLEAN` | Flag to indicate if the item is a prototype.                   |
-| `IsWorn`      | `BOOLEAN` | Indicates if the item is currently worn by a character.        |
-| `CanPickUp`   | `BOOLEAN` | Indicates if the item can be picked up by players.             |
-| `Metadata`    | `MAP`     | Additional custom data related to the item.                    |
+| Field         | Type      | Description                                                   |
+| ------------- | --------- | ------------------------------------------------------------- |
+| `ID`          | `STRING`  | UUID of the item.                                             |
+| `Name`        | `STRING`  | Name of the item.                                             |
+| `Description` | `STRING`  | Description of the item.                                      |
+| `Mass`        | `NUMBER`  | Weight or mass of the item.                                   |
+| `Value`       | `NUMBER`  | Monetary value of the item.                                   |
+| `Stackable`   | `BOOLEAN` | Indicates if the item can be stacked.                         |
+| `MaxStack`    | `NUMBER`  | Maximum number of items per stack.                            |
+| `Quantity`    | `NUMBER`  | Current quantity if stackable.                                |
+| `Wearable`    | `BOOLEAN` | Indicates if the item can be worn.                            |
+| `WornOn`      | `STRING`  | Body part where the item can be worn (e.g., "head", "feet").  |
+| `Verbs`       | `MAP`     | Actions associated with the item (e.g., "eat": "You eat..."). |
+| `Overrides`   | `MAP`     | Overrides for default behaviors or properties.                |
+| `TraitMods`   | `MAP`     | Modifications to character traits when item is used/worn.     |
+| `Container`   | `BOOLEAN` | Indicates if the item can contain other items.                |
+| `Contents`    | `LIST`    | List of item UUIDs contained within this item.                |
+| `IsPrototype` | `BOOLEAN` | Flag to indicate if the item is a prototype.                  |
+| `IsWorn`      | `BOOLEAN` | Indicates if the item is currently worn by a character.       |
+| `CanPickUp`   | `BOOLEAN` | Indicates if the item can be picked up by players.            |
+| `Metadata`    | `MAP`     | Additional custom data related to the item.                   |
 
 - **`ID`**: Primary key, uniquely identifies the item.
 - **`Name`**: The item's name as displayed to players.
@@ -121,9 +121,9 @@
 
 ## Item Prototypes Table
 
-| Field         | Type      | Description                                                  |
-| ------------- | --------- | ------------------------------------------------------------ |
-| **Same fields as the Items Table above.**                                                |
+| Field                                     | Type | Description |
+| ----------------------------------------- | ---- | ----------- |
+| **Same fields as the Items Table above.** |
 
 - This table stores item templates used to create actual items.
 - Prototypes are not interactable in-game but serve as blueprints.
@@ -132,12 +132,12 @@
 
 ## Archetypes Table
 
-| Field         | Type      | Description                                        |
-| ------------- | --------- | -------------------------------------------------- |
-| `Name`        | `STRING`  | Name of the archetype.                             |
-| `Description` | `STRING`  | Description of the archetype.                      |
-| `Attributes`  | `MAP`     | Default attributes for the archetype.              |
-| `Abilities`   | `MAP`     | Default abilities for the archetype.               |
+| Field         | Type     | Description                           |
+| ------------- | -------- | ------------------------------------- |
+| `Name`        | `STRING` | Name of the archetype.                |
+| `Description` | `STRING` | Description of the archetype.         |
+| `Attributes`  | `MAP`    | Default attributes for the archetype. |
+| `Abilities`   | `MAP`    | Default abilities for the archetype.  |
 
 - **`Name`**: Primary key for the archetype.
 - **`Description`**: Explains the archetype's role or characteristics.
@@ -148,12 +148,12 @@
 
 ## MOTD Table (Messages of the Day)
 
-| Field      | Type     | Description                                  |
-| ---------- | -------- | -------------------------------------------- |
-| `MotdID`   | `STRING` | UUID of the message.                         |
-| `Content`  | `STRING` | The text content of the message.             |
-| `Date`     | `STRING` | Date when the message was created or updated.|
-| `Author`   | `STRING` | Author or creator of the message.            |
+| Field     | Type     | Description                                   |
+| --------- | -------- | --------------------------------------------- |
+| `MotdID`  | `STRING` | UUID of the message.                          |
+| `Content` | `STRING` | The text content of the message.              |
+| `Date`    | `STRING` | Date when the message was created or updated. |
+| `Author`  | `STRING` | Author or creator of the message.             |
 
 - **`MotdID`**: Primary key, uniquely identifies the message.
 - **`Content`**: The actual message displayed to players.
@@ -186,4 +186,3 @@ This schema supports a multi-user dungeon (MUD) game, providing structures for p
 - Storage of messages of the day for player engagement.
 
 By adhering to this schema, developers can ensure data consistency and ease of access across the application, while leveraging DynamoDB's capabilities for scalability and performance.
-
