@@ -28,7 +28,7 @@ def add_or_update_motd(message: str, active: bool = True, is_welcome: bool = Fal
         ClientError: If an error occurs during the DynamoDB operation.
     """
     dynamodb = boto3.resource("dynamodb")
-    table = dynamodb.Table("motd") # type: ignore
+    table = dynamodb.Table("motd")  # type: ignore
 
     # Use a fixed ID for the welcome message; otherwise, generate a new UUID
     motd_id: str = "00000000-0000-0000-0000-000000000000" if is_welcome else str(uuid.uuid4())
@@ -49,7 +49,7 @@ def add_or_update_motd(message: str, active: bool = True, is_welcome: bool = Fal
         print(f"MOTD ID: {motd_id}")
         return motd_item
     except ClientError as e:
-        error_message = e.response['Error']['Message']
+        error_message = e.response["Error"]["Message"]
         print(f"Error adding/updating MOTD: {error_message}")
         return {}
     except Exception as e:

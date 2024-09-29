@@ -29,8 +29,8 @@ def display_rooms(dynamodb) -> list:
 
         print("Available Rooms:")
         for room in rooms:
-            room_id = int(room['RoomID'])
-            title = room.get('Title', 'No Title')
+            room_id = int(room["RoomID"])
+            title = room.get("Title", "No Title")
             print(f"{room_id}: {title}")
         return rooms
     except ClientError as e:
@@ -73,8 +73,8 @@ def display_prototypes(dynamodb) -> list:
 
         print("Available Prototypes:")
         for prototype in prototypes:
-            prototype_id = prototype['ID']
-            name = prototype.get('Name', 'No Name')
+            prototype_id = prototype["ID"]
+            name = prototype.get("Name", "No Name")
             print(f"{prototype_id}: {name}")
         return prototypes
     except ClientError as e:
@@ -151,7 +151,7 @@ def add_item_to_room(dynamodb, room: dict, new_item: dict) -> bool:
     rooms_table = dynamodb.Table("rooms")
     try:
         # Ensure that the RoomID is of the correct type
-        room_id = room['RoomID']
+        room_id = room["RoomID"]
         if isinstance(room_id, Decimal):
             room_id = int(room_id)
         elif not isinstance(room_id, int):
@@ -164,7 +164,7 @@ def add_item_to_room(dynamodb, room: dict, new_item: dict) -> bool:
                 ":empty_list": [],
                 ":new_item": [new_item["ID"]],
             },
-            ConditionExpression="attribute_exists(RoomID)"
+            ConditionExpression="attribute_exists(RoomID)",
         )
     except ClientError as e:
         print(f"Error updating room: {e.response['Error']['Message']}")

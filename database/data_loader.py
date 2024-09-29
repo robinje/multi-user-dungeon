@@ -41,21 +41,21 @@ def store_rooms(dynamodb, rooms) -> None:
         with rooms_table.batch_writer() as rooms_batch, exits_table.batch_writer() as exits_batch:
             for room_id, room in rooms.items():
                 # Ensure that room data includes the primary key 'RoomID'
-                if 'RoomID' not in room:
-                    room['RoomID'] = int(room_id)
+                if "RoomID" not in room:
+                    room["RoomID"] = int(room_id)
                 else:
-                    room['RoomID'] = int(room['RoomID'])
+                    room["RoomID"] = int(room["RoomID"])
                 # Extract 'Exits' from room data
-                exits = room.pop('Exits', {})
+                exits = room.pop("Exits", {})
                 # Store room data without 'Exits'
                 rooms_batch.put_item(Item=room)
                 # Store exits separately
                 for exit_dir, exit_data in exits.items():
                     exit_item = {
-                        'RoomID': room['RoomID'],
-                        'Direction': exit_dir,
-                        'TargetRoom': exit_data['TargetRoom'],
-                        'Visible': exit_data.get('Visible', True),
+                        "RoomID": room["RoomID"],
+                        "Direction": exit_dir,
+                        "TargetRoom": exit_data["TargetRoom"],
+                        "Visible": exit_data.get("Visible", True),
                     }
                     exits_batch.put_item(Item=exit_item)
         print("Room and exit data stored in DynamoDB successfully")
@@ -78,8 +78,8 @@ def store_archetypes(dynamodb, archetypes) -> None:
         with table.batch_writer() as batch:
             for name, archetype in archetypes.get("Archetypes", {}).items():
                 # Ensure the archetype has a 'Name' key
-                if 'Name' not in archetype:
-                    archetype['Name'] = name
+                if "Name" not in archetype:
+                    archetype["Name"] = name
                 batch.put_item(Item=archetype)
         print("Archetype data stored in DynamoDB successfully")
     except ClientError as e:
@@ -101,7 +101,7 @@ def store_prototypes(dynamodb, prototypes) -> None:
         with table.batch_writer() as batch:
             for prototype in prototypes.get("ItemPrototypes", []):
                 # Ensure the prototype has an 'ID' key
-                if 'ID' not in prototype:
+                if "ID" not in prototype:
                     logging.warning(f"Prototype missing 'ID': {prototype}")
                     continue
                 batch.put_item(Item=prototype)
@@ -131,15 +131,15 @@ def load_rooms(dynamodb) -> dict:
         # Load exits
         response = exits_table.scan()
         for exit_item in response.get("Items", []):
-            room_id = str(exit_item['RoomID'])
-            direction = exit_item['Direction']
+            room_id = str(exit_item["RoomID"])
+            direction = exit_item["Direction"]
             if room_id in rooms:
                 room = rooms[room_id]
-                if 'Exits' not in room:
-                    room['Exits'] = {}
-                room['Exits'][direction] = {
-                    'TargetRoom': exit_item['TargetRoom'],
-                    'Visible': exit_item.get('Visible', True),
+                if "Exits" not in room:
+                    room["Exits"] = {}
+                room["Exits"][direction] = {
+                    "TargetRoom": exit_item["TargetRoom"],
+                    "Visible": exit_item.get("Visible", True),
                 }
         print("Room data loaded from DynamoDB successfully")
         return rooms
@@ -208,11 +208,11 @@ def display_rooms(rooms) -> None:
     """
     print("Rooms:")
     for room_id, room in rooms.items():
-        title = room.get('Title', 'No Title')
+        title = room.get("Title", "No Title")
         print(f"Room {room_id}: {title}")
-        exits = room.get('Exits', {})
+        exits = room.get("Exits", {})
         for exit_dir, exit_data in exits.items():
-            target_room = exit_data.get('TargetRoom')
+            target_room = exit_data.get("TargetRoom")
             print(f"  Exit {exit_dir} to room {target_room}")
 
 
@@ -225,7 +225,7 @@ def display_archetypes(archetypes) -> None:
     """
     print("Archetypes:")
     for name, archetype in archetypes.get("Archetypes", {}).items():
-        description = archetype.get('Description', '')
+        description = archetype.get("Description", "")
         print(f"Name: {name}, Description: {description}")
 
 
@@ -238,9 +238,9 @@ def display_prototypes(prototypes) -> None:
     """
     print("Prototypes:")
     for prototype in prototypes.get("ItemPrototypes", []):
-        prototype_id = prototype.get('ID', 'No ID')
-        name = prototype.get('Name', 'No Name')
-        description = prototype.get('Description', '')
+        prototype_id = prototype.get("ID", "No ID")
+        name = prototype.get("Name", "No Name")
+        description = prototype.get("Description", "")
         print(f"ID: {prototype_id}, Name: {name}, Description: {description}")
 
 
