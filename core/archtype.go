@@ -4,18 +4,16 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/dynamodb"
-	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
 )
 
+// DisplayArchetypes logs the loaded archetypes for debugging purposes.
 func DisplayArchetypes(archetypes *ArchetypesData) {
 	for key, archetype := range archetypes.Archetypes {
 		Logger.Debug("Archetype", "name", key, "description", archetype.Description)
 	}
 }
 
+// LoadArchetypes retrieves all archetypes from the DynamoDB table and returns them as an ArchetypesData struct.
 func (kp *KeyPair) LoadArchetypes() (*ArchetypesData, error) {
 	archetypesData := &ArchetypesData{Archetypes: make(map[string]Archetype)}
 
@@ -33,42 +31,36 @@ func (kp *KeyPair) LoadArchetypes() (*ArchetypesData, error) {
 	return archetypesData, nil
 }
 
+// StoreArchetypes stores all archetypes into the DynamoDB table using the updated Put method.
 func (kp *KeyPair) StoreArchetypes(archetypes *ArchetypesData) error {
 	for _, archetype := range archetypes.Archetypes {
-		av, err := dynamodbattribute.MarshalMap(archetype)
-		if err != nil {
-			return fmt.Errorf("error marshalling archetype %s: %w", archetype.Name, err)
-		}
-
-		key := map[string]*dynamodb.AttributeValue{
-			"Name": {S: aws.String(archetype.Name)},
-		}
-
-		err = kp.Put("archetypes", key, av)
+		// Use the updated Put method which includes the key within the item.
+		err := kp.Put("archetypes", archetype)
 		if err != nil {
 			return fmt.Errorf("error storing archetype %s: %w", archetype.Name, err)
 		}
 
-		Logger.Info("Loaded archetype", "name", archetype.Name)
+		Logger.Info("Stored archetype", "name", archetype.Name)
 	}
 
 	return nil
 }
 
+// LoadArchetypesFromJSON loads archetypes from a JSON file and returns them as an ArchetypesData struct.
 func LoadArchetypesFromJSON(fileName string) (*ArchetypesData, error) {
 	file, err := os.ReadFile(fileName)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error reading JSON file %s: %w", fileName, err)
 	}
 
 	var data ArchetypesData
 	err = json.Unmarshal(file, &data)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error unmarshalling JSON data: %w", err)
 	}
 
 	for key, archetype := range data.Archetypes {
-		Logger.Debug("Loaded archetype", "name", key, "description", archetype.Description)
+		Logger.Debug("Loaded archetype from JSON", "name", key, "description", archetype.Description)
 	}
 
 	return &data, nil
