@@ -18,4 +18,5 @@ Logging:
   LogStream: application
   MetricNamespace: MUD/Application
 Server:
+  PrivateKeyPath: ./server.key
   Port: 9050
