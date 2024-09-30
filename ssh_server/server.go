@@ -43,7 +43,7 @@ func NewServer(config core.Configuration) (*core.Server, error) {
 		return nil, fmt.Errorf("failed to initialize database: %v", err)
 	}
 
-	// Initialize the player index (consider loading from persistent storage in future)
+	// Initialize the player index
 	server.PlayerIndex.IndexID = 1
 
 	// Initialize the bloom filter for character names
