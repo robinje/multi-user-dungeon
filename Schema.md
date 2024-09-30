@@ -14,17 +14,17 @@
 
 ## Character Table
 
-| Field           | Type     | Description                                                  |
-| --------------- | -------- | ------------------------------------------------------------ |
-| `CharacterID`   | `STRING` | UUID of the character.                                       |
-| `PlayerID`      | `STRING` | Email of the player who owns the character.                  |
-| `CharacterName` | `STRING` | Name of the character.                                       |
-| `RoomID`        | `NUMBER` | ID of the room the character is currently in.                |
-| `Inventory`     | `MAP`    | Map of inventory slots to item UUIDs.                        |
+| Field           | Type     | Description                                                 |
+| --------------- | -------- | ----------------------------------------------------------- |
+| `CharacterID`   | `STRING` | UUID of the character.                                      |
+| `PlayerID`      | `STRING` | Email of the player who owns the character.                 |
+| `CharacterName` | `STRING` | Name of the character.                                      |
+| `RoomID`        | `NUMBER` | ID of the room the character is currently in.               |
+| `Inventory`     | `MAP`    | Map of inventory slots to item UUIDs.                       |
 | `Attributes`    | `MAP`    | Map of attribute names to their values (e.g., Strength: 4). |
-| `Abilities`     | `MAP`    | Map of ability names to their values (e.g., Stealth: 3).     |
-| `Essence`       | `NUMBER` | The character's essence or magical energy.                   |
-| `Health`        | `NUMBER` | The character's current health points.                       |
+| `Abilities`     | `MAP`    | Map of ability names to their values (e.g., Stealth: 3).    |
+| `Essence`       | `NUMBER` | The character's essence or magical energy.                  |
+| `Health`        | `NUMBER` | The character's current health points.                      |
 
 - **`CharacterID`**: The UUID of the character, serving as the primary key.
 - **`PlayerID`**: The email address of the player who owns this character.
