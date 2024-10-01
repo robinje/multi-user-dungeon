@@ -377,7 +377,7 @@ func RoomInfo(r *Room, character *Character) string {
 	var roomInfo strings.Builder
 
 	// Room Title and Description
-	roomInfo.WriteString(fmt.Sprintf("\n\r[%s]\n\r%s\n\r", ApplyColor("white", r.Title), r.Description))
+	roomInfo.WriteString(fmt.Sprintf("\n\r[%s]\n\r%s\n\r", ApplyColor("bright_white", r.Title), r.Description))
 
 	// Exits
 	exits := sortedExits(r)
