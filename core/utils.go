@@ -71,3 +71,16 @@ func AutoSave(server *Server) {
 		Logger.Info("Auto-save process completed")
 	}
 }
+
+// CleanupNilItems removes any nil items from the room's item list.
+func (r *Room) CleanupNilItems() {
+	r.Mutex.Lock()
+	defer r.Mutex.Unlock()
+
+	for id, item := range r.Items {
+		if item == nil {
+			delete(r.Items, id)
+			Logger.Info("Removed nil item from room", "itemID", id, "roomID", r.RoomID)
+		}
+	}
+}
