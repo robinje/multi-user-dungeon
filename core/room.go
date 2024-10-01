@@ -390,9 +390,7 @@ func RoomInfo(r *Room, character *Character) string {
 	}
 
 	// Characters in the room
-	r.Mutex.Lock()
 	otherCharacters := getOtherCharacters(r, character)
-	r.Mutex.Unlock()
 	if len(otherCharacters) > 0 {
 		roomInfo.WriteString("Also here: ")
 		roomInfo.WriteString(strings.Join(otherCharacters, ", "))
@@ -417,11 +415,8 @@ func RoomInfo(r *Room, character *Character) string {
 func sortedExits(r *Room) []string {
 	Logger.Info("Sorting exits for room", "room_id", r.RoomID)
 
-	r.Mutex.Lock()
-	defer r.Mutex.Unlock()
-
 	if r.Exits == nil {
-		Logger.Warn("Exits map is nil for room", "room_id", r.RoomID)
+		Logger.Info("Exits map is nil for room", "room_id", r.RoomID)
 		return []string{}
 	}
 
