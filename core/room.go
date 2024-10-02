@@ -340,10 +340,9 @@ func Move(c *Character, direction string) {
 	if newRoom.Characters == nil {
 		newRoom.Characters = make(map[uuid.UUID]*Character)
 	}
+	SendRoomMessage(newRoom, fmt.Sprintf("\n\r%s has arrived.\n\r", c.Name))
 	newRoom.Characters[c.ID] = c
 	newRoom.Mutex.Unlock()
-
-	SendRoomMessage(newRoom, fmt.Sprintf("\n\r%s has arrived.\n\r", c.Name))
 
 	// Let the character look around the new room
 	ExecuteLookCommand(c, []string{})
