@@ -85,10 +85,12 @@ func ExecuteQuitCommand(character *Character, tokens []string) bool {
 	SendRoomMessage(character.Room, fmt.Sprintf("\n\r%s has left.\n\r", character.Name))
 
 	// Save character state to database
+	character.Mutex.Lock()
 	err := character.Server.Database.WriteCharacter(character)
 	if err != nil {
 		Logger.Error("Error saving character state on quit", "characterName", character.Name, "error", err)
 	}
+	character.Mutex.Unlock()
 
 	Logger.Info("Player has successfully quit", "playerName", character.Player.PlayerID)
 
@@ -107,7 +109,6 @@ func ExecuteSayCommand(character *Character, tokens []string) bool {
 	message := strings.Join(tokens[1:], " ")
 	broadcastMessage := fmt.Sprintf("\n\r%s says %s\n\r", character.Name, message)
 
-	character.Room.Mutex.Lock()
 	for _, c := range character.Room.Characters {
 		if c != character {
 			// Send message to other characters in the room
@@ -115,7 +116,6 @@ func ExecuteSayCommand(character *Character, tokens []string) bool {
 			c.Player.ToPlayer <- c.Player.Prompt
 		}
 	}
-	character.Room.Mutex.Unlock()
 
 	// Send only the broadcast message to the player who issued the command
 	character.Player.ToPlayer <- fmt.Sprintf("\n\rYou say %s\n\r", message)
@@ -322,7 +322,9 @@ func ExecuteTakeCommand(character *Character, tokens []string) bool {
 	}
 
 	character.Room.RemoveItem(itemToTake)
+	character.Mutex.Lock()
 	character.Inventory[handSlot] = itemToTake
+	character.Mutex.Unlock()
 
 	SendRoomMessage(character.Room, fmt.Sprintf("\n\r%s picks up %s.\n\r", character.Name, itemToTake.Name))
 	character.Player.ToPlayer <- fmt.Sprintf("\n\rYou take %s and hold it in your %s.\n\r", itemToTake.Name, strings.Replace(handSlot, "_", " ", -1))
@@ -361,9 +363,12 @@ func ExecuteDropCommand(character *Character, tokens []string) bool {
 		character.Player.ToPlayer <- "\n\rYou're not holding that item.\n\r"
 		return false
 	}
-
+	character.Mutex.Lock()
 	delete(character.Inventory, handSlot)
+	character.Mutex.Unlock()
+	character.Room.Mutex.Lock()
 	character.Room.AddItem(itemToDrop)
+	character.Room.Mutex.Unlock()
 
 	character.Player.ToPlayer <- fmt.Sprintf("\n\rYou drop %s.\n\r", itemToDrop.Name)
 	SendRoomMessage(character.Room, fmt.Sprintf("\n\r%s drops %s.\n\r", character.Name, itemToDrop.Name))

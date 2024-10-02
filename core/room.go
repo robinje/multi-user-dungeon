@@ -340,10 +340,9 @@ func Move(c *Character, direction string) {
 	if newRoom.Characters == nil {
 		newRoom.Characters = make(map[uuid.UUID]*Character)
 	}
+	SendRoomMessage(newRoom, fmt.Sprintf("\n\r%s has arrived.\n\r", c.Name))
 	newRoom.Characters[c.ID] = c
 	newRoom.Mutex.Unlock()
-
-	SendRoomMessage(newRoom, fmt.Sprintf("\n\r%s has arrived.\n\r", c.Name))
 
 	// Let the character look around the new room
 	ExecuteLookCommand(c, []string{})
@@ -377,7 +376,7 @@ func RoomInfo(r *Room, character *Character) string {
 	var roomInfo strings.Builder
 
 	// Room Title and Description
-	roomInfo.WriteString(fmt.Sprintf("\n\r[%s]\n\r%s\n\r", ApplyColor("white", r.Title), r.Description))
+	roomInfo.WriteString(ApplyColor("bright_white", fmt.Sprintf("\n\r[%s]\n\r", r.Title)) + fmt.Sprintf("%s\n\r", r.Description))
 
 	// Exits
 	exits := sortedExits(r)
@@ -390,9 +389,7 @@ func RoomInfo(r *Room, character *Character) string {
 	}
 
 	// Characters in the room
-	r.Mutex.Lock()
 	otherCharacters := getOtherCharacters(r, character)
-	r.Mutex.Unlock()
 	if len(otherCharacters) > 0 {
 		roomInfo.WriteString("Also here: ")
 		roomInfo.WriteString(strings.Join(otherCharacters, ", "))
@@ -417,11 +414,8 @@ func RoomInfo(r *Room, character *Character) string {
 func sortedExits(r *Room) []string {
 	Logger.Info("Sorting exits for room", "room_id", r.RoomID)
 
-	r.Mutex.Lock()
-	defer r.Mutex.Unlock()
-
 	if r.Exits == nil {
-		Logger.Warn("Exits map is nil for room", "room_id", r.RoomID)
+		Logger.Info("Exits map is nil for room", "room_id", r.RoomID)
 		return []string{}
 	}
 
