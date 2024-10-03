@@ -45,6 +45,9 @@ The current implementation includes an SSH server for secure authentication and 
 - [ ] Develop a weather and time system.
 - [ ] Implement a party system for cooperative gameplay.
 - [ ] Implement a magic system.
+- [ ] Impliment a quest tracking system.
+- [ ] Impliment a reputation system.
+- [*] Develop a conditional room description system.
 
 ## TODO
 
@@ -67,7 +70,7 @@ The current implementation includes an SSH server for secure authentication and 
 - [x] Ensure that a message is passed when a character is added to the game.
 - [x] Add a Message of the Day (MOTD) command.
 - [x] Add Bloom Filter to check for existing characters names being used.
-- [ ] Add the ability to delete characters.
+- [x] Add the ability to delete characters.
 - [ ] Add the ability to delete accounts.
 - [ ] Implement an obscenity filter.
 - [ ] Validate graph of loaded rooms and exits.
@@ -76,7 +79,7 @@ The current implementation includes an SSH server for secure authentication and 
 - [ ] Improve the input filters
 - [ ] Create administrative interface.
 - [ ] Force Password Resets when needed.
-- [ ] Allow starting room to me set by Archtype.
+- [ ] Allow starting room to be set by Archtype.
 
 ## Project Overview
 
