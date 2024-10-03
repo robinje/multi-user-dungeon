@@ -185,6 +185,40 @@ func (kp *KeyPair) LoadCharacter(characterID uuid.UUID, player *Player, server *
 	return character, nil
 }
 
+// DeleteCharacter removes a character from the player's character list and the database.
+func (s *Server) DeleteCharacter(player *Player, characterName string) error {
+	Logger.Info("Attempting to delete character", "playerName", player.PlayerID, "characterName", characterName)
+
+	// Check if the character exists in the player's character list
+	characterID, exists := player.CharacterList[characterName]
+	if !exists {
+		return fmt.Errorf("character %s not found for player %s", characterName, player.PlayerID)
+	}
+
+	// Remove the character from the player's character list
+	delete(player.CharacterList, characterName)
+
+	// Update the player data in the database
+	err := s.Database.WritePlayer(player)
+	if err != nil {
+		Logger.Error("Failed to update player data after character deletion", "playerName", player.PlayerID, "error", err)
+		return fmt.Errorf("failed to update player data: %w", err)
+	}
+
+	// Delete the character from the database
+	key := map[string]*dynamodb.AttributeValue{
+		"CharacterID": {S: aws.String(characterID.String())},
+	}
+	err = s.Database.Delete("characters", key)
+	if err != nil {
+		Logger.Error("Failed to delete character from database", "characterName", characterName, "characterID", characterID, "error", err)
+		return fmt.Errorf("failed to delete character from database: %w", err)
+	}
+
+	Logger.Info("Successfully deleted character", "playerName", player.PlayerID, "characterName", characterName, "characterID", characterID)
+	return nil
+}
+
 // LoadCharacterNames loads all character names from the database to initialize the bloom filter.
 func (kp *KeyPair) LoadCharacterNames() (map[string]bool, error) {
 	names := make(map[string]bool)
