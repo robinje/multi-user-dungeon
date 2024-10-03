@@ -47,7 +47,7 @@ The current implementation includes an SSH server for secure authentication and 
 - [ ] Implement a magic system.
 - [ ] Impliment a quest tracking system.
 - [ ] Impliment a reputation system.
-- [*] Develop a conditional room description system.
+- [ ] Develop a conditional room description system.
 
 ## TODO
 
