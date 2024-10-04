@@ -241,10 +241,11 @@ func SelectCharacter(player *Player, server *Server) (*Character, error) {
 				options = append(options, name)
 				i++
 			}
+			player.ToPlayer <- "X: Delete a character\n\r"
 		} else {
 			player.ToPlayer <- "No existing characters found.\n\r"
 		}
-		player.ToPlayer <- "Enter the number of your choice: "
+		player.ToPlayer <- "Enter the number of your choice or 'X' to delete: "
 	}
 
 	for {
@@ -257,7 +258,40 @@ func SelectCharacter(player *Player, server *Server) (*Character, error) {
 			return nil, fmt.Errorf("failed to receive input")
 		}
 
-		choice, err := strconv.Atoi(strings.TrimSpace(input))
+		input = strings.TrimSpace(strings.ToUpper(input))
+
+		if input == "X" && len(player.CharacterList) > 0 {
+			// Handle character deletion
+			player.ToPlayer <- "Select a character to delete:\n\r"
+			for i, name := range options {
+				player.ToPlayer <- fmt.Sprintf("%d: %s\n\r", i+1, name)
+			}
+			player.ToPlayer <- "Enter the number of the character to delete: "
+
+			deleteChoice, ok := <-player.FromPlayer
+			if !ok {
+				Logger.Error("Failed to receive delete choice from player", "playerName", player.PlayerID)
+				return nil, fmt.Errorf("failed to receive delete choice")
+			}
+
+			deleteIndex, err := strconv.Atoi(strings.TrimSpace(deleteChoice))
+			if err != nil || deleteIndex < 1 || deleteIndex > len(options) {
+				player.ToPlayer <- "Invalid choice. Returning to character selection.\n\r"
+				continue
+			}
+
+			characterToDelete := options[deleteIndex-1]
+			err = server.DeleteCharacter(player, characterToDelete)
+			if err != nil {
+				Logger.Error("Failed to delete character", "characterName", characterToDelete, "error", err)
+				player.ToPlayer <- fmt.Sprintf("Failed to delete character: %v\n\r", err)
+			} else {
+				player.ToPlayer <- fmt.Sprintf("Character '%s' has been deleted.\n\r", characterToDelete)
+			}
+			continue
+		}
+
+		choice, err := strconv.Atoi(input)
 		if err != nil || choice < 0 || choice > len(options) {
 			player.ToPlayer <- "Invalid choice. Please select a valid option.\n\r"
 			continue
@@ -293,14 +327,12 @@ func SelectCharacter(player *Player, server *Server) (*Character, error) {
 
 		// Add character to the room and notify other players
 		if character.Room != nil {
-
 			// Notify the room that the character has entered
 			SendRoomMessage(character.Room, fmt.Sprintf("\n\r%s has arrived.\n\r", character.Name))
 
 			character.Room.Mutex.Lock()
 			character.Room.Characters[character.ID] = character
 			character.Room.Mutex.Unlock()
-
 		}
 
 		Logger.Info("Character selected and added to server", "characterName", character.Name, "characterID", character.ID)
