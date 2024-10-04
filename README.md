@@ -31,23 +31,23 @@ The current implementation includes an SSH server for secure authentication and 
 - [x] Implement a text colorization system.
 - [x] Add Cloudwatch Logs and Metrics.
 - [x] Build an interactive password change system.
+- [ ] Develop a weather and time system.
 - [ ] Construct the item system.
+- [ ] Create a crafting system for items.
 - [ ] Develop game mechanics.
 - [ ] Design an economic framework
-- [ ] Implement a world creation system.
+- [ ] Build a direct messaging system.
 - [ ] Develop simple Non-Player Characters (NPCs).
 - [ ] Design and implement a quest system.
-- [ ] Build a direct messaging system.
-- [ ] Develop more complex Non-Player Characters (NPCs) with basic AI.
 - [ ] Implement a dynamic content updating system.
 - [ ] Implement a player-to-player trading system.
-- [ ] Create a crafting system for items.
-- [ ] Develop a weather and time system.
 - [ ] Implement a party system for cooperative gameplay.
 - [ ] Implement a magic system.
 - [ ] Impliment a quest tracking system.
 - [ ] Impliment a reputation system.
 - [ ] Develop a conditional room description system.
+- [ ] Implement a world creation system.
+- [ ] Develop more complex Non-Player Characters (NPCs) with basic AI.
 
 ## TODO
 
@@ -71,15 +71,15 @@ The current implementation includes an SSH server for secure authentication and 
 - [x] Add a Message of the Day (MOTD) command.
 - [x] Add Bloom Filter to check for existing characters names being used.
 - [x] Add the ability to delete characters.
-- [ ] Add the ability to delete accounts.
+- [ ] Add look at item command.
 - [ ] Implement an obscenity filter.
 - [ ] Validate graph of loaded rooms and exits.
-- [ ] Add look at item command.
-- [ ] Improve the say commands.
+- [ ] Improve the say command.
 - [ ] Improve the input filters
 - [ ] Create administrative interface.
 - [ ] Force Password Resets when needed.
 - [ ] Allow starting room to be set by Archtype.
+- [ ] Add the ability to delete accounts.
 
 ## Project Overview
 
