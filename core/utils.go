@@ -59,7 +59,7 @@ func AutoSave(server *Server) {
 			if character.Player != nil {
 				err := server.Database.WritePlayer(character.Player)
 				if err != nil {
-					Logger.Error("Failed to save player data", "player_name", character.Player.Name, "error", err)
+					Logger.Error("Failed to save player data", "player_name", character.Player.PlayerID, "error", err)
 				} else {
 					savedPlayers++
 				}
@@ -69,5 +69,18 @@ func AutoSave(server *Server) {
 		Logger.Info("Saved active player records", "count", savedPlayers)
 
 		Logger.Info("Auto-save process completed")
+	}
+}
+
+// CleanupNilItems removes any nil items from the room's item list.
+func (r *Room) CleanupNilItems() {
+	r.Mutex.Lock()
+	defer r.Mutex.Unlock()
+
+	for id, item := range r.Items {
+		if item == nil {
+			delete(r.Items, id)
+			Logger.Info("Removed nil item from room", "itemID", id, "roomID", r.RoomID)
+		}
 	}
 }

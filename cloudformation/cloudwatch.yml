@@ -12,12 +12,17 @@ Parameters:
     Description: Namespace for CloudWatch Metrics
     Default: "MUD/Application"
 
+  RetentionInDays:
+    Type: Number
+    Description: Number of days to retain logs in CloudWatch
+    Default: 30
+
 Resources:
   MUDLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Ref LogGroupName
-      RetentionInDays: 30
+      RetentionInDays: !Ref RetentionInDays
 
   MUDCloudWatchPolicy:
     Type: AWS::IAM::ManagedPolicy

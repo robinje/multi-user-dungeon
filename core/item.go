@@ -4,78 +4,84 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"sync"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
-	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
 	"github.com/google/uuid"
 )
 
+// DisplayPrototypes logs the details of each prototype for debugging purposes.
 func DisplayPrototypes(prototypes *PrototypesData) {
 	for _, prototype := range prototypes.ItemPrototypes {
-		fmt.Printf("ID: %s, Name: %s, Description: %s\n", prototype.ID, prototype.Name, prototype.Description)
+		Logger.Debug("Prototype", "name", prototype.Name, "description", prototype.Description)
 	}
 }
 
+// LoadPrototypesFromJSON loads item prototypes from a JSON file.
 func LoadPrototypesFromJSON(fileName string) (*PrototypesData, error) {
 	file, err := os.ReadFile(fileName)
 	if err != nil {
-		return nil, err
+		Logger.Error("Error reading prototypes JSON file", "fileName", fileName, "error", err)
+		return nil, fmt.Errorf("error reading prototypes JSON file: %w", err)
 	}
 
 	var data PrototypesData
 	err = json.Unmarshal(file, &data)
 	if err != nil {
-		return nil, err
+		Logger.Error("Error unmarshalling prototypes JSON data", "fileName", fileName, "error", err)
+		return nil, fmt.Errorf("error unmarshalling prototypes JSON data: %w", err)
 	}
 
 	for _, prototype := range data.ItemPrototypes {
-		fmt.Printf("Loaded prototype: %s - %s\n", prototype.Name, prototype.Description)
+		Logger.Debug("Loaded prototype from JSON", "name", prototype.Name, "description", prototype.Description)
 	}
 
 	return &data, nil
 }
 
+// StorePrototypes stores item prototypes into the DynamoDB table.
 func (kp *KeyPair) StorePrototypes(prototypes *PrototypesData) error {
 	for _, prototype := range prototypes.ItemPrototypes {
-		av, err := dynamodbattribute.MarshalMap(prototype)
-		if err != nil {
-			return fmt.Errorf("error marshalling prototype %s: %w", prototype.Name, err)
+		// Ensure the prototype has an ID
+		if prototype.ID == "" {
+			prototype.ID = uuid.New().String()
 		}
 
-		key := map[string]*dynamodb.AttributeValue{
-			"ID": {S: aws.String(prototype.ID)},
-		}
-
-		err = kp.Put("prototypes", key, av)
+		// Use the updated Put method which includes the key within the item.
+		err := kp.Put("prototypes", prototype)
 		if err != nil {
+			Logger.Error("Error storing prototype", "name", prototype.Name, "error", err)
 			return fmt.Errorf("error storing prototype %s: %w", prototype.Name, err)
 		}
 
-		fmt.Printf("Stored prototype: %s\n", prototype.Name)
+		Logger.Info("Stored prototype", "name", prototype.Name, "prototypeID", prototype.ID)
 	}
 
 	return nil
 }
 
+// LoadPrototypes retrieves all item prototypes from the DynamoDB table.
 func (kp *KeyPair) LoadPrototypes() (*PrototypesData, error) {
 	prototypesData := &PrototypesData{}
 
 	var itemPrototypes []ItemData
 	err := kp.Scan("prototypes", &itemPrototypes)
 	if err != nil {
+		Logger.Error("Error scanning prototypes table", "error", err)
 		return nil, fmt.Errorf("error scanning prototypes: %w", err)
 	}
 
 	prototypesData.ItemPrototypes = itemPrototypes
 
 	for _, prototype := range prototypesData.ItemPrototypes {
-		fmt.Printf("Loaded prototype: %s - %s\n", prototype.Name, prototype.Description)
+		Logger.Debug("Loaded prototype from database", "name", prototype.Name, "description", prototype.Description)
 	}
 
 	return prototypesData, nil
 }
 
+// LoadItem retrieves an item or prototype from the DynamoDB table.
 func (k *KeyPair) LoadItem(id string, isPrototype bool) (*Item, error) {
 	tableName := "items"
 	if isPrototype {
@@ -83,17 +89,21 @@ func (k *KeyPair) LoadItem(id string, isPrototype bool) (*Item, error) {
 	}
 
 	key := map[string]*dynamodb.AttributeValue{
-		"ID": {S: aws.String(id)},
+		"ID": {
+			S: aws.String(id),
+		},
 	}
 
 	var itemData ItemData
 	err := k.Get(tableName, key, &itemData)
 	if err != nil {
+		Logger.Error("Error loading item data", "itemID", id, "tableName", tableName, "error", err)
 		return nil, fmt.Errorf("error loading item data: %w", err)
 	}
 
 	itemID, err := uuid.Parse(itemData.ID)
 	if err != nil {
+		Logger.Error("Error parsing item UUID", "itemID", itemData.ID, "error", err)
 		return nil, fmt.Errorf("error parsing item ID: %w", err)
 	}
 
@@ -116,32 +126,45 @@ func (k *KeyPair) LoadItem(id string, isPrototype bool) (*Item, error) {
 		IsWorn:      itemData.IsWorn,
 		CanPickUp:   itemData.CanPickUp,
 		Metadata:    itemData.Metadata,
+		Mutex:       sync.Mutex{},
 	}
 
+	// Load contents if the item is a container
 	if item.Container {
 		item.Contents = make([]*Item, 0, len(itemData.Contents))
 		for _, contentID := range itemData.Contents {
 			contentItem, err := k.LoadItem(contentID, false)
 			if err != nil {
-				return nil, fmt.Errorf("error loading content item %s: %w", contentID, err)
+				Logger.Error("Error loading content item", "contentID", contentID, "parentItemID", id, "error", err)
+				continue // Skip this content item but continue loading others
 			}
 			item.Contents = append(item.Contents, contentItem)
 		}
 	}
 
+	Logger.Info("Successfully loaded item", "itemName", item.Name, "itemID", item.ID, "tableName", tableName)
 	return item, nil
 }
 
+// WriteItem stores an item into the DynamoDB table, handling nested contents if it's a container.
 func (k *KeyPair) WriteItem(obj *Item) error {
-	contentIDs := make([]string, 0, len(obj.Contents))
-	for _, contentItem := range obj.Contents {
-		contentIDs = append(contentIDs, contentItem.ID.String())
-		// Recursively write contained items
-		if err := k.WriteItem(contentItem); err != nil {
-			return fmt.Errorf("error writing content item %s: %w", contentItem.ID, err)
+	// Recursively write contained items if the item is a container
+	if obj.Container {
+		for _, contentItem := range obj.Contents {
+			if err := k.WriteItem(contentItem); err != nil {
+				Logger.Error("Error writing content item", "contentItemID", contentItem.ID, "parentItemID", obj.ID, "error", err)
+				return fmt.Errorf("error writing content item %s: %w", contentItem.ID, err)
+			}
 		}
 	}
 
+	// Prepare the list of content IDs
+	contentIDs := make([]string, 0, len(obj.Contents))
+	for _, contentItem := range obj.Contents {
+		contentIDs = append(contentIDs, contentItem.ID.String())
+	}
+
+	// Create the ItemData struct to store in DynamoDB
 	itemData := ItemData{
 		ID:          obj.ID.String(),
 		Name:        obj.Name,
@@ -164,28 +187,24 @@ func (k *KeyPair) WriteItem(obj *Item) error {
 		Metadata:    obj.Metadata,
 	}
 
-	av, err := dynamodbattribute.MarshalMap(itemData)
-	if err != nil {
-		return fmt.Errorf("error marshalling item data: %w", err)
-	}
-
+	// Determine the table name based on whether the item is a prototype
 	tableName := "items"
 	if obj.IsPrototype {
 		tableName = "prototypes"
 	}
 
-	key := map[string]*dynamodb.AttributeValue{
-		"ID": {S: aws.String(obj.ID.String())},
-	}
-
-	err = k.Put(tableName, key, av)
+	// Write the item data to the DynamoDB table
+	err := k.Put(tableName, itemData)
 	if err != nil {
+		Logger.Error("Error writing item data", "itemName", obj.Name, "itemID", obj.ID, "tableName", tableName, "error", err)
 		return fmt.Errorf("error writing item data: %w", err)
 	}
 
+	Logger.Info("Successfully wrote item", "itemName", obj.Name, "itemID", obj.ID, "tableName", tableName)
 	return nil
 }
 
+// SaveActiveItems saves all active items from rooms and characters to the database.
 func (s *Server) SaveActiveItems() error {
 	if s == nil {
 		return fmt.Errorf("server is nil")
@@ -204,9 +223,9 @@ func (s *Server) SaveActiveItems() error {
 				continue
 			}
 			room.Mutex.Lock()
-			for itemID, item := range room.Items {
+			for _, item := range room.Items {
 				if item == nil {
-					Logger.Warn("Nil item found in room", "roomID", roomID, "itemID", itemID)
+					Logger.Warn("Nil item found in room", "roomID", roomID)
 					continue
 				}
 				itemsToSave[item.ID] = item
@@ -219,15 +238,15 @@ func (s *Server) SaveActiveItems() error {
 
 	// Items in character inventories
 	if s.Characters != nil {
-		for charName, character := range s.Characters {
+		for charID, character := range s.Characters {
 			if character == nil {
-				Logger.Warn("Nil character found", "characterName", charName)
+				Logger.Warn("Nil character found", "characterID", charID)
 				continue
 			}
 			character.Mutex.Lock()
-			for itemName, item := range character.Inventory {
+			for _, item := range character.Inventory {
 				if item == nil {
-					Logger.Warn("Nil item found in inventory", "characterName", charName, "itemName", itemName)
+					Logger.Warn("Nil item found in inventory", "characterID", charID)
 					continue
 				}
 				itemsToSave[item.ID] = item
@@ -260,13 +279,16 @@ func (s *Server) SaveActiveItems() error {
 	return nil
 }
 
+// CreateItemFromPrototype creates a new item instance from a prototype.
 func (s *Server) CreateItemFromPrototype(prototypeID string) (*Item, error) {
 	prototype, err := s.Database.LoadItem(prototypeID, true)
 	if err != nil {
+		Logger.Error("Failed to load item prototype", "prototypeID", prototypeID, "error", err)
 		return nil, fmt.Errorf("failed to load item prototype: %w", err)
 	}
 
 	if !prototype.IsPrototype {
+		Logger.Error("Item is not a prototype", "itemID", prototypeID)
 		return nil, fmt.Errorf("item with ID %s is not a prototype", prototypeID)
 	}
 
@@ -289,8 +311,10 @@ func (s *Server) CreateItemFromPrototype(prototypeID string) (*Item, error) {
 		IsWorn:      false,
 		CanPickUp:   prototype.CanPickUp,
 		Metadata:    make(map[string]string),
+		Mutex:       sync.Mutex{},
 	}
 
+	// Copy trait modifications and metadata
 	for k, v := range prototype.TraitMods {
 		newItem.TraitMods[k] = v
 	}
@@ -299,27 +323,30 @@ func (s *Server) CreateItemFromPrototype(prototypeID string) (*Item, error) {
 		newItem.Metadata[k] = v
 	}
 
+	// Recursively create contents if the item is a container
 	if newItem.Container {
 		newItem.Contents = make([]*Item, 0, len(prototype.Contents))
 		for _, contentItem := range prototype.Contents {
 			newContentItem, err := s.CreateItemFromPrototype(contentItem.ID.String())
 			if err != nil {
-				Logger.Error("Error creating content item from prototype", "prototypeID", contentItem.ID, "error", err)
-				continue
+				Logger.Error("Error creating content item from prototype", "prototypeID", contentItem.ID.String(), "error", err)
+				continue // Skip this content item but continue with others
 			}
 			newItem.Contents = append(newItem.Contents, newContentItem)
 		}
 	}
 
+	// Save the new item to the database
 	if err := s.Database.WriteItem(newItem); err != nil {
+		Logger.Error("Failed to write new item to database", "itemName", newItem.Name, "itemID", newItem.ID, "error", err)
 		return nil, fmt.Errorf("failed to write new item to database: %w", err)
 	}
 
 	Logger.Info("Created new item from prototype", "itemName", newItem.Name, "itemID", newItem.ID, "prototypeID", prototypeID)
-
 	return newItem, nil
 }
 
+// AddItem adds an item to the room's item list.
 func (r *Room) AddItem(item *Item) {
 	r.Mutex.Lock()
 	defer r.Mutex.Unlock()
@@ -337,6 +364,7 @@ func (r *Room) AddItem(item *Item) {
 	Logger.Info("Added item to room", "itemName", item.Name, "itemID", item.ID, "roomID", r.RoomID)
 }
 
+// RemoveItem removes an item from the room's item list.
 func (r *Room) RemoveItem(item *Item) {
 	r.Mutex.Lock()
 	defer r.Mutex.Unlock()
@@ -348,17 +376,4 @@ func (r *Room) RemoveItem(item *Item) {
 
 	delete(r.Items, item.ID.String())
 	Logger.Info("Removed item from room", "itemName", item.Name, "itemID", item.ID, "roomID", r.RoomID)
-}
-
-// Add a new method to clean up nil items
-func (r *Room) CleanupNilItems() {
-	r.Mutex.Lock()
-	defer r.Mutex.Unlock()
-
-	for id, item := range r.Items {
-		if item == nil {
-			delete(r.Items, id)
-			Logger.Info("Removed nil item from room", "itemID", id, "roomID", r.RoomID)
-		}
-	}
 }

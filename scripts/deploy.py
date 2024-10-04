@@ -1,3 +1,9 @@
+"""
+Multi User Dunegoen Deployment Script
+"""
+
+import traceback
+
 import boto3
 import yaml
 from botocore.exceptions import ClientError
@@ -18,7 +24,7 @@ CLOUDWATCH_TEMPLATE_PATH = "../cloudformation/cloudwatch.yml"
 CONFIG_PATH = "../ssh_server/config.yml"
 
 
-def prompt_for_parameters(template_name):
+def prompt_for_parameters(template_name) -> dict:
     if template_name == "cognito":
         return {
             "UserPoolName": input("Enter the Name of the user pool [default: mud-user-pool]: ") or "mud-user-pool",
@@ -48,13 +54,13 @@ def prompt_for_parameters(template_name):
     return {}
 
 
-def load_template(template_path):
+def load_template(template_path) -> str:
     with open(template_path, "r", encoding="utf-8") as file:
         return file.read()
 
 
-def deploy_stack(client, stack_name, template_body, parameters):
-    cf_parameters = [{"ParameterKey": k, "ParameterValue": v} for k, v in parameters.items()]
+def deploy_stack(client, stack_name, template_body, parameters) -> bool:
+    cf_parameters: list = [{"ParameterKey": k, "ParameterValue": v} for k, v in parameters.items()]
     try:
         if stack_exists(client, stack_name):
             print(f"Updating existing stack: {stack_name}")
@@ -73,11 +79,22 @@ def deploy_stack(client, stack_name, template_body, parameters):
                 Capabilities=["CAPABILITY_IAM", "CAPABILITY_NAMED_IAM"],
             )
         wait_for_stack_completion(client, stack_name)
+        return True
     except ClientError as err:
-        print(f"Error in stack operation: {err}")
+        print(f"Error in stack operation for {stack_name}: {err}")
+        if not stack_exists(client, stack_name):
+            print(f"Stack {stack_name} was not created due to an error.")
+        else:
+            print(f"Attempting to delete stack {stack_name} due to error...")
+            try:
+                client.delete_stack(StackName=stack_name)
+                print(f"Stack {stack_name} deletion initiated.")
+            except ClientError as delete_err:
+                print(f"Error deleting stack {stack_name}: {delete_err}")
+        return False
 
 
-def stack_exists(client, stack_name):
+def stack_exists(client, stack_name) -> bool:
     try:
         client.describe_stacks(StackName=stack_name)
         return True
@@ -85,64 +102,65 @@ def stack_exists(client, stack_name):
         return False
 
 
-def wait_for_stack_completion(client, stack_name):
+def wait_for_stack_completion(client, stack_name) -> None:
     print(f"Waiting for stack {stack_name} to complete...")
     waiter = client.get_waiter("stack_create_complete")
     waiter.wait(StackName=stack_name)
     print("Stack operation completed.")
 
 
-def get_stack_outputs(client, stack_name):
+def get_stack_outputs(client, stack_name) -> dict:
     stack = client.describe_stacks(StackName=stack_name)
     outputs = stack["Stacks"][0]["Outputs"]
     return {output["OutputKey"]: output["OutputValue"] for output in outputs}
 
 
-def update_configuration_file(config_updates):
+def update_configuration_file(config_updates) -> None:
     try:
         with open(CONFIG_PATH, "r", encoding="utf-8") as file:
             config = yaml.safe_load(file) or {}
 
-        # Update the configuration
-        if "Server" not in config:
-            config["Server"] = {"Port": 9050}
-        if "Aws" not in config:
-            config["Aws"] = {"Region": "us-east-1"}
-        if "Game" not in config:
-            config["Game"] = {"Balance": 0.25, "AutoSave": 5, "StartingHealth": 10, "StartingEssence": 3}
-        if "Logging" not in config:
-            config["Logging"] = {"ApplicationName": "mud", "LogLevel": 20}
-        if "Cognito" not in config:
-            config["Cognito"] = {}
+        # Ensure top-level keys exist
+        for key in ["Server", "Aws", "Cognito", "Game", "Logging"]:
+            if key not in config or config[key] is None:
+                config[key] = {}
 
-        # Update the configuration structure
-        config.setdefault("Server", {})["Port"] = config.get("Port", 9050)
-        config.setdefault("Aws", {})["Region"] = config.get("Region", "us-east-1")
-        config.setdefault("Cognito", {}).update(config_updates.get("Cognito", {}))
-        config.setdefault("Game", {}).update(
+        # Update Server configuration
+        config["Server"]["Port"] = 9050
+
+        # Update Aws configuration
+        config["Aws"]["Region"] = "us-east-1"
+
+        # Update Game configuration
+        config["Game"].update(
             {
-                "Balance": config.get("Balance", 0.25),
-                "AutoSave": config.get("AutoSave", 5),
-                "StartingHealth": config.get("StartingHealth", 10),
-                "StartingEssence": config.get("StartingEssence", 3),
+                "Balance": 0.25,
+                "AutoSave": 5,
+                "StartingHealth": 10,
+                "StartingEssence": 3,
             }
         )
-        config.setdefault("Logging", {}).update(
+
+        # Update Logging configuration
+        config["Logging"].update(
             {
                 "ApplicationName": "mud",
                 "LogLevel": 20,
-                "LogGroup": config_updates.get("CloudWatch", {}).get("LogGroupName", "/mud"),
+                "LogGroup": config_updates.get("CloudWatch", {}).get("LogGroupName", "/mud/game-logs"),
                 "LogStream": "application",
                 "MetricNamespace": config_updates.get("CloudWatch", {}).get("MetricNamespace", "MUD/Application"),
             }
         )
+
+        # Update Cognito configuration
+        cognito_updates = config_updates.get("Cognito", {})
         config["Cognito"].update(
             {
-                "UserPoolId": config_updates.get("UserPoolId", ""),
-                "UserPoolClientSecret": config_updates.get("UserPoolClientSecret", ""),
-                "UserPoolClientId": config_updates.get("UserPoolClientId", ""),
-                "UserPoolDomain": config_updates.get("UserPoolDomain", ""),
-                "UserPoolArn": config_updates.get("UserPoolArn", ""),
+                "UserPoolId": cognito_updates.get("UserPoolId", ""),
+                "UserPoolClientSecret": cognito_updates.get("UserPoolClientSecret", ""),
+                "UserPoolClientId": cognito_updates.get("UserPoolClientId", ""),
+                "UserPoolDomain": cognito_updates.get("UserPoolDomain", ""),
+                "UserPoolArn": cognito_updates.get("UserPoolArn", ""),
             }
         )
 
@@ -152,45 +170,102 @@ def update_configuration_file(config_updates):
         print("Configuration file updated successfully.")
     except Exception as err:
         print(f"An error occurred while updating configuration file: {err}")
+        print("Current config_updates:", config_updates)
+        print("Current config:", config)
 
 
-def main():
+def gather_all_parameters() -> dict:
+    parameters: dict = {}
+
+    # Cognito parameters
+    parameters["cognito"] = {
+        "UserPoolName": input("Enter the Name of the user pool [default: mud-user-pool]: ") or "mud-user-pool",
+        "AppClientName": input("Enter the Name of the app client [default: mud-app-client]: ") or "mud-app-client",
+        "CallbackURL": input("Enter the URL of the callback for the app client [default: https://localhost:3000/callback]: ")
+        or "https://localhost:3000/callback",
+        "SignOutURL": input("Enter the URL of the sign-out page for the app client [default: https://localhost:3000/sign-out]: ")
+        or "https://localhost:3000/sign-out",
+        "ReplyEmailAddress": input("Enter the email address to send from: "),
+    }
+
+    # DynamoDB parameters (empty for now)
+    parameters["dynamo"] = {}
+
+    # CodeBuild parameters
+    parameters["codebuild"] = {
+        "GitHubSourceRepo": input(
+            "Enter the GitHub repository URL for the source code [default: https://github.com/robinje/multi-user-dungeon]: "
+        )
+        or "https://github.com/robinje/multi-user-dungeon",
+        "S3BucketName": input("Enter the name of the S3 bucket where build artifacts will be stored: "),
+    }
+
+    # CloudWatch parameters
+    parameters["cloudwatch"] = {
+        "LogGroupName": input("Enter the name for the CloudWatch Log Group [default: /mud/game-logs]: ") or "/mud/game-logs",
+        "MetricNamespace": input("Enter the namespace for CloudWatch Metrics [default: MUD/Application]: ") or "MUD/Application",
+    }
+
+    return parameters
+
+
+def main() -> None:
     cloudformation_client = boto3.client("cloudformation")
 
-    # Deploy Cognito stack
-    cognito_parameters = prompt_for_parameters("cognito")
-    cognito_template = load_template(COGNITO_TEMPLATE_PATH)
-    deploy_stack(cloudformation_client, COGNITO_STACK_NAME, cognito_template, cognito_parameters)
-    cognito_outputs = get_stack_outputs(cloudformation_client, COGNITO_STACK_NAME)
+    try:
+        # Gather all parameters upfront
+        all_parameters: dict = gather_all_parameters()
 
-    # Deploy DynamoDB stack
-    dynamo_parameters = prompt_for_parameters("dynamo")
-    dynamo_template = load_template(DYNAMO_TEMPLATE_PATH)
-    deploy_stack(cloudformation_client, DYNAMO_STACK_NAME, dynamo_template, dynamo_parameters)
-    dynamo_outputs = get_stack_outputs(cloudformation_client, DYNAMO_STACK_NAME)
+        # Deploy Cognito stack
+        cognito_template: str = load_template(COGNITO_TEMPLATE_PATH)
+        if not deploy_stack(cloudformation_client, COGNITO_STACK_NAME, cognito_template, all_parameters["cognito"]):
+            print("Deployment failed at Cognito stack. Exiting...")
+            return
 
-    # Deploy CodeBuild stack
-    codebuild_parameters = prompt_for_parameters("codebuild")
-    codebuild_parameters.update(cognito_outputs)
-    codebuild_parameters.update(dynamo_outputs)
-    codebuild_template = load_template(CODEBUILD_TEMPLATE_PATH)
-    deploy_stack(cloudformation_client, CODEBUILD_STACK_NAME, codebuild_template, codebuild_parameters)
-    codebuild_outputs = get_stack_outputs(cloudformation_client, CODEBUILD_STACK_NAME)
+        cognito_outputs: dict = get_stack_outputs(cloudformation_client, COGNITO_STACK_NAME)
 
-    # Deploy CloudWatch stack
-    cloudwatch_parameters = prompt_for_parameters("cloudwatch")
-    cloudwatch_template = load_template(CLOUDWATCH_TEMPLATE_PATH)
-    deploy_stack(cloudformation_client, CLOUDWATCH_STACK_NAME, cloudwatch_template, cloudwatch_parameters)
-    cloudwatch_outputs = get_stack_outputs(cloudformation_client, CLOUDWATCH_STACK_NAME)
+        # Deploy DynamoDB stack
+        dynamo_template = load_template(DYNAMO_TEMPLATE_PATH)
+        if not deploy_stack(cloudformation_client, DYNAMO_STACK_NAME, dynamo_template, all_parameters["dynamo"]):
+            print("Deployment failed at DynamoDB stack. Exiting...")
+            return
 
-    # Update configuration file with outputs from all stacks
-    config_updates = {
-        "Cognito": cognito_outputs,
-        "Dynamo": dynamo_outputs,
-        "CodeBuild": codebuild_outputs,
-        "CloudWatch": cloudwatch_outputs,
-    }
-    update_configuration_file(config_updates)
+        dynamo_outputs: dict = get_stack_outputs(cloudformation_client, DYNAMO_STACK_NAME)
+
+        # Update CodeBuild parameters with Cognito outputs
+        all_parameters["codebuild"].update(
+            {"UserPoolId": cognito_outputs.get("UserPoolId", ""), "ClientId": cognito_outputs.get("UserPoolClientId", "")}
+        )
+
+        # Deploy CodeBuild stack
+        codebuild_template: str = load_template(CODEBUILD_TEMPLATE_PATH)
+        if not deploy_stack(cloudformation_client, CODEBUILD_STACK_NAME, codebuild_template, all_parameters["codebuild"]):
+            print("Deployment failed at CodeBuild stack. Exiting...")
+            return
+
+        codebuild_outputs: dict = get_stack_outputs(cloudformation_client, CODEBUILD_STACK_NAME)
+
+        # Deploy CloudWatch stack
+        cloudwatch_template = load_template(CLOUDWATCH_TEMPLATE_PATH)
+        if not deploy_stack(cloudformation_client, CLOUDWATCH_STACK_NAME, cloudwatch_template, all_parameters["cloudwatch"]):
+            print("Deployment failed at CloudWatch stack. Exiting...")
+            return
+
+        cloudwatch_outputs: dict = get_stack_outputs(cloudformation_client, CLOUDWATCH_STACK_NAME)
+
+        # Update configuration file with outputs from all stacks
+        config_updates: dict = {
+            "Cognito": cognito_outputs,
+            "Dynamo": dynamo_outputs,
+            "CodeBuild": codebuild_outputs,
+            "CloudWatch": cloudwatch_outputs,
+        }
+        update_configuration_file(config_updates)
+
+        print("Deployment completed successfully.")
+    except Exception as e:
+        print(f"An unexpected error occurred during deployment: {e}")
+        traceback.print_exc()
 
 
 if __name__ == "__main__":

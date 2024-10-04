@@ -9,6 +9,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/cloudwatch v1.40.5
 	github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs v1.37.5
 	github.com/aws/aws-xray-sdk-go v1.8.4
+	github.com/bits-and-blooms/bloom/v3 v3.7.0
 	github.com/google/uuid v1.6.0
 	golang.org/x/crypto v0.24.0
 )
@@ -27,6 +28,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.26.5 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.30.5 // indirect
 	github.com/aws/smithy-go v1.20.4 // indirect
+	github.com/bits-and-blooms/bitset v1.14.3 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/klauspost/compress v1.17.2 // indirect

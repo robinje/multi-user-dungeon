@@ -9,6 +9,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
+	"github.com/bits-and-blooms/bloom/v3"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/ssh"
 )
@@ -21,7 +22,8 @@ type Index struct {
 
 type Configuration struct {
 	Server struct {
-		Port uint16 `yaml:"Port"`
+		Port           uint16 `yaml:"Port"`
+		PrivateKeyPath string `yaml:"PrivateKeyPath"`
 	} `yaml:"Server"`
 	Aws struct {
 		Region string `yaml:"Region"`
@@ -54,33 +56,32 @@ type KeyPair struct {
 }
 
 type Server struct {
-	Port            uint16
-	Listener        net.Listener
-	SSHConfig       *ssh.ServerConfig
-	PlayerCount     uint64
-	Config          Configuration
-	StartTime       time.Time
-	Rooms           map[int64]*Room
-	Database        *KeyPair
-	PlayerIndex     *Index
-	CharacterExists map[string]bool
-	Characters      map[uuid.UUID]*Character
-	Balance         float64
-	AutoSave        uint16
-	Archetypes      *ArchetypesData
-	Health          uint16
-	Essence         uint16
-	Items           map[uint64]*Item
-	ItemPrototypes  map[uint64]*Item
-	Context         context.Context
-	Mutex           sync.Mutex
-	ActiveMotDs     []*MOTD
+	Port                 uint16
+	Listener             net.Listener
+	SSHConfig            *ssh.ServerConfig
+	PlayerCount          uint64
+	Config               Configuration
+	StartTime            time.Time
+	Rooms                map[int64]*Room
+	Database             *KeyPair
+	PlayerIndex          *Index
+	CharacterBloomFilter *bloom.BloomFilter
+	Characters           map[uuid.UUID]*Character
+	Balance              float64
+	AutoSave             uint16
+	Archetypes           *ArchetypesData
+	Health               uint16
+	Essence              uint16
+	Items                map[uint64]*Item
+	ItemPrototypes       map[uint64]*Item
+	Context              context.Context
+	Mutex                sync.Mutex
+	ActiveMotDs          []*MOTD
 }
 
 type Player struct {
 	PlayerID      string
 	Index         uint64
-	Name          string
 	ToPlayer      chan string
 	FromPlayer    chan string
 	PlayerError   chan error
@@ -95,13 +96,13 @@ type Player struct {
 	LoginTime     time.Time
 	PasswordHash  string
 	Mutex         sync.Mutex
-	SeenMotDs     map[uuid.UUID]bool
+	SeenMotDs     []uuid.UUID
 }
 
 type PlayerData struct {
-	Name          string            `json:"name" dynamodbav:"Name"`
+	PlayerID      string            `json:"PlayerID" dynamodbav:"PlayerID"`
 	CharacterList map[string]string `json:"characterList" dynamodbav:"CharacterList"`
-	SeenMotDs     map[string]bool   `json:"seenMotDs" dynamodbav:"SeenMotDs"`
+	SeenMotDs     []string          `json:"seenMotDs" dynamodbav:"SeenMotDs"`
 }
 
 type Room struct {
@@ -137,15 +138,15 @@ type Character struct {
 
 // CharacterData for unmarshalling character.
 type CharacterData struct {
-	Index      string             `json:"index" dynamodbav:"Index"`
-	PlayerID   string             `json:"playerID" dynamodbav:"PlayerID"`
-	Name       string             `json:"name" dynamodbav:"Name"`
-	Attributes map[string]float64 `json:"attributes" dynamodbav:"Attributes"`
-	Abilities  map[string]float64 `json:"abilities" dynamodbav:"Abilities"`
-	Essence    float64            `json:"essence" dynamodbav:"Essence"`
-	Health     float64            `json:"health" dynamodbav:"Health"`
-	RoomID     int64              `json:"roomID" dynamodbav:"RoomID"`
-	Inventory  map[string]string  `json:"inventory" dynamodbav:"Inventory"`
+	CharacterID   string             `json:"CharacterID" dynamodbav:"CharacterID"`
+	PlayerID      string             `json:"PlayerID" dynamodbav:"PlayerID"`
+	CharacterName string             `json:"Name" dynamodbav:"Name"`
+	Attributes    map[string]float64 `json:"Attributes" dynamodbav:"Attributes"`
+	Abilities     map[string]float64 `json:"Abilities" dynamodbav:"Abilities"`
+	Essence       float64            `json:"Essence" dynamodbav:"Essence"`
+	Health        float64            `json:"Health" dynamodbav:"Health"`
+	RoomID        int64              `json:"RoomID" dynamodbav:"RoomID"`
+	Inventory     map[string]string  `json:"Inventory" dynamodbav:"Inventory"`
 }
 
 type Archetype struct {

@@ -1,5 +1,6 @@
 ---
 AWSTemplateFormatVersion: "2010-09-09"
+Description: "CloudFormation template for Cognito User Pool and IAM Policy"
 
 Parameters:
   UserPoolName:
