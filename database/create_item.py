@@ -305,5 +305,6 @@ def main() -> None:
         else:
             print("Failed to add item to room.")
 
+
 if __name__ == "__main__":
     main()
