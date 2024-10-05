@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/google/uuid"
@@ -123,14 +125,13 @@ func main() {
 	config, err := loadConfiguration(*configFile)
 	if err != nil {
 		fmt.Printf("Error loading configuration: %v\n", err)
-		return
+		os.Exit(1)
 	}
 
 	// Initialize logging based on the loaded configuration
-	err = core.InitializeLogging(&config)
-	if err != nil {
+	if err := core.InitializeLogging(&config); err != nil {
 		fmt.Printf("Error initializing logging: %v\n", err)
-		return
+		os.Exit(1)
 	}
 
 	core.Logger.Info("Configuration loaded", "config", config)
@@ -139,8 +140,24 @@ func main() {
 	server, err := NewServer(config)
 	if err != nil {
 		core.Logger.Error("Failed to create server", "error", err)
-		return
+		os.Exit(1)
 	}
+
+	// Create a context that we can cancel
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Create a channel to listen for interrupt signals
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+
+	// Start the SSH server to accept incoming connections in a goroutine
+	go func() {
+		if err := StartSSHServer(server); err != nil {
+			core.Logger.Error("Failed to start server", "error", err)
+			stop <- os.Interrupt // Trigger shutdown if server fails to start
+		}
+	}()
 
 	// Start sending metrics in a separate goroutine
 	go func() {
@@ -152,11 +169,21 @@ func main() {
 	// Start the auto-save routine in a separate goroutine
 	go core.AutoSave(server)
 
-	// Start the SSH server to accept incoming connections
-	if err := StartSSHServer(server); err != nil {
-		core.Logger.Error("Failed to start server", "error", err)
-		return
+	// Wait for interrupt signal
+	<-stop
+
+	core.Logger.Info("Interrupt received, initiating graceful shutdown...")
+
+	// Create a timeout context for shutdown operations
+	shutdownCtx, shutdownCancel := context.WithTimeout(ctx, 30*time.Second)
+	defer shutdownCancel()
+
+	// Perform graceful shutdown
+	if err := GracefulShutdown(shutdownCtx, server); err != nil {
+		core.Logger.Error("Error during shutdown", "error", err)
 	}
+
+	core.Logger.Info("Server shutdown complete")
 }
 
 // Authenticate checks the provided username and password against the authentication system.
@@ -373,4 +400,42 @@ func HandleSSHRequests(player *core.Player, requests <-chan *ssh.Request) {
 			req.Reply(false, nil)
 		}
 	}
+}
+
+func GracefulShutdown(ctx context.Context, server *core.Server) error {
+	core.Logger.Info("Initiating graceful shutdown...")
+
+	// Notify all players of impending shutdown
+	for _, character := range server.Characters {
+		character.Player.ToPlayer <- "\n\rServer is shutting down. You will be logged out shortly.\n\r"
+	}
+
+	// Wait a moment for messages to be sent
+	time.Sleep(10 * time.Second)
+
+	// Use ExecuteQuitCommand for each character
+	for _, character := range server.Characters {
+		core.Logger.Info("Logging out character", "characterName", character.Name)
+		core.ExecuteQuitCommand(character, []string{"quit"})
+	}
+
+	// Perform final auto-save
+	core.Logger.Info("Performing final auto-save...")
+	if err := core.SaveActiveRooms(server); err != nil {
+		core.Logger.Error("Error saving rooms during shutdown", "error", err)
+	}
+	if err := server.SaveActiveItems(); err != nil {
+		core.Logger.Error("Error saving items during shutdown", "error", err)
+	}
+
+	// Close the server listener
+	if server.Listener != nil {
+		core.Logger.Info("Closing server listener...")
+		if err := server.Listener.Close(); err != nil {
+			core.Logger.Error("Error closing server listener", "error", err)
+		}
+	}
+
+	core.Logger.Info("Graceful shutdown completed")
+	return nil
 }
