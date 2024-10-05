@@ -408,6 +408,7 @@ func GracefulShutdown(ctx context.Context, server *core.Server) error {
 	// Notify all players of impending shutdown
 	for _, character := range server.Characters {
 		character.Player.ToPlayer <- "\n\rServer is shutting down. You will be logged out shortly.\n\r"
+		character.Player.ToPlayer <- character.Player.Prompt
 	}
 
 	// Wait a moment for messages to be sent
