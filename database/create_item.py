@@ -265,7 +265,7 @@ def main() -> None:
             break
 
         room_id: int = prompt_for_room()
-        if not room_id:
+        if room_id is None:
             print("Exiting.")
             break
 
