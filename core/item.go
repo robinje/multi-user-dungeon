@@ -89,7 +89,7 @@ func (k *KeyPair) LoadItem(id string, isPrototype bool) (*Item, error) {
 	}
 
 	key := map[string]*dynamodb.AttributeValue{
-		"ID": {
+		"ItemID": {
 			S: aws.String(id),
 		},
 	}

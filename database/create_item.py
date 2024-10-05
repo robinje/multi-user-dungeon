@@ -183,30 +183,23 @@ def add_item_to_room(dynamodb, room: dict, new_item: dict) -> bool:
         current_room = response.get("Item", {})
         current_item_ids = current_room.get("ItemIDs", [])
 
-        # Determine the type of ItemIDs and update accordingly
-        if isinstance(current_item_ids, list):
-            update_expression = "SET ItemIDs = list_append(if_not_exists(ItemIDs, :empty_list), :new_item)"
-            expression_values = {":empty_list": [], ":new_item": [new_item["ItemID"]]}
-        elif isinstance(current_item_ids, set):
-            update_expression = "ADD ItemIDs :new_item"
-            expression_values = {":new_item": set([new_item["ItemID"]])}
-        else:
-            # If ItemIDs doesn't exist or is of an unexpected type, set it as a new list
-            update_expression = "SET ItemIDs = :new_item"
-            expression_values = {":new_item": [new_item["ItemID"]]}
+        # Ensure current_item_ids is a list
+        if current_item_ids is None:
+            current_item_ids = []
 
+        # Add the new item's ID to the room's ItemIDs list
+        updated_item_ids = current_item_ids + [new_item["ItemID"]]
+
+        # Update the room with the new ItemIDs list
         response = rooms_table.update_item(
             Key={"RoomID": room_id},
-            UpdateExpression=update_expression,
-            ExpressionAttributeValues=expression_values,
-            ReturnValues="UPDATED_NEW",
+            UpdateExpression="SET ItemIDs = :item_ids",
+            ExpressionAttributeValues={":item_ids": updated_item_ids},
+            ReturnValues="UPDATED_NEW"
         )
-        updated_item_ids = response.get("Attributes", {}).get("ItemIDs", [])
-        print(f"Successfully updated room {room_id}. New ItemIDs: {updated_item_ids}")
+        print(f"Successfully updated room {room_id}. New ItemIDs: {response['Attributes'].get('ItemIDs', [])}")
     except ClientError as e:
-        error_message = e.response["Error"]["Message"]
-        print(f"Error updating room: {error_message}")
-
+        print(f"Error updating room: {e.response['Error']['Message']}")
         # Attempt to roll back by deleting the item we just added
         try:
             items_table.delete_item(Key={"ItemID": new_item["ItemID"]})
