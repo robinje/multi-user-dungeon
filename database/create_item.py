@@ -10,6 +10,7 @@ from botocore.exceptions import ClientError
 
 REGION = "us-east-1"  # Replace with your AWS region
 
+
 def display_rooms(dynamodb) -> list:
     """
     Fetches and displays all rooms from the 'rooms' DynamoDB table.
@@ -151,6 +152,7 @@ def ensure_item_ids_list(dynamodb, room_id: int) -> bool:
         print(f"Error ensuring ItemIDs is a list: {e.response['Error']['Message']}")
         return False
 
+
 def add_item_to_table(dynamodb, new_item: dict) -> bool:
     """
     Adds the new item to the 'items' table.
@@ -232,7 +234,7 @@ def add_item_to_room(dynamodb, room: dict, new_item: dict) -> bool:
             Key={"RoomID": room_id},
             UpdateExpression="SET ItemIDs = :item_ids",
             ExpressionAttributeValues={":item_ids": current_item_ids},
-            ReturnValues="UPDATED_NEW"
+            ReturnValues="UPDATED_NEW",
         )
         print(f"Response from updating room: {response}")
         print(f"Successfully updated room {room_id}. New ItemIDs: {response['Attributes'].get('ItemIDs', [])}")
@@ -248,7 +250,6 @@ def add_item_to_room(dynamodb, room: dict, new_item: dict) -> bool:
 
     print(f"Successfully added item '{new_item['Name']}' (ItemID: {new_item['ItemID']}) to room {room_id}")
     return True
-
 
 
 def main() -> None:
