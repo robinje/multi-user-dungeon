@@ -8,6 +8,7 @@ from decimal import Decimal
 import boto3
 from botocore.exceptions import ClientError
 
+REGION = "us-east-1"  # Replace with your AWS region
 
 def display_rooms(dynamodb) -> list:
     """
@@ -150,6 +151,26 @@ def ensure_item_ids_list(dynamodb, room_id: int) -> bool:
         print(f"Error ensuring ItemIDs is a list: {e.response['Error']['Message']}")
         return False
 
+def add_item_to_table(dynamodb, new_item: dict) -> bool:
+    """
+    Adds the new item to the 'items' table.
+
+    Args:
+        dynamodb: The DynamoDB resource object.
+        new_item: The item dictionary to add.
+
+    Returns:
+        True if the item was successfully added to the table, False otherwise.
+    """
+    items_table = dynamodb.Table("items")
+    try:
+        items_table.put_item(Item=new_item)
+        print(f"Successfully added item '{new_item['Name']}' to items table.")
+        return True
+    except ClientError as e:
+        print(f"Error saving new item to items table: {e.response['Error']['Message']}")
+        return False
+
 
 def add_item_to_room(dynamodb, room: dict, new_item: dict) -> bool:
     """
@@ -166,41 +187,51 @@ def add_item_to_room(dynamodb, room: dict, new_item: dict) -> bool:
     items_table = dynamodb.Table("items")
     rooms_table = dynamodb.Table("rooms")
 
-    # Step 1: Save new item to the 'items' table
+    # Update the room to include the new item
+    room_id = int(room.get("RoomID", 0))
+
     try:
-        items_table.put_item(Item=new_item)
-        print(f"Successfully added item '{new_item['Name']}' to items table.")
+        # Get the current state of the room
+        response = rooms_table.get_item(Key={"RoomID": room_id})
     except ClientError as e:
-        print(f"Error saving new item to items table: {e.response['Error']['Message']}")
+        print(f"Error getting room: {e.response['Error']['Message']}")
         return False
 
-    # Step 2: Update the room to include the new item
+    current_room = response.get("Item", {})
+
+    if not current_room:
+        print(f"Room {room_id} not found.")
+        return False
+
+    current_item_ids = current_room.get("ItemIDs", [])
+
+    print(f"Current ItemIDs for room {room_id}: {current_item_ids}")
+
+    # Ensure current_item_ids is a list
+    if current_item_ids is None:
+        current_item_ids = []
+    elif isinstance(current_item_ids, str):
+        current_item_ids = [current_item_ids]
+    elif not isinstance(current_item_ids, list):
+        print(f"Unexpected type for ItemIDs: {type(current_item_ids)}")
+        return False
+
+    # Add the new item's ID to the room's ItemIDs list
+    item_id = new_item.get("ItemID")
+    if not item_id:
+        print("New item does not have an ID.")
+        return False
+
+    current_item_ids.append(item_id)
+
+    print(f"Updated ItemIDs for room {room_id}: {current_item_ids}")
+
     try:
-        room_id = int(room["RoomID"])
-
-        # First, get the current state of the room
-        response = rooms_table.get_item(Key={"RoomID": room_id})
-        current_room = response.get("Item", {})
-        current_item_ids = current_room.get("ItemIDs", [])
-
-        print(f"Current ItemIDs for room {room_id}: {current_item_ids}")
-
-        # Ensure current_item_ids is a list
-        if current_item_ids is None:
-            current_item_ids = []
-        elif isinstance(current_item_ids, str):
-            current_item_ids = [current_item_ids]
-
-        # Add the new item's ID to the room's ItemIDs list
-        updated_item_ids = current_item_ids + [new_item["ItemID"]]
-
-        print(f"Updated ItemIDs for room {room_id}: {updated_item_ids}")
-
         # Update the room with the new ItemIDs list
         response = rooms_table.update_item(
             Key={"RoomID": room_id},
             UpdateExpression="SET ItemIDs = :item_ids",
-            ExpressionAttributeValues={":item_ids": updated_item_ids},
+            ExpressionAttributeValues={":item_ids": current_item_ids},
             ReturnValues="UPDATED_NEW"
         )
         print(f"Response from updating room: {response}")
@@ -219,8 +250,13 @@ def add_item_to_room(dynamodb, room: dict, new_item: dict) -> bool:
     return True
 
 
+
 def main() -> None:
-    dynamodb = boto3.resource("dynamodb", region_name="us-east-1")  # Replace with your AWS region
+    """
+    Allows the user to select a room and a prototype, and then adds an item to the room.
+    """
+
+    dynamodb = boto3.resource("dynamodb", region_name=REGION)  # Replace with your AWS region
 
     while True:
         rooms: list = display_rooms(dynamodb)
@@ -229,7 +265,7 @@ def main() -> None:
             break
 
         room_id: int = prompt_for_room()
-        if room_id is None:
+        if not room_id:
             print("Exiting.")
             break
 
@@ -257,6 +293,12 @@ def main() -> None:
 
         new_item: dict = create_new_item_from_prototype(selected_prototype)
         print(f"New item created: {new_item}")
+
+        if add_item_to_table(dynamodb, new_item):
+            print(f"Successfully added '{new_item['Name']}' to items table.")
+        else:
+            print("Failed to add item to table.")
+            continue
 
         if add_item_to_room(dynamodb, room, new_item):
             print(f"Successfully added '{new_item['Name']}' to room {room_id}.")
