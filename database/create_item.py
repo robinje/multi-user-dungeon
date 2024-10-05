@@ -201,7 +201,7 @@ def add_item_to_room(dynamodb, room: dict, new_item: dict) -> bool:
             Key={"RoomID": room_id},
             UpdateExpression="SET ItemIDs = :item_ids",
             ExpressionAttributeValues={":item_ids": updated_item_ids},
-            ReturnValues="UPDATED_NEW"
+            ReturnValues="UPDATED_NEW",
         )
         print(f"Response from updating room: {response}")
         print(f"Successfully updated room {room_id}. New ItemIDs: {response['Attributes'].get('ItemIDs', [])}")
@@ -262,6 +262,7 @@ def main() -> None:
             print(f"Successfully added '{new_item['Name']}' to room {room_id}.")
         else:
             print("Failed to add item to room.")
+
 
 if __name__ == "__main__":
     main()
