@@ -47,8 +47,8 @@ def prompt_for_room() -> int:
     """
     while True:
         room_input: str = input("Enter room ID (X to quit): ").strip().upper()
-        if room_input == 'X':
-            return None # type: ignore
+        if room_input == "X":
+            return None  # type: ignore
         try:
             return int(room_input)
         except ValueError:
@@ -76,6 +76,7 @@ def display_prototypes(dynamodb) -> list:
     except ClientError as e:
         print(f"Error fetching prototypes: {e.response['Error']['Message']}")
         return []
+
 
 def prompt_for_prototype() -> str:
     """
@@ -105,7 +106,7 @@ def create_new_item_from_prototype(prototype: dict) -> dict:
         "Value": Decimal(str(prototype.get("value", 0))),
         "Stackable": prototype.get("stackable", False),
         "MaxStack": Decimal(str(prototype.get("max_stack", 1))),
-        "Quantity": Decimal('1'),
+        "Quantity": Decimal("1"),
         "Wearable": prototype.get("wearable", False),
         "WornOn": prototype.get("worn_on", []),
         "Verbs": prototype.get("verbs", {}),
@@ -119,6 +120,7 @@ def create_new_item_from_prototype(prototype: dict) -> dict:
         "Metadata": prototype.get("metadata", {}),
     }
     return new_item
+
 
 def ensure_item_ids_list(dynamodb, room_id: int) -> bool:
     """
@@ -140,13 +142,14 @@ def ensure_item_ids_list(dynamodb, room_id: int) -> bool:
             ExpressionAttributeValues={
                 ":empty_list": [],
             },
-            ReturnValues="UPDATED_NEW"
+            ReturnValues="UPDATED_NEW",
         )
         print(f"Ensured ItemIDs is a list for room {room_id}.")
         return True
     except ClientError as e:
         print(f"Error ensuring ItemIDs is a list: {e.response['Error']['Message']}")
         return False
+
 
 def add_item_to_room(dynamodb, room: dict, new_item: dict) -> bool:
     """
@@ -162,7 +165,7 @@ def add_item_to_room(dynamodb, room: dict, new_item: dict) -> bool:
     """
     items_table = dynamodb.Table("items")
     rooms_table = dynamodb.Table("rooms")
-    
+
     # Step 1: Save new item to the 'items' table
     try:
         items_table.put_item(Item=new_item)
@@ -174,43 +177,36 @@ def add_item_to_room(dynamodb, room: dict, new_item: dict) -> bool:
     # Step 2: Update the room to include the new item
     try:
         room_id = int(room["RoomID"])
-        
+
         # First, get the current state of the room
         response = rooms_table.get_item(Key={"RoomID": room_id})
-        current_room = response.get('Item', {})
-        current_item_ids = current_room.get('ItemIDs', [])
+        current_room = response.get("Item", {})
+        current_item_ids = current_room.get("ItemIDs", [])
 
         # Determine the type of ItemIDs and update accordingly
         if isinstance(current_item_ids, list):
             update_expression = "SET ItemIDs = list_append(if_not_exists(ItemIDs, :empty_list), :new_item)"
-            expression_values = {
-                ":empty_list": [],
-                ":new_item": [new_item["ItemID"]]
-            }
+            expression_values = {":empty_list": [], ":new_item": [new_item["ItemID"]]}
         elif isinstance(current_item_ids, set):
             update_expression = "ADD ItemIDs :new_item"
-            expression_values = {
-                ":new_item": set([new_item["ItemID"]])
-            }
+            expression_values = {":new_item": set([new_item["ItemID"]])}
         else:
             # If ItemIDs doesn't exist or is of an unexpected type, set it as a new list
             update_expression = "SET ItemIDs = :new_item"
-            expression_values = {
-                ":new_item": [new_item["ItemID"]]
-            }
+            expression_values = {":new_item": [new_item["ItemID"]]}
 
         response = rooms_table.update_item(
             Key={"RoomID": room_id},
             UpdateExpression=update_expression,
             ExpressionAttributeValues=expression_values,
-            ReturnValues="UPDATED_NEW"
+            ReturnValues="UPDATED_NEW",
         )
-        updated_item_ids = response.get('Attributes', {}).get('ItemIDs', [])
+        updated_item_ids = response.get("Attributes", {}).get("ItemIDs", [])
         print(f"Successfully updated room {room_id}. New ItemIDs: {updated_item_ids}")
     except ClientError as e:
-        error_message = e.response['Error']['Message']
+        error_message = e.response["Error"]["Message"]
         print(f"Error updating room: {error_message}")
-        
+
         # Attempt to roll back by deleting the item we just added
         try:
             items_table.delete_item(Key={"ItemID": new_item["ItemID"]})
