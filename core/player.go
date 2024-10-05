@@ -286,7 +286,7 @@ func SelectCharacter(player *Player, server *Server) (*Character, error) {
 				Logger.Error("Failed to delete character", "characterName", characterToDelete, "error", err)
 				player.ToPlayer <- fmt.Sprintf("Failed to delete character: %v\n\r", err)
 			} else {
-				player.ToPlayer <- fmt.Sprintf("Character '%s' has been deleted.\n\r", characterToDelete)
+				player.ToPlayer <- fmt.Sprintf("\n\rCharacter '%s' has been deleted.\n\r", characterToDelete)
 			}
 			continue
 		}

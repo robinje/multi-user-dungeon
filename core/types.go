@@ -210,10 +210,12 @@ type PrototypesData struct {
 }
 
 type CloudWatchHandler struct {
-	client    *cloudwatchlogs.Client
-	logGroup  string
-	logStream string
-	attrs     []slog.Attr
+	client      *cloudwatchlogs.Client
+	logGroup    string
+	logStream   string
+	attrs       []slog.Attr
+	mutex       sync.Mutex
+	initialized bool
 }
 
 type MultiHandler struct {
