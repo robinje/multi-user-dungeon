@@ -131,6 +131,10 @@ func (kp *KeyPair) LoadRooms() (map[int64]*Room, error) {
 
 		// Load items in the room
 		for _, itemID := range roomData.ItemIDs {
+			if itemID == "" {
+				Logger.Warn("Empty item ID found in room", "room_id", roomData.RoomID)
+				continue
+			}
 			item, err := kp.LoadItem(itemID, false)
 			if err != nil {
 				Logger.Warn("Failed to load item for room", "item_id", itemID, "room_id", roomData.RoomID, "error", err)

@@ -116,7 +116,7 @@ def create_new_item_from_prototype(prototype: dict) -> dict:
         "IsPrototype": False,
         "IsWorn": False,
         "CanPickUp": prototype.get("can_pick_up", True),
-        "Contents": [],
+        "Contents": prototype.get("contents", []),
         "Metadata": prototype.get("metadata", {}),
     }
     return new_item
@@ -183,12 +183,18 @@ def add_item_to_room(dynamodb, room: dict, new_item: dict) -> bool:
         current_room = response.get("Item", {})
         current_item_ids = current_room.get("ItemIDs", [])
 
+        print(f"Current ItemIDs for room {room_id}: {current_item_ids}")
+
         # Ensure current_item_ids is a list
         if current_item_ids is None:
             current_item_ids = []
+        elif isinstance(current_item_ids, str):
+            current_item_ids = [current_item_ids]
 
         # Add the new item's ID to the room's ItemIDs list
         updated_item_ids = current_item_ids + [new_item["ItemID"]]
+
+        print(f"Updated ItemIDs for room {room_id}: {updated_item_ids}")
 
         # Update the room with the new ItemIDs list
         response = rooms_table.update_item(
@@ -197,6 +203,7 @@ def add_item_to_room(dynamodb, room: dict, new_item: dict) -> bool:
             ExpressionAttributeValues={":item_ids": updated_item_ids},
             ReturnValues="UPDATED_NEW"
         )
+        print(f"Response from updating room: {response}")
         print(f"Successfully updated room {room_id}. New ItemIDs: {response['Attributes'].get('ItemIDs', [])}")
     except ClientError as e:
         print(f"Error updating room: {e.response['Error']['Message']}")
@@ -246,12 +253,15 @@ def main() -> None:
             print("Prototype not found.")
             continue
 
+        print(f"Selected prototype: {selected_prototype}")
+
         new_item: dict = create_new_item_from_prototype(selected_prototype)
+        print(f"New item created: {new_item}")
+
         if add_item_to_room(dynamodb, room, new_item):
             print(f"Successfully added '{new_item['Name']}' to room {room_id}.")
         else:
             print("Failed to add item to room.")
-
 
 if __name__ == "__main__":
     main()

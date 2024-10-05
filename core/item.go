@@ -83,6 +83,10 @@ func (kp *KeyPair) LoadPrototypes() (*PrototypesData, error) {
 
 // LoadItem retrieves an item or prototype from the DynamoDB table.
 func (k *KeyPair) LoadItem(id string, isPrototype bool) (*Item, error) {
+	if id == "" {
+		return nil, fmt.Errorf("empty item ID provided")
+	}
+
 	tableName := "items"
 	if isPrototype {
 		tableName = "prototypes"
@@ -106,7 +110,6 @@ func (k *KeyPair) LoadItem(id string, isPrototype bool) (*Item, error) {
 		Logger.Error("Error parsing item UUID", "itemID", itemData.ID, "error", err)
 		return nil, fmt.Errorf("error parsing item ID: %w", err)
 	}
-
 	item := &Item{
 		ID:          itemID,
 		Name:        itemData.Name,
