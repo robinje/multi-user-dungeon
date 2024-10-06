@@ -35,7 +35,7 @@
     {
       "ID": "e47ac10b-58cc-4372-a567-0e02b2c3d480",
       "Name": "Magic Book",
-      "Sescription": "An ancient tome filled with arcane knowledge and mystical spells.",
+      "Description": "An ancient tome filled with arcane knowledge and mystical spells.",
       "mass": 2.0,
       "value": 100,
       "stackable": false,
