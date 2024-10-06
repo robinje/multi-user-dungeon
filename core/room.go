@@ -25,7 +25,6 @@ func (kp *KeyPair) StoreRooms(rooms map[int64]*Room) error {
 	return nil
 }
 
-// LoadRooms retrieves all rooms from the DynamoDB database.
 func (kp *KeyPair) LoadRooms() (map[int64]*Room, error) {
 	rooms := make(map[int64]*Room)
 
@@ -37,7 +36,7 @@ func (kp *KeyPair) LoadRooms() (map[int64]*Room, error) {
 		return nil, fmt.Errorf("error scanning rooms: %w", err)
 	}
 
-	// First pass: create all rooms without exits
+	// First pass: create all rooms without exits or items
 	for _, roomData := range roomsData {
 		room := NewRoom(roomData.RoomID, roomData.Area, roomData.Title, roomData.Description)
 		rooms[room.RoomID] = room
@@ -50,33 +49,62 @@ func (kp *KeyPair) LoadRooms() (map[int64]*Room, error) {
 		return nil, fmt.Errorf("error loading exits: %w", err)
 	}
 
-	// Second pass: add exits to rooms and resolve target rooms
-	for roomID, room := range rooms {
+	// Load all items
+	allItems, err := kp.LoadAllItems()
+	if err != nil {
+		Logger.Error("Error loading items", "error", err)
+		return nil, fmt.Errorf("error loading items: %w", err)
+	}
+
+	// Second pass: add exits and items to rooms, and resolve target rooms
+	for _, roomData := range roomsData {
+		room, exists := rooms[roomData.RoomID]
+		if !exists {
+			Logger.Warn("Room not found in second pass", "room_id", roomData.RoomID)
+			continue
+		}
+
 		// Add exits to the room
-		if roomExits, exists := allExits[roomID]; exists {
+		if roomExits, exists := allExits[roomData.RoomID]; exists {
 			room.Exits = roomExits
 		}
 
 		// Resolve TargetRoom pointers
-		for _, exit := range room.Exits {
-			targetRoomID := exit.TargetRoom.RoomID // Temporary storage of target room ID
+		for direction, exit := range room.Exits {
+			if exit == nil {
+				Logger.Warn("Nil exit found", "room_id", roomData.RoomID, "direction", direction)
+				continue
+			}
+			if exit.TargetRoom == nil {
+				Logger.Warn("Nil TargetRoom found", "room_id", roomData.RoomID, "direction", direction)
+				continue
+			}
+			targetRoomID := exit.TargetRoom.RoomID
 			if targetRoom, exists := rooms[targetRoomID]; exists {
 				exit.TargetRoom = targetRoom
 			} else {
-				Logger.Warn("Target room not found for exit", "room_id", roomID, "direction", exit.Direction, "target_room_id", targetRoomID)
-				// You might want to handle this case, e.g., by removing the exit or setting a default room
+				Logger.Warn("Target room not found for exit", "room_id", roomData.RoomID, "direction", direction, "target_room_id", targetRoomID)
 			}
 		}
-	}
 
-	// Load items for each room
-	for _, room := range rooms {
-		items, err := kp.LoadItemsForRoom(room.RoomID)
-		if err != nil {
-			Logger.Error("Error loading items for room", "room_id", room.RoomID, "error", err)
-			continue // Consider whether to continue or return an error
+		// Add items to the room
+		room.Items = make(map[uuid.UUID]*Item)
+		for _, itemID := range roomData.ItemIDs {
+			if itemID == "" {
+				Logger.Warn("Empty item ID found for room", "room_id", roomData.RoomID)
+				continue
+			}
+			if item, exists := allItems[itemID]; exists {
+				itemUUID, err := uuid.Parse(itemID)
+				if err != nil {
+					Logger.Error("Invalid item UUID", "item_id", itemID, "error", err)
+					continue
+				}
+				room.Items[itemUUID] = item
+			} else {
+				Logger.Warn("Item not found for room", "room_id", roomData.RoomID, "item_id", itemID)
+			}
 		}
-		room.Items = items
 	}
 
 	Logger.Info("Successfully loaded rooms from database", "count", len(rooms))
@@ -464,6 +492,10 @@ func (kp *KeyPair) LoadAllItems() (map[string]*Item, error) {
 
 	items := make(map[string]*Item)
 	for _, itemData := range itemsData {
+		if itemData.ID == "" {
+			Logger.Warn("Skipping item with empty ID")
+			continue
+		}
 		item, err := kp.itemFromData(&itemData)
 		if err != nil {
 			Logger.Error("Error creating item from data", "item_id", itemData.ID, "error", err)
