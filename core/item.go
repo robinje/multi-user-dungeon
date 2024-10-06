@@ -349,34 +349,51 @@ func (s *Server) CreateItemFromPrototype(prototypeID string) (*Item, error) {
 	return newItem, nil
 }
 
-// AddItem adds an item to the room's item list.
-func (r *Room) AddItem(item *Item) {
-	r.Mutex.Lock()
-	defer r.Mutex.Unlock()
-
-	if item == nil {
-		Logger.Warn("Attempted to add nil item to room", "roomID", r.RoomID)
-		return
+// itemFromData creates an Item from ItemData
+func (kp *KeyPair) itemFromData(itemData *ItemData) (*Item, error) {
+	if itemData == nil {
+		return nil, fmt.Errorf("itemData is nil")
 	}
 
-	if r.Items == nil {
-		r.Items = make(map[string]*Item)
+	itemID, err := uuid.Parse(itemData.ID)
+	if err != nil {
+		return nil, fmt.Errorf("error parsing item UUID: %w", err)
 	}
 
-	r.Items[item.ID.String()] = item
-	Logger.Info("Added item to room", "itemName", item.Name, "itemID", item.ID, "roomID", r.RoomID)
-}
-
-// RemoveItem removes an item from the room's item list.
-func (r *Room) RemoveItem(item *Item) {
-	r.Mutex.Lock()
-	defer r.Mutex.Unlock()
-
-	if item == nil {
-		Logger.Warn("Attempted to remove nil item from room", "roomID", r.RoomID)
-		return
+	item := &Item{
+		ID:          itemID,
+		Name:        itemData.Name,
+		Description: itemData.Description,
+		Mass:        itemData.Mass,
+		Value:       itemData.Value,
+		Stackable:   itemData.Stackable,
+		MaxStack:    itemData.MaxStack,
+		Quantity:    itemData.Quantity,
+		Wearable:    itemData.Wearable,
+		WornOn:      itemData.WornOn,
+		Verbs:       itemData.Verbs,
+		Overrides:   itemData.Overrides,
+		TraitMods:   itemData.TraitMods,
+		Container:   itemData.Container,
+		IsPrototype: itemData.IsPrototype,
+		IsWorn:      itemData.IsWorn,
+		CanPickUp:   itemData.CanPickUp,
+		Metadata:    itemData.Metadata,
+		Mutex:       sync.Mutex{},
 	}
 
-	delete(r.Items, item.ID.String())
-	Logger.Info("Removed item from room", "itemName", item.Name, "itemID", item.ID, "roomID", r.RoomID)
+	// Handle Contents if the item is a container
+	if item.Container {
+		item.Contents = make([]*Item, 0, len(itemData.Contents))
+		for _, contentID := range itemData.Contents {
+			contentItem, err := kp.LoadItem(contentID, false) // Assuming LoadItem is accessible here
+			if err != nil {
+				Logger.Error("Error loading content item", "contentID", contentID, "parentItemID", item.ID, "error", err)
+				continue // Skip this content item but continue with others
+			}
+			item.Contents = append(item.Contents, contentItem)
+		}
+	}
+
+	return item, nil
 }

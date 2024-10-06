@@ -105,21 +105,41 @@ type PlayerData struct {
 	SeenMotDs     []string          `json:"seenMotDs" dynamodbav:"SeenMotDs"`
 }
 
+// Room represents the in-memory structure for a room
 type Room struct {
-	RoomID      int64                    `json:"roomID" dynamodbav:"RoomID"`
-	Area        string                   `json:"area" dynamodbav:"Area"`
-	Title       string                   `json:"title" dynamodbav:"Title"`
-	Description string                   `json:"description" dynamodbav:"Description"`
-	Exits       map[string]*Exit         `json:"-"`
-	Characters  map[uuid.UUID]*Character `json:"-"`
-	Items       map[string]*Item         `json:"-"`
-	Mutex       sync.Mutex               `json:"-"`
+	RoomID      int64
+	Area        string
+	Title       string
+	Description string
+	Exits       map[string]*Exit
+	Characters  map[uuid.UUID]*Character
+	Items       map[uuid.UUID]*Item
+	Mutex       sync.Mutex
 }
 
+// RoomData represents the structure for storing room data in DynamoDB
+type RoomData struct {
+	RoomID      int64    `json:"roomID" dynamodbav:"RoomID"`
+	Area        string   `json:"area" dynamodbav:"Area"`
+	Title       string   `json:"title" dynamodbav:"Title"`
+	Description string   `json:"description" dynamodbav:"Description"`
+	ExitIDs     []string `json:"exitIDs" dynamodbav:"ExitIDs"`
+	ItemIDs     []string `json:"itemIDs" dynamodbav:"ItemIDs"`
+}
+
+// Exit represents the in-memory structure for an exit
 type Exit struct {
-	TargetRoom int64  `json:"targetRoom" dynamodbav:"TargetRoom"`
-	Visible    bool   `json:"visible" dynamodbav:"Visible"`
-	Direction  string `json:"direction" dynamodbav:"Direction"`
+	Direction  string
+	TargetRoom *Room
+	Visible    bool
+}
+
+// ExitData represents the structure for storing exit data in DynamoDB
+type ExitData struct {
+	RoomID       int64  `json:"roomID" dynamodbav:"RoomID"`
+	Direction    string `json:"direction" dynamodbav:"Direction"`
+	TargetRoomID int64  `json:"targetRoomID" dynamodbav:"TargetRoomID"`
+	Visible      bool   `json:"visible" dynamodbav:"Visible"`
 }
 
 type Character struct {
