@@ -157,12 +157,14 @@ def load_rooms_and_exits(dynamodb):
             if room_id in rooms:
                 if "Exits" not in rooms[room_id]:
                     rooms[room_id]["Exits"] = []
-                rooms[room_id]["Exits"].append({
-                    "ExitID": exit_item["ExitID"],
-                    "Direction": exit_item["Direction"],
-                    "TargetRoom": exit_item["TargetRoom"],
-                    "Visible": exit_item["Visible"],
-                })
+                rooms[room_id]["Exits"].append(
+                    {
+                        "ExitID": exit_item["ExitID"],
+                        "Direction": exit_item["Direction"],
+                        "TargetRoom": exit_item["TargetRoom"],
+                        "Visible": exit_item["Visible"],
+                    }
+                )
 
         print("Room and exit data loaded from DynamoDB successfully")
         return rooms
@@ -237,6 +239,7 @@ def display_rooms(rooms):
         for exit_data in room.get("Exits", []):
             print(f"  Exit {exit_data['Direction']} (ID: {exit_data['ExitID']}) to room {exit_data['TargetRoom']}")
         print()
+
 
 def display_archetypes(archetypes):
     """
