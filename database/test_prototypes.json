@@ -1,9 +1,9 @@
 {
   "itemPrototypes": [
     {
-      "id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
-      "name": "Long Sword",
-      "description": "A finely crafted long sword with a sharp blade, glinting in the light.",
+      "ID": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+      "Name": "Long Sword",
+      "Description": "A finely crafted long sword with a sharp blade, glinting in the light.",
       "mass": 4.5,
       "value": 50,
       "stackable": false,
@@ -33,9 +33,9 @@
       }
     },
     {
-      "id": "e47ac10b-58cc-4372-a567-0e02b2c3d480",
-      "name": "Magic Book",
-      "description": "An ancient tome filled with arcane knowledge and mystical spells.",
+      "ID": "e47ac10b-58cc-4372-a567-0e02b2c3d480",
+      "Name": "Magic Book",
+      "Sescription": "An ancient tome filled with arcane knowledge and mystical spells.",
       "mass": 2.0,
       "value": 100,
       "stackable": false,
@@ -64,9 +64,9 @@
       }
     },
     {
-      "id": "d47ac10b-58cc-4372-a567-0e02b2c3d481",
-      "name": "Bow",
-      "description": "A sturdy bow made of fine wood, capable of shooting arrows with great precision.",
+      "ID": "d47ac10b-58cc-4372-a567-0e02b2c3d481",
+      "Name": "Bow",
+      "Description": "A sturdy bow made of fine wood, capable of shooting arrows with great precision.",
       "mass": 3.0,
       "value": 75,
       "stackable": false,
@@ -95,9 +95,9 @@
       }
     },
     {
-      "id": "c47ac10b-58cc-4372-a567-0e02b2c3d482",
-      "name": "Leather Armor",
-      "description": "A set of well-crafted leather armor, offering decent protection without sacrificing mobility.",
+      "ID": "c47ac10b-58cc-4372-a567-0e02b2c3d482",
+      "Name": "Leather Armor",
+      "Description": "A set of well-crafted leather armor, offering decent protection without sacrificing mobility.",
       "mass": 8.0,
       "value": 80,
       "stackable": false,
@@ -125,9 +125,9 @@
       }
     },
     {
-      "id": "b47ac10b-58cc-4372-a567-0e02b2c3d483",
-      "name": "Healing Potion",
-      "description": "A small vial containing a red, shimmering liquid that seems to glow with restorative energy.",
+      "ID": "b47ac10b-58cc-4372-a567-0e02b2c3d483",
+      "Name": "Healing Potion",
+      "Description": "A small vial containing a red, shimmering liquid that seems to glow with restorative energy.",
       "mass": 0.5,
       "value": 25,
       "stackable": true,
@@ -154,9 +154,9 @@
       }
     },
     {
-      "id": "a47ac10b-58cc-4372-a567-0e02b2c3d484",
-      "name": "Backpack",
-      "description": "A sturdy leather backpack with multiple compartments, perfect for storing various items.",
+      "ID": "a47ac10b-58cc-4372-a567-0e02b2c3d484",
+      "Name": "Backpack",
+      "Description": "A sturdy leather backpack with multiple compartments, perfect for storing various items.",
       "mass": 2.0,
       "value": 20,
       "stackable": false,
@@ -183,9 +183,9 @@
       }
     },
     {
-      "id": "947ac10b-58cc-4372-a567-0e02b2c3d485",
-      "name": "Magic Ring",
-      "description": "A small, intricately carved golden ring that pulses with magical energy.",
+      "ID": "947ac10b-58cc-4372-a567-0e02b2c3d485",
+      "Name": "Magic Ring",
+      "Description": "A small, intricately carved golden ring that pulses with magical energy.",
       "mass": 0.1,
       "value": 200,
       "stackable": false,
@@ -212,9 +212,9 @@
       }
     },
     {
-      "id": "947ac10b-58cc-4372-a567-0e02b2c3d486",
-      "name": "Torch",
-      "description": "A wooden torch with a cloth-wrapped end, ready to be lit for illumination.",
+      "ID": "947ac10b-58cc-4372-a567-0e02b2c3d486",
+      "Name": "Torch",
+      "Description": "A wooden torch with a cloth-wrapped end, ready to be lit for illumination.",
       "mass": 1.0,
       "value": 5,
       "stackable": true,

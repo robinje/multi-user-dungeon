@@ -60,6 +60,7 @@
 
 | Field        | Type      | Description                                     |
 | ------------ | --------- | ----------------------------------------------- |
+| `ExitID`     | `STRING`  | UUID of the exit.                               |
 | `RoomID`     | `NUMBER`  | ID of the room containing the exit.             |
 | `Direction`  | `STRING`  | Direction of the exit (e.g., "north", "south"). |
 | `TargetRoom` | `NUMBER`  | ID of the room the exit leads to.               |

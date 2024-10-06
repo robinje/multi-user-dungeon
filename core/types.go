@@ -129,6 +129,7 @@ type RoomData struct {
 
 // Exit represents the in-memory structure for an exit
 type Exit struct {
+	ExitID     uuid.UUID
 	Direction  string
 	TargetRoom *Room
 	Visible    bool
@@ -136,10 +137,11 @@ type Exit struct {
 
 // ExitData represents the structure for storing exit data in DynamoDB
 type ExitData struct {
-	RoomID       int64  `json:"roomID" dynamodbav:"RoomID"`
-	Direction    string `json:"direction" dynamodbav:"Direction"`
-	TargetRoomID int64  `json:"targetRoomID" dynamodbav:"TargetRoomID"`
-	Visible      bool   `json:"visible" dynamodbav:"Visible"`
+	ExitID     string `json:"ExitID" dynamodbav:"ExitID"`
+	RoomID     int64  `json:"RoomID" dynamodbav:"RoomID"`
+	Direction  string `json:"Direction" dynamodbav:"Direction"`
+	TargetRoom int64  `json:"TargetRoom" dynamodbav:"TargetRoom"`
+	Visible    bool   `json:"Visible" dynamodbav:"Visible"`
 }
 
 type Character struct {

@@ -124,13 +124,13 @@ def store_item_prototypes(dynamodb, prototypes_data):
     try:
         with table.batch_writer() as batch:
             for prototype in prototypes_data.get("itemPrototypes", []):
-                prototype["PrototypeID"] = prototype.pop("id")  # Rename 'id' to 'PrototypeID'
+                prototype["PrototypeID"] = prototype.pop("ID")
                 batch.put_item(Item=convert_to_dynamodb_format(prototype))
         print("Item prototype data stored in DynamoDB successfully")
-    except ClientError as e:
-        logging.error(f"An error occurred while storing item prototypes: {e.response['Error']['Message']}")
-    except Exception as e:
-        logging.error(f"An unexpected error occurred while storing item prototypes: {str(e)}")
+    except ClientError as err:
+        logging.error(f"An error occurred while storing item prototypes: {err.response['Error']['Message']}")
+    except Exception as err:
+        logging.error(f"An unexpected error occurred while storing item prototypes: {str(err)}")
 
 
 def load_rooms_and_exits(dynamodb):
