@@ -400,29 +400,77 @@ func (kp *KeyPair) itemFromData(itemData *ItemData) (*Item, error) {
 
 // getVisibleItems returns a list of item names in the room.
 func getVisibleItems(r *Room) []string {
+	if r == nil {
+		Logger.Error("Room is nil in getVisibleItems")
+		return []string{}
+	}
+
 	Logger.Info("Getting visible items in room", "room_id", r.RoomID)
 
 	r.Mutex.Lock()
 	defer r.Mutex.Unlock()
 
-	if r.Items == nil {
+	// Log room details
+	Logger.Debug("Room object details",
+		"room_id", r.RoomID,
+		"area", r.Area,
+		"title", r.Title,
+		"description", r.Description)
+
+	// Log exits
+	exitList := make([]string, 0, len(r.Exits))
+	if r.Exits != nil {
+		for direction, exit := range r.Exits {
+			if exit != nil && exit.TargetRoom != nil {
+				exitList = append(exitList, fmt.Sprintf("%s -> Room %d", direction, exit.TargetRoom.RoomID))
+			} else if exit != nil {
+				exitList = append(exitList, fmt.Sprintf("%s -> Invalid Target Room", direction))
+			}
+		}
+	}
+	Logger.Debug("Room exits", "exits", exitList)
+
+	// Log characters
+	characterList := make([]string, 0, len(r.Characters))
+	if r.Characters != nil {
+		for _, character := range r.Characters {
+			if character != nil {
+				characterList = append(characterList, fmt.Sprintf("%s (ID: %s)", character.Name, character.ID))
+			}
+		}
+	}
+	Logger.Debug("Characters in room", "characters", characterList)
+
+	// Log and process items
+	allItems := make([]string, 0)
+	visibleItems := make([]string, 0)
+	if r.Items != nil {
+		for itemID, item := range r.Items {
+			if item == nil {
+				Logger.Warn("Nil item found with ID in room", "item_id", itemID, "room_id", r.RoomID)
+				continue
+			}
+
+			itemInfo := fmt.Sprintf("%s (ID: %s, CanPickUp: %v)", item.Name, itemID, item.CanPickUp)
+			allItems = append(allItems, itemInfo)
+
+			if item.CanPickUp {
+				visibleItems = append(visibleItems, item.Name)
+				Logger.Info("Found visible item", "item_name", item.Name, "item_id", itemID, "room_id", r.RoomID)
+			} else {
+				Logger.Debug("Item not visible (can't be picked up)", "item_name", item.Name, "item_id", itemID, "room_id", r.RoomID)
+			}
+		}
+	} else {
 		Logger.Warn("Items map is nil for room", "room_id", r.RoomID)
-		return []string{}
 	}
 
-	visibleItems := make([]string, 0, len(r.Items))
-	for itemID, item := range r.Items {
-		if item == nil {
-			Logger.Warn("Nil item found with ID in room", "item_id", itemID, "room_id", r.RoomID)
-			continue
-		}
-		if item.CanPickUp {
-			visibleItems = append(visibleItems, item.Name)
-			Logger.Info("Found visible item", "item_name", item.Name, "item_id", itemID)
-		}
-	}
+	Logger.Debug("All items in room", "items", allItems)
+	Logger.Info("Visible items in room",
+		"room_id", r.RoomID,
+		"total_items", len(allItems),
+		"visible_items", visibleItems)
 
-	Logger.Info("Total visible items in room", "room_id", r.RoomID, "count", len(visibleItems))
 	return visibleItems
 }
 
