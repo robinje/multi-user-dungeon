@@ -397,3 +397,89 @@ func (kp *KeyPair) itemFromData(itemData *ItemData) (*Item, error) {
 
 	return item, nil
 }
+
+// getVisibleItems returns a list of item names in the room.
+func getVisibleItems(r *Room) []string {
+	Logger.Info("Getting visible items in room", "room_id", r.RoomID)
+
+	r.Mutex.Lock()
+	defer r.Mutex.Unlock()
+
+	if r.Items == nil {
+		Logger.Warn("Items map is nil for room", "room_id", r.RoomID)
+		return []string{}
+	}
+
+	visibleItems := make([]string, 0, len(r.Items))
+	for itemID, item := range r.Items {
+		if item == nil {
+			Logger.Warn("Nil item found with ID in room", "item_id", itemID, "room_id", r.RoomID)
+			continue
+		}
+		if item.CanPickUp {
+			visibleItems = append(visibleItems, item.Name)
+			Logger.Info("Found visible item", "item_name", item.Name, "item_id", itemID)
+		}
+	}
+
+	Logger.Info("Total visible items in room", "room_id", r.RoomID, "count", len(visibleItems))
+	return visibleItems
+}
+
+// LoadAllItems loads all items for all rooms.
+func (kp *KeyPair) LoadAllItems() (map[string]*Item, error) {
+	var itemsData []ItemData
+	err := kp.Scan("items", &itemsData)
+	if err != nil {
+		Logger.Error("Error scanning items", "error", err)
+		return nil, fmt.Errorf("error scanning items: %w", err)
+	}
+
+	items := make(map[string]*Item)
+	for _, itemData := range itemsData {
+		if itemData.ID == "" {
+			Logger.Warn("Skipping item with empty ID")
+			continue
+		}
+		item, err := kp.itemFromData(&itemData)
+		if err != nil {
+			Logger.Error("Error creating item from data", "item_id", itemData.ID, "error", err)
+			continue
+		}
+		items[itemData.ID] = item
+	}
+
+	return items, nil
+}
+
+// AddItem adds an item to the room's item list.
+func (r *Room) AddItem(item *Item) {
+	r.Mutex.Lock()
+	defer r.Mutex.Unlock()
+
+	if item == nil {
+		Logger.Warn("Attempted to add nil item to room", "roomID", r.RoomID)
+		return
+	}
+
+	if r.Items == nil {
+		r.Items = make(map[uuid.UUID]*Item)
+	}
+
+	r.Items[item.ID] = item
+	Logger.Info("Added item to room", "itemName", item.Name, "itemID", item.ID, "roomID", r.RoomID)
+}
+
+// RemoveItem removes an item from the room's item list.
+func (r *Room) RemoveItem(item *Item) {
+	r.Mutex.Lock()
+	defer r.Mutex.Unlock()
+
+	if item == nil {
+		Logger.Warn("Attempted to remove nil item from room", "roomID", r.RoomID)
+		return
+	}
+
+	delete(r.Items, item.ID)
+	Logger.Info("Removed item from room", "itemName", item.Name, "itemID", item.ID, "roomID", r.RoomID)
+}
