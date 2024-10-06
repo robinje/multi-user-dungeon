@@ -60,22 +60,23 @@ def store_rooms_and_exits(dynamodb, rooms_data):
     exits_table = dynamodb.Table("exits")
     try:
         with rooms_table.batch_writer() as rooms_batch, exits_table.batch_writer() as exits_batch:
-            for room_id, room in rooms_data.get("rooms", {}).items():
+            for room in rooms_data.get("rooms", []):
                 room_item = {
-                    "RoomID": int(room_id),
-                    "Area": room.get("area", ""),
-                    "Title": room.get("title", ""),
-                    "Description": room.get("description", ""),
-                    "ItemIDs": room.get("itemIDs", []),
+                    "RoomID": room["RoomID"],
+                    "Area": room["Area"],
+                    "Title": room["Title"],
+                    "Description": room["Description"],
+                    "ItemIDs": room.get("ItemIDs", []),
                 }
                 rooms_batch.put_item(Item=convert_to_dynamodb_format(room_item))
 
-                for exit_data in room.get("exits", []):
+                for exit_data in room.get("Exits", []):
                     exit_item = {
-                        "RoomID": int(room_id),
-                        "Direction": exit_data["direction"],
-                        "TargetRoom": exit_data["target_room"],
-                        "Visible": exit_data.get("visible", True),
+                        "ExitID": exit_data["ExitID"],
+                        "RoomID": room["RoomID"],
+                        "Direction": exit_data["Direction"],
+                        "TargetRoom": exit_data["TargetRoom"],
+                        "Visible": exit_data["Visible"],
                     }
                     exits_batch.put_item(Item=convert_to_dynamodb_format(exit_item))
         print("Room and exit data stored in DynamoDB successfully")
@@ -149,20 +150,19 @@ def load_rooms_and_exits(dynamodb):
         rooms_response = rooms_table.scan()
         exits_response = exits_table.scan()
 
-        rooms = {str(item["RoomID"]): item for item in rooms_response.get("Items", [])}
+        rooms = {item["RoomID"]: item for item in rooms_response.get("Items", [])}
 
         for exit_item in exits_response.get("Items", []):
-            room_id = str(exit_item["RoomID"])
+            room_id = exit_item["RoomID"]
             if room_id in rooms:
-                if "exits" not in rooms[room_id]:
-                    rooms[room_id]["exits"] = []
-                rooms[room_id]["exits"].append(
-                    {
-                        "direction": exit_item["Direction"],
-                        "target_room": exit_item["TargetRoom"],
-                        "visible": exit_item.get("Visible", True),
-                    }
-                )
+                if "Exits" not in rooms[room_id]:
+                    rooms[room_id]["Exits"] = []
+                rooms[room_id]["Exits"].append({
+                    "ExitID": exit_item["ExitID"],
+                    "Direction": exit_item["Direction"],
+                    "TargetRoom": exit_item["TargetRoom"],
+                    "Visible": exit_item["Visible"],
+                })
 
         print("Room and exit data loaded from DynamoDB successfully")
         return rooms
@@ -234,10 +234,9 @@ def display_rooms(rooms):
         print(f"Room {room_id}: {room.get('Title', 'No Title')}")
         print(f"  Area: {room.get('Area', 'Unknown')}")
         print(f"  Description: {room.get('Description', 'No description')}")
-        for exit_data in room.get("exits", []):
-            print(f"  Exit {exit_data['direction']} to room {exit_data['target_room']}")
+        for exit_data in room.get("Exits", []):
+            print(f"  Exit {exit_data['Direction']} (ID: {exit_data['ExitID']}) to room {exit_data['TargetRoom']}")
         print()
-
 
 def display_archetypes(archetypes):
     """

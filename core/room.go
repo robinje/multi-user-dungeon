@@ -70,20 +70,16 @@ func (kp *KeyPair) LoadRooms() (map[int64]*Room, error) {
 		}
 
 		// Resolve TargetRoom pointers
-		for direction, exit := range room.Exits {
-			if exit == nil {
-				Logger.Warn("Nil exit found", "room_id", roomData.RoomID, "direction", direction)
-				continue
-			}
+		for _, exit := range room.Exits {
 			if exit.TargetRoom == nil {
-				Logger.Warn("Nil TargetRoom found", "room_id", roomData.RoomID, "direction", direction)
+				Logger.Warn("Nil TargetRoom found", "room_id", roomData.RoomID, "direction", exit.Direction)
 				continue
 			}
 			targetRoomID := exit.TargetRoom.RoomID
 			if targetRoom, exists := rooms[targetRoomID]; exists {
 				exit.TargetRoom = targetRoom
 			} else {
-				Logger.Warn("Target room not found for exit", "room_id", roomData.RoomID, "direction", direction, "target_room_id", targetRoomID)
+				Logger.Warn("Target room not found for exit", "room_id", roomData.RoomID, "direction", exit.Direction, "target_room_id", targetRoomID)
 			}
 		}
 
@@ -132,7 +128,13 @@ func (kp *KeyPair) LoadExits(roomID int64) (map[string]*Exit, error) {
 
 	// Process each exit data entry
 	for _, exitData := range exitsData {
+		exitID, err := uuid.Parse(exitData.ExitID)
+		if err != nil {
+			Logger.Error("Invalid exit UUID", "exit_id", exitData.ExitID, "error", err)
+			continue
+		}
 		exits[exitData.Direction] = &Exit{
+			ExitID:     exitID,
 			Direction:  exitData.Direction,
 			TargetRoom: nil, // This will be resolved later when all rooms are loaded
 			Visible:    exitData.Visible,
@@ -168,27 +170,18 @@ func (kp *KeyPair) WriteRoom(room *Room) error {
 	}
 
 	// Write exits separately
-	if room.Exits != nil {
-		for direction, exit := range room.Exits {
-			if exit == nil {
-				Logger.Warn("Skipping nil exit", "room_id", room.RoomID, "direction", direction)
-				continue
-			}
-			if exit.TargetRoom == nil {
-				Logger.Warn("Skipping exit with nil target room", "room_id", room.RoomID, "direction", direction)
-				continue
-			}
-			exitData := ExitData{
-				RoomID:       room.RoomID,
-				Direction:    direction,
-				TargetRoomID: exit.TargetRoom.RoomID,
-				Visible:      exit.Visible,
-			}
-			err := kp.Put("exits", exitData)
-			if err != nil {
-				Logger.Error("Error writing exit data", "room_id", room.RoomID, "direction", direction, "error", err)
-				return fmt.Errorf("error writing exit data: %w", err)
-			}
+	for _, exit := range room.Exits {
+		exitData := ExitData{
+			ExitID:     exit.ExitID.String(),
+			RoomID:     room.RoomID,
+			Direction:  exit.Direction,
+			TargetRoom: exit.TargetRoom.RoomID,
+			Visible:    exit.Visible,
+		}
+		err := kp.Put("exits", exitData)
+		if err != nil {
+			Logger.Error("Error writing exit data", "room_id", room.RoomID, "direction", exit.Direction, "error", err)
+			return fmt.Errorf("error writing exit data: %w", err)
 		}
 	}
 
@@ -448,7 +441,14 @@ func (kp *KeyPair) LoadAllExits() (map[int64]map[string]*Exit, error) {
 			exits[exitData.RoomID] = make(map[string]*Exit)
 		}
 
+		exitID, err := uuid.Parse(exitData.ExitID)
+		if err != nil {
+			Logger.Error("Invalid exit UUID", "exit_id", exitData.ExitID, "error", err)
+			continue
+		}
+
 		exits[exitData.RoomID][exitData.Direction] = &Exit{
+			ExitID:     exitID,
 			Direction:  exitData.Direction,
 			TargetRoom: nil, // This will be resolved later when linking rooms
 			Visible:    exitData.Visible,
