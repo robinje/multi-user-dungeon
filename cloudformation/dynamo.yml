@@ -52,7 +52,7 @@ Resources:
         - AttributeName: ExitID
           AttributeType: S
       KeySchema:
-        - AttributeName: RoomID
+        - AttributeName: ExitID
           KeyType: HASH
       ProvisionedThroughput:
         ReadCapacityUnits: 2
