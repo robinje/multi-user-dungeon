@@ -11,14 +11,13 @@ This schema supports a multi-user dungeon (MUD) game, providing structures for p
 
 By adhering to this schema, developers can ensure data consistency and ease of access across the application, while leveraging DynamoDB's capabilities for scalability and performance.
 
-
 ## Player Table
 
 | Field           | Type     | Description                                               |
 | --------------- | -------- | --------------------------------------------------------- |
 | `PlayerID`      | `STRING` | Email of the player.                                      |
 | `CharacterList` | `MAP`    | Map of character names to their UUIDs.                    |
-| `SeenMotD`     | `LIST`   | List of UUIDs of messages of the day the player has seen.  |
+| `SeenMotD`      | `LIST`   | List of UUIDs of messages of the day the player has seen. |
 
 - **`PlayerID`**: The email address of the player, serving as the primary key.
 - **`CharacterList`**: A map where the key is the character's name and the value is the character's UUID as a string.
@@ -60,7 +59,7 @@ By adhering to this schema, developers can ensure data consistency and ease of a
 | `Area`        | `STRING` | Name of the area or region the room belongs to. |
 | `Title`       | `STRING` | Title or name of the room.                      |
 | `Description` | `STRING` | Text description of the room.                   |
-| `ExitID`      | `LIST`    | Map of exit directions to exit UUIDs.          |
+| `ExitID`      | `LIST`   | Map of exit directions to exit UUIDs.           |
 | `ItemID`      | `LIST`   | List of item UUIDs present in the room.         |
 
 - **`RoomID`**: Serves as the primary key for the room.
