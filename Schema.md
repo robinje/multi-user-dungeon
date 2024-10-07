@@ -1,14 +1,28 @@
+**Schema Overview:**
+
+This schema supports a multi-user dungeon (MUD) game, providing structures for players, characters, rooms, items, and game messages. It facilitates:
+
+- Player management with associated characters and messages seen.
+- Character progression with attributes, abilities, inventory, and location tracking.
+- Room definitions with descriptions, items, and exits to other rooms.
+- Item management including stacking, containment, and usage mechanics.
+- Archetype templates for character creation.
+- Storage of messages of the day for player engagement.
+
+By adhering to this schema, developers can ensure data consistency and ease of access across the application, while leveraging DynamoDB's capabilities for scalability and performance.
+
+
 ## Player Table
 
 | Field           | Type     | Description                                               |
 | --------------- | -------- | --------------------------------------------------------- |
 | `PlayerID`      | `STRING` | Email of the player.                                      |
 | `CharacterList` | `MAP`    | Map of character names to their UUIDs.                    |
-| `SeenMotDs`     | `LIST`   | List of UUIDs of messages of the day the player has seen. |
+| `SeenMotD`     | `LIST`   | List of UUIDs of messages of the day the player has seen.  |
 
 - **`PlayerID`**: The email address of the player, serving as the primary key.
 - **`CharacterList`**: A map where the key is the character's name and the value is the character's UUID as a string.
-- **`SeenMotDs`**: A list of UUIDs representing the messages of the day that the player has viewed.
+- **`SeenMotD`**: A list of UUIDs representing the messages of the day that the player has viewed.
 
 ---
 
@@ -46,13 +60,15 @@
 | `Area`        | `STRING` | Name of the area or region the room belongs to. |
 | `Title`       | `STRING` | Title or name of the room.                      |
 | `Description` | `STRING` | Text description of the room.                   |
-| `ItemIDs`     | `LIST`   | List of item UUIDs present in the room.         |
+| `ExitID`      | `LIST`    | Map of exit directions to exit UUIDs.          |
+| `ItemID`      | `LIST`   | List of item UUIDs present in the room.         |
 
 - **`RoomID`**: Serves as the primary key for the room.
 - **`Area`**: The broader area or zone where the room is located.
 - **`Title`**: A short name or title for the room.
 - **`Description`**: A detailed description that players see upon entering.
-- **`ItemIDs`**: A list of UUIDs of items that are in the room.
+- **`ExitID`**: A list of UUIDs representing exits from the room.
+- **`ItemID`**: A list of UUIDs of items that are in the room.
 
 ---
 
@@ -61,7 +77,6 @@
 | Field        | Type      | Description                                     |
 | ------------ | --------- | ----------------------------------------------- |
 | `ExitID`     | `STRING`  | UUID of the exit.                               |
-| `RoomID`     | `NUMBER`  | ID of the room containing the exit.             |
 | `Direction`  | `STRING`  | Direction of the exit (e.g., "north", "south"). |
 | `TargetRoom` | `NUMBER`  | ID of the room the exit leads to.               |
 | `Visible`    | `BOOLEAN` | Indicates if the exit is visible to players.    |
@@ -78,7 +93,8 @@
 
 | Field         | Type      | Description                                                   |
 | ------------- | --------- | ------------------------------------------------------------- |
-| `ID`          | `STRING`  | UUID of the item.                                             |
+| `ItemID`      | `STRING`  | UUID of the item.                                             |
+| `PrototypeID` | `STRING`  | UUID of the item prototype.                                   |
 | `Name`        | `STRING`  | Name of the item.                                             |
 | `Description` | `STRING`  | Description of the item.                                      |
 | `Mass`        | `NUMBER`  | Weight or mass of the item.                                   |
@@ -99,6 +115,7 @@
 | `Metadata`    | `MAP`     | Additional custom data related to the item.                   |
 
 - **`ID`**: Primary key, uniquely identifies the item.
+- **`PrototypeID`**: The UUID of the item prototype used to create this item.
 - **`Name`**: The item's name as displayed to players.
 - **`Description`**: Detailed text about the item.
 - **`Mass`**: Used for weight calculations and inventory limits.
@@ -113,18 +130,51 @@
 - **`TraitMods`**: Adjustments to character attributes when item is used.
 - **`Container`**: If true, item can hold other items.
 - **`Contents`**: List of items contained within this item.
-- **`IsPrototype`**: Used to distinguish templates from actual items.
 - **`IsWorn`**: Indicates the wear status of the item.
 - **`CanPickUp`**: Determines if the item can be picked up.
 - **`Metadata`**: Stores additional data for extensibility.
 
 ---
 
-## Item Prototypes Table
+## Prototypes Table
 
-| Field                                     | Type | Description |
-| ----------------------------------------- | ---- | ----------- |
-| **Same fields as the Items Table above.** |
+| Field         | Type      | Description                                                   |
+| ------------- | --------- | ------------------------------------------------------------- |
+| `ID`          | `STRING`  | UUID of the item.                                             |
+| `Name`        | `STRING`  | Name of the item.                                             |
+| `Description` | `STRING`  | Description of the item.                                      |
+| `Mass`        | `NUMBER`  | Weight or mass of the item.                                   |
+| `Value`       | `NUMBER`  | Monetary value of the item.                                   |
+| `Stackable`   | `BOOLEAN` | Indicates if the item can be stacked.                         |
+| `MaxStack`    | `NUMBER`  | Maximum number of items per stack.                            |
+| `Quantity`    | `NUMBER`  | Current quantity if stackable.                                |
+| `Wearable`    | `BOOLEAN` | Indicates if the item can be worn.                            |
+| `WornOn`      | `STRING`  | Body part where the item can be worn (e.g., "head", "feet").  |
+| `Verbs`       | `MAP`     | Actions associated with the item (e.g., "eat": "You eat..."). |
+| `Overrides`   | `MAP`     | Overrides for default behaviors or properties.                |
+| `TraitMods`   | `MAP`     | Modifications to character traits when item is used/worn.     |
+| `Container`   | `BOOLEAN` | Indicates if the item can contain other items.                |
+| `Contents`    | `LIST`    | List of item UUIDs contained within this item.                |
+| `CanPickUp`   | `BOOLEAN` | Indicates if the item can be picked up by players.            |
+| `Metadata`    | `MAP`     | Additional custom data related to the item.                   |
+
+- **`ID`**: Primary key, uniquely identifies the item.
+- **`Name`**: The item's name as displayed to players.
+- **`Description`**: Detailed text about the item.
+- **`Mass`**: Used for weight calculations and inventory limits.
+- **`Value`**: The in-game currency value.
+- **`Stackable`**: If true, multiple items can occupy a single inventory slot.
+- **`MaxStack`**: The maximum stack size for this item type.
+- **`Quantity`**: The number of items in the stack.
+- **`Wearable`**: Determines if the item can be equipped.
+- **`WornOn`**: Specifies where on the body the item is worn.
+- **`Verbs`**: Custom actions that can be performed with the item.
+- **`Overrides`**: Allows modification of default behaviors.
+- **`TraitMods`**: Adjustments to character attributes when item is used.
+- **`Container`**: If true, item can hold other items.
+- **`Contents`**: List of items contained within this item.
+- **`CanPickUp`**: Determines if the item can be picked up.
+- **`Metadata`**: Stores additional data for extensibility.
 
 - This table stores item templates used to create actual items.
 - Prototypes are not interactable in-game but serve as blueprints.
@@ -174,16 +224,3 @@
 - Field names in code (e.g., struct tags) should match the attribute names in DynamoDB for seamless data mapping.
 
 ---
-
-**Schema Overview:**
-
-This schema supports a multi-user dungeon (MUD) game, providing structures for players, characters, rooms, items, and game messages. It facilitates:
-
-- Player management with associated characters and messages seen.
-- Character progression with attributes, abilities, inventory, and location tracking.
-- Room definitions with descriptions, items, and exits to other rooms.
-- Item management including stacking, containment, and usage mechanics.
-- Archetype templates for character creation.
-- Storage of messages of the day for player engagement.
-
-By adhering to this schema, developers can ensure data consistency and ease of access across the application, while leveraging DynamoDB's capabilities for scalability and performance.

@@ -49,15 +49,11 @@ Resources:
     Properties:
       TableName: exits
       AttributeDefinitions:
-        - AttributeName: RoomID
-          AttributeType: N
-        - AttributeName: Direction
+        - AttributeName: ExitID
           AttributeType: S
       KeySchema:
         - AttributeName: RoomID
           KeyType: HASH
-        - AttributeName: Direction
-          KeyType: RANGE
       ProvisionedThroughput:
         ReadCapacityUnits: 2
         WriteCapacityUnits: 2
