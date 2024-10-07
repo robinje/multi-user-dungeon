@@ -171,6 +171,14 @@ func (kp *KeyPair) WriteRoom(room *Room) error {
 
 	// Write exits separately
 	for _, exit := range room.Exits {
+		if exit == nil {
+			Logger.Warn("Skipping nil exit for room", "room_id", room.RoomID)
+			continue
+		}
+		if exit.TargetRoom == nil {
+			Logger.Warn("Skipping exit with nil TargetRoom for room", "room_id", room.RoomID, "direction", exit.Direction)
+			continue
+		}
 		exitData := ExitData{
 			ExitID:     exit.ExitID.String(),
 			RoomID:     room.RoomID,
