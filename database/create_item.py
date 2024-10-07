@@ -71,14 +71,13 @@ def display_prototypes(dynamodb) -> list:
 
         print("Available Prototypes:")
         for prototype in prototypes:
-            prototype_id = prototype.get("PrototypeID", "No ID")  # Changed from "id" to "PrototypeID"
+            prototype_id = prototype.get("PrototypeID", "No ID")
             name = prototype.get("name", "No Name")
             print(f"{prototype_id}: {name}")
         return prototypes
     except ClientError as e:
         print(f"Error fetching prototypes: {e.response['Error']['Message']}")
         return []
-
 
 def prompt_for_prototype() -> str:
     """
@@ -102,6 +101,7 @@ def create_new_item_from_prototype(prototype: dict) -> dict:
     """
     new_item: dict = {
         "ItemID": str(uuid.uuid4()),
+        "PrototypeID": prototype.get("PrototypeID", "No ID"),
         "Name": prototype.get("name", "Unnamed Item"),
         "Description": prototype.get("description", ""),
         "Mass": Decimal(str(prototype.get("mass", 0))),

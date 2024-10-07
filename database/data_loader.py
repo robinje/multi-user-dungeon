@@ -125,7 +125,7 @@ def store_item_prototypes(dynamodb, prototypes_data):
     try:
         with table.batch_writer() as batch:
             for prototype in prototypes_data.get("itemPrototypes", []):
-                prototype["PrototypeID"] = prototype.pop("ID")
+                prototype["PrototypeID"] = prototype.pop("id")
                 batch.put_item(Item=convert_to_dynamodb_format(prototype))
         print("Item prototype data stored in DynamoDB successfully")
     except ClientError as err:
@@ -271,8 +271,8 @@ def display_item_prototypes(prototypes):
     print("Item Prototypes:")
     for prototype in prototypes.get("itemPrototypes", []):
         print(f"ID: {prototype.get('PrototypeID', 'No ID')}")
-        print(f"  Name: {prototype.get('Name', 'No Name')}")
-        print(f"  Description: {prototype.get('Description', 'No description')}")
+        print(f"  Name: {prototype.get('name', 'No Name')}")
+        print(f"  Description: {prototype.get('description', 'No description')}")
         print(f"  Mass: {prototype.get('mass', 'Unknown')}")
         print(f"  Value: {prototype.get('value', 'Unknown')}")
         print(f"  Wearable: {prototype.get('wearable', False)}")
