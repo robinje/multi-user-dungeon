@@ -79,6 +79,7 @@ def display_prototypes(dynamodb) -> list:
         print(f"Error fetching prototypes: {e.response['Error']['Message']}")
         return []
 
+
 def prompt_for_prototype() -> str:
     """
     Prompts the user to enter a prototype ID.
