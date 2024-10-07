@@ -84,7 +84,7 @@ func (c *Character) FromData(cd *CharacterData, server *Server) error {
 			Logger.Error("Error parsing item UUID", "itemID", itemIDStr, "error", err)
 			continue
 		}
-		item, err := server.Database.LoadItem(itemID.String(), false)
+		item, err := server.Database.LoadItem(itemID.String())
 		if err != nil {
 			Logger.Error("Error loading item for character", "itemID", itemID, "characterName", c.Name, "error", err)
 			continue

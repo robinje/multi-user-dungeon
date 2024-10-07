@@ -1,9 +1,7 @@
 package core
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
 	"sync"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -12,44 +10,35 @@ import (
 )
 
 // DisplayPrototypes logs the details of each prototype for debugging purposes.
-func DisplayPrototypes(prototypes *PrototypesData) {
-	for _, prototype := range prototypes.ItemPrototypes {
-		Logger.Debug("Prototype", "name", prototype.Name, "description", prototype.Description)
+func DisplayPrototypes(prototypes map[uuid.UUID]*Prototype) {
+	for _, prototype := range prototypes {
+		Logger.Debug("Prototype", "id", prototype.ID, "name", prototype.Name, "description", prototype.Description)
 	}
-}
-
-// LoadPrototypesFromJSON loads item prototypes from a JSON file.
-func LoadPrototypesFromJSON(fileName string) (*PrototypesData, error) {
-	file, err := os.ReadFile(fileName)
-	if err != nil {
-		Logger.Error("Error reading prototypes JSON file", "fileName", fileName, "error", err)
-		return nil, fmt.Errorf("error reading prototypes JSON file: %w", err)
-	}
-
-	var data PrototypesData
-	err = json.Unmarshal(file, &data)
-	if err != nil {
-		Logger.Error("Error unmarshalling prototypes JSON data", "fileName", fileName, "error", err)
-		return nil, fmt.Errorf("error unmarshalling prototypes JSON data: %w", err)
-	}
-
-	for _, prototype := range data.ItemPrototypes {
-		Logger.Debug("Loaded prototype from JSON", "name", prototype.Name, "description", prototype.Description)
-	}
-
-	return &data, nil
 }
 
 // StorePrototypes stores item prototypes into the DynamoDB table.
-func (kp *KeyPair) StorePrototypes(prototypes *PrototypesData) error {
-	for _, prototype := range prototypes.ItemPrototypes {
-		// Ensure the prototype has an ID
-		if prototype.ID == "" {
-			prototype.ID = uuid.New().String()
+func (kp *KeyPair) StorePrototypes(prototypes map[uuid.UUID]*Prototype) error {
+	for _, prototype := range prototypes {
+		prototypeData := PrototypeData{
+			ID:          prototype.ID.String(),
+			Name:        prototype.Name,
+			Description: prototype.Description,
+			Mass:        prototype.Mass,
+			Value:       prototype.Value,
+			Stackable:   prototype.Stackable,
+			MaxStack:    prototype.MaxStack,
+			Quantity:    prototype.Quantity,
+			Wearable:    prototype.Wearable,
+			WornOn:      prototype.WornOn,
+			Verbs:       prototype.Verbs,
+			Overrides:   prototype.Overrides,
+			TraitMods:   prototype.TraitMods,
+			Container:   prototype.Container,
+			CanPickUp:   prototype.CanPickUp,
+			Metadata:    prototype.Metadata,
 		}
 
-		// Use the updated Put method which includes the key within the item.
-		err := kp.Put("prototypes", prototype)
+		err := kp.Put("prototypes", prototypeData)
 		if err != nil {
 			Logger.Error("Error storing prototype", "name", prototype.Name, "error", err)
 			return fmt.Errorf("error storing prototype %s: %w", prototype.Name, err)
@@ -62,34 +51,51 @@ func (kp *KeyPair) StorePrototypes(prototypes *PrototypesData) error {
 }
 
 // LoadPrototypes retrieves all item prototypes from the DynamoDB table.
-func (kp *KeyPair) LoadPrototypes() (*PrototypesData, error) {
-	prototypesData := &PrototypesData{}
-
-	var itemPrototypes []ItemData
-	err := kp.Scan("prototypes", &itemPrototypes)
+func (kp *KeyPair) LoadPrototypes() (map[uuid.UUID]*Prototype, error) {
+	var prototypeDataList []PrototypeData
+	err := kp.Scan("prototypes", &prototypeDataList)
 	if err != nil {
 		Logger.Error("Error scanning prototypes table", "error", err)
 		return nil, fmt.Errorf("error scanning prototypes: %w", err)
 	}
 
-	prototypesData.ItemPrototypes = itemPrototypes
-
-	for _, prototype := range prototypesData.ItemPrototypes {
-		Logger.Debug("Loaded prototype from database", "name", prototype.Name, "description", prototype.Description)
+	prototypes := make(map[uuid.UUID]*Prototype)
+	for _, prototypeData := range prototypeDataList {
+		id, err := uuid.Parse(prototypeData.ID)
+		if err != nil {
+			Logger.Error("Error parsing prototype UUID", "id", prototypeData.ID, "error", err)
+			continue
+		}
+		prototype := &Prototype{
+			ID:          id,
+			Name:        prototypeData.Name,
+			Description: prototypeData.Description,
+			Mass:        prototypeData.Mass,
+			Value:       prototypeData.Value,
+			Stackable:   prototypeData.Stackable,
+			MaxStack:    prototypeData.MaxStack,
+			Quantity:    prototypeData.Quantity,
+			Wearable:    prototypeData.Wearable,
+			WornOn:      prototypeData.WornOn,
+			Verbs:       prototypeData.Verbs,
+			Overrides:   prototypeData.Overrides,
+			TraitMods:   prototypeData.TraitMods,
+			Container:   prototypeData.Container,
+			CanPickUp:   prototypeData.CanPickUp,
+			Metadata:    prototypeData.Metadata,
+			Mutex:       sync.Mutex{},
+		}
+		prototypes[id] = prototype
+		Logger.Debug("Loaded prototype from database", "id", id, "name", prototype.Name)
 	}
 
-	return prototypesData, nil
+	return prototypes, nil
 }
 
-// LoadItem retrieves an item or prototype from the DynamoDB table.
-func (k *KeyPair) LoadItem(id string, isPrototype bool) (*Item, error) {
+// LoadItem retrieves an item from the DynamoDB table.
+func (k *KeyPair) LoadItem(id string) (*Item, error) {
 	if id == "" {
 		return nil, fmt.Errorf("empty item ID provided")
-	}
-
-	tableName := "items"
-	if isPrototype {
-		tableName = "prototypes"
 	}
 
 	key := map[string]*dynamodb.AttributeValue{
@@ -99,54 +105,13 @@ func (k *KeyPair) LoadItem(id string, isPrototype bool) (*Item, error) {
 	}
 
 	var itemData ItemData
-	err := k.Get(tableName, key, &itemData)
+	err := k.Get("items", key, &itemData)
 	if err != nil {
-		Logger.Error("Error loading item data", "itemID", id, "tableName", tableName, "error", err)
+		Logger.Error("Error loading item data", "itemID", id, "error", err)
 		return nil, fmt.Errorf("error loading item data: %w", err)
 	}
 
-	itemID, err := uuid.Parse(itemData.ID)
-	if err != nil {
-		Logger.Error("Error parsing item UUID", "itemID", itemData.ID, "error", err)
-		return nil, fmt.Errorf("error parsing item ID: %w", err)
-	}
-	item := &Item{
-		ID:          itemID,
-		Name:        itemData.Name,
-		Description: itemData.Description,
-		Mass:        itemData.Mass,
-		Value:       itemData.Value,
-		Stackable:   itemData.Stackable,
-		MaxStack:    itemData.MaxStack,
-		Quantity:    itemData.Quantity,
-		Wearable:    itemData.Wearable,
-		WornOn:      itemData.WornOn,
-		Verbs:       itemData.Verbs,
-		Overrides:   itemData.Overrides,
-		TraitMods:   itemData.TraitMods,
-		Container:   itemData.Container,
-		IsPrototype: itemData.IsPrototype,
-		IsWorn:      itemData.IsWorn,
-		CanPickUp:   itemData.CanPickUp,
-		Metadata:    itemData.Metadata,
-		Mutex:       sync.Mutex{},
-	}
-
-	// Load contents if the item is a container
-	if item.Container {
-		item.Contents = make([]*Item, 0, len(itemData.Contents))
-		for _, contentID := range itemData.Contents {
-			contentItem, err := k.LoadItem(contentID, false)
-			if err != nil {
-				Logger.Error("Error loading content item", "contentID", contentID, "parentItemID", id, "error", err)
-				continue // Skip this content item but continue loading others
-			}
-			item.Contents = append(item.Contents, contentItem)
-		}
-	}
-
-	Logger.Info("Successfully loaded item", "itemName", item.Name, "itemID", item.ID, "tableName", tableName)
-	return item, nil
+	return k.itemFromData(&itemData)
 }
 
 // WriteItem stores an item into the DynamoDB table, handling nested contents if it's a container.
@@ -170,6 +135,7 @@ func (k *KeyPair) WriteItem(obj *Item) error {
 	// Create the ItemData struct to store in DynamoDB
 	itemData := ItemData{
 		ID:          obj.ID.String(),
+		PrototypeID: obj.PrototypeID.String(),
 		Name:        obj.Name,
 		Description: obj.Description,
 		Mass:        obj.Mass,
@@ -184,26 +150,19 @@ func (k *KeyPair) WriteItem(obj *Item) error {
 		TraitMods:   obj.TraitMods,
 		Container:   obj.Container,
 		Contents:    contentIDs,
-		IsPrototype: obj.IsPrototype,
 		IsWorn:      obj.IsWorn,
 		CanPickUp:   obj.CanPickUp,
 		Metadata:    obj.Metadata,
 	}
 
-	// Determine the table name based on whether the item is a prototype
-	tableName := "items"
-	if obj.IsPrototype {
-		tableName = "prototypes"
-	}
-
 	// Write the item data to the DynamoDB table
-	err := k.Put(tableName, itemData)
+	err := k.Put("items", itemData)
 	if err != nil {
-		Logger.Error("Error writing item data", "itemName", obj.Name, "itemID", obj.ID, "tableName", tableName, "error", err)
+		Logger.Error("Error writing item data", "itemName", obj.Name, "itemID", obj.ID, "error", err)
 		return fmt.Errorf("error writing item data: %w", err)
 	}
 
-	Logger.Info("Successfully wrote item", "itemName", obj.Name, "itemID", obj.ID, "tableName", tableName)
+	Logger.Info("Successfully wrote item", "itemName", obj.Name, "itemID", obj.ID)
 	return nil
 }
 
@@ -282,21 +241,16 @@ func (s *Server) SaveActiveItems() error {
 	return nil
 }
 
-// CreateItemFromPrototype creates a new item instance from a prototype.
-func (s *Server) CreateItemFromPrototype(prototypeID string) (*Item, error) {
-	prototype, err := s.Database.LoadItem(prototypeID, true)
-	if err != nil {
-		Logger.Error("Failed to load item prototype", "prototypeID", prototypeID, "error", err)
-		return nil, fmt.Errorf("failed to load item prototype: %w", err)
-	}
-
-	if !prototype.IsPrototype {
-		Logger.Error("Item is not a prototype", "itemID", prototypeID)
-		return nil, fmt.Errorf("item with ID %s is not a prototype", prototypeID)
+func (s *Server) CreateItemFromPrototype(prototypeID uuid.UUID) (*Item, error) {
+	prototype, exists := s.Prototypes[prototypeID]
+	if !exists {
+		Logger.Error("Prototype not found", "prototypeID", prototypeID)
+		return nil, fmt.Errorf("prototype with ID %s not found", prototypeID)
 	}
 
 	newItem := &Item{
 		ID:          uuid.New(),
+		PrototypeID: prototypeID,
 		Name:        prototype.Name,
 		Description: prototype.Description,
 		Mass:        prototype.Mass,
@@ -310,7 +264,6 @@ func (s *Server) CreateItemFromPrototype(prototypeID string) (*Item, error) {
 		Overrides:   prototype.Overrides,
 		TraitMods:   make(map[string]int8),
 		Container:   prototype.Container,
-		IsPrototype: false,
 		IsWorn:      false,
 		CanPickUp:   prototype.CanPickUp,
 		Metadata:    make(map[string]string),
@@ -329,10 +282,10 @@ func (s *Server) CreateItemFromPrototype(prototypeID string) (*Item, error) {
 	// Recursively create contents if the item is a container
 	if newItem.Container {
 		newItem.Contents = make([]*Item, 0, len(prototype.Contents))
-		for _, contentItem := range prototype.Contents {
-			newContentItem, err := s.CreateItemFromPrototype(contentItem.ID.String())
+		for _, contentProtoID := range prototype.Contents {
+			newContentItem, err := s.CreateItemFromPrototype(contentProtoID)
 			if err != nil {
-				Logger.Error("Error creating content item from prototype", "prototypeID", contentItem.ID.String(), "error", err)
+				Logger.Error("Error creating content item from prototype", "prototypeID", contentProtoID, "error", err)
 				continue // Skip this content item but continue with others
 			}
 			newItem.Contents = append(newItem.Contents, newContentItem)
@@ -360,8 +313,14 @@ func (kp *KeyPair) itemFromData(itemData *ItemData) (*Item, error) {
 		return nil, fmt.Errorf("error parsing item UUID: %w", err)
 	}
 
+	prototypeID, err := uuid.Parse(itemData.PrototypeID)
+	if err != nil {
+		return nil, fmt.Errorf("error parsing prototype UUID: %w", err)
+	}
+
 	item := &Item{
 		ID:          itemID,
+		PrototypeID: prototypeID,
 		Name:        itemData.Name,
 		Description: itemData.Description,
 		Mass:        itemData.Mass,
@@ -375,7 +334,6 @@ func (kp *KeyPair) itemFromData(itemData *ItemData) (*Item, error) {
 		Overrides:   itemData.Overrides,
 		TraitMods:   itemData.TraitMods,
 		Container:   itemData.Container,
-		IsPrototype: itemData.IsPrototype,
 		IsWorn:      itemData.IsWorn,
 		CanPickUp:   itemData.CanPickUp,
 		Metadata:    itemData.Metadata,
@@ -386,7 +344,7 @@ func (kp *KeyPair) itemFromData(itemData *ItemData) (*Item, error) {
 	if item.Container {
 		item.Contents = make([]*Item, 0, len(itemData.Contents))
 		for _, contentID := range itemData.Contents {
-			contentItem, err := kp.LoadItem(contentID, false) // Assuming LoadItem is accessible here
+			contentItem, err := kp.LoadItem(contentID)
 			if err != nil {
 				Logger.Error("Error loading content item", "contentID", contentID, "parentItemID", item.ID, "error", err)
 				continue // Skip this content item but continue with others
