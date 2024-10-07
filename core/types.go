@@ -96,7 +96,7 @@ type Player struct {
 	LoginTime     time.Time
 	PasswordHash  string
 	Mutex         sync.Mutex
-	SeenMotDs     []uuid.UUID
+	SeenMotD      []uuid.UUID
 }
 
 type PlayerData struct {

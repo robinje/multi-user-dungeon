@@ -287,17 +287,17 @@ func handleChannels(server *core.Server, sshConn *ssh.ServerConn, channels <-cha
 		playerIndex := server.PlayerIndex.GetID()
 
 		// Attempt to read the player from the database
-		_, characterList, seenMotDs, err := server.Database.ReadPlayer(playerName)
+		_, characterList, seenMotD, err := server.Database.ReadPlayer(playerName)
 		if err != nil {
 			if err.Error() == "player not found" {
 				// Create a new player record if not found
 				core.Logger.Info("Creating new player record", "player_name", playerName)
 				characterList = make(map[string]uuid.UUID)
-				seenMotDs = []uuid.UUID{} // Initialize an empty slice for new players
+				seenMotD = []uuid.UUID{} // Initialize an empty slice for new players
 				err = server.Database.WritePlayer(&core.Player{
 					PlayerID:      playerName,
 					CharacterList: characterList,
-					SeenMotDs:     seenMotDs,
+					SeenMotD:      seenMotD,
 				})
 				if err != nil {
 					core.Logger.Error("Error creating player record", "error", err)
@@ -321,7 +321,7 @@ func handleChannels(server *core.Server, sshConn *ssh.ServerConn, channels <-cha
 			Connection:    channel,
 			Server:        server,
 			CharacterList: characterList,
-			SeenMotDs:     seenMotDs,
+			SeenMotD:      seenMotD,
 		}
 
 		// Handle SSH requests (pty-req, shell, window-change)
