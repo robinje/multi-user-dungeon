@@ -181,7 +181,6 @@ func (kp *KeyPair) WriteRoom(room *Room) error {
 		}
 		exitData := ExitData{
 			ExitID:     exit.ExitID.String(),
-			RoomID:     room.RoomID,
 			Direction:  exit.Direction,
 			TargetRoom: exit.TargetRoom.RoomID,
 			Visible:    exit.Visible,

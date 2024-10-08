@@ -138,7 +138,6 @@ type Exit struct {
 // ExitData represents the structure for storing exit data in DynamoDB
 type ExitData struct {
 	ExitID     string `json:"ExitID" dynamodbav:"ExitID"`
-	RoomID     int64  `json:"RoomID" dynamodbav:"RoomID"`
 	Direction  string `json:"Direction" dynamodbav:"Direction"`
 	TargetRoom int64  `json:"TargetRoom" dynamodbav:"TargetRoom"`
 	Visible    bool   `json:"Visible" dynamodbav:"Visible"`

@@ -76,13 +76,11 @@ By adhering to this schema, developers can ensure data consistency and ease of a
 | Field        | Type      | Description                                     |
 | ------------ | --------- | ----------------------------------------------- |
 | `ExitID`     | `STRING`  | UUID of the exit.                               |
-| `RoomID`     | `NUMBER`  | ID of the room where the exit is located.       |
 | `Direction`  | `STRING`  | Direction of the exit (e.g., "north", "south"). |
 | `TargetRoom` | `NUMBER`  | ID of the room the exit leads to.               |
 | `Visible`    | `BOOLEAN` | Indicates if the exit is visible to players.    |
 
-- **Primary Key**: Composite key consisting of `RoomID` and `Direction`.
-- **`RoomID`**: The ID of the room where the exit is located.
+- **`ExitID`**: The UUID of the exit, serving as the primary key.
 - **`Direction`**: The cardinal direction or named exit.
 - **`TargetRoom`**: The `RoomID` of the destination room.
 - **`Visible`**: A flag indicating whether the exit is visible to players.
