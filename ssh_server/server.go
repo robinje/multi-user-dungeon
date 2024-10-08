@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"net"
@@ -144,7 +145,7 @@ func main() {
 	}
 
 	// Create a context that we can cancel
-	ctx, cancel := context.WithCancel(context.Background())
+	_, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	// Create a channel to listen for interrupt signals
@@ -160,7 +161,9 @@ func main() {
 	}()
 
 	// Start sending metrics in a separate goroutine
+	metricsDone := make(chan struct{})
 	go func() {
+		defer close(metricsDone)
 		if err := core.SendMetrics(server, 1*time.Minute); err != nil {
 			core.Logger.Error("Error in SendMetrics", "error", err)
 		}
@@ -174,13 +177,24 @@ func main() {
 
 	core.Logger.Info("Interrupt received, initiating graceful shutdown...")
 
+	// Cancel the context to signal all goroutines to stop
+	cancel()
+
 	// Create a timeout context for shutdown operations
-	shutdownCtx, shutdownCancel := context.WithTimeout(ctx, 30*time.Second)
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer shutdownCancel()
 
 	// Perform graceful shutdown
 	if err := GracefulShutdown(shutdownCtx, server); err != nil {
 		core.Logger.Error("Error during shutdown", "error", err)
+	}
+
+	// Wait for metrics goroutine to finish
+	select {
+	case <-metricsDone:
+		core.Logger.Info("Metrics goroutine stopped")
+	case <-time.After(5 * time.Second):
+		core.Logger.Warn("Timed out waiting for metrics goroutine to stop")
 	}
 
 	core.Logger.Info("Server shutdown complete")
@@ -248,27 +262,46 @@ func StartSSHServer(server *core.Server) error {
 	server.Listener = listener
 	core.Logger.Info("SSH server listening", "port", server.Port)
 
-	// Accept incoming connections in a loop
-	for {
-		conn, err := server.Listener.Accept()
-		if err != nil {
-			core.Logger.Error("Error accepting connection", "error", err)
-			continue
+	// Start accepting connections in a separate goroutine
+	go func() {
+		for {
+			conn, err := server.Listener.Accept()
+			if err != nil {
+				if errors.Is(err, net.ErrClosed) {
+					// The listener has been closed, exit the goroutine
+					core.Logger.Info("SSH server listener closed, stopping accept loop")
+					return
+				}
+				core.Logger.Error("Error accepting connection", "error", err)
+				continue
+			}
+
+			// Increment the WaitGroup before starting the goroutine
+			server.WaitGroup.Add(1)
+			go func() {
+				defer server.WaitGroup.Done()
+				handleConnection(server, conn)
+			}()
 		}
+	}()
 
-		// Perform SSH handshake
-		sshConn, chans, reqs, err := ssh.NewServerConn(conn, server.SSHConfig)
-		if err != nil {
-			core.Logger.Error("Failed to perform SSH handshake", "error", err)
-			continue
-		}
+	return nil
+}
 
-		// Discard global requests
-		go ssh.DiscardRequests(reqs)
-
-		// Handle channels (e.g., sessions)
-		go handleChannels(server, sshConn, chans)
+func handleConnection(server *core.Server, conn net.Conn) {
+	// Perform SSH handshake
+	sshConn, chans, reqs, err := ssh.NewServerConn(conn, server.SSHConfig)
+	if err != nil {
+		core.Logger.Error("Failed to perform SSH handshake", "error", err)
+		return
 	}
+	defer sshConn.Close()
+
+	// Discard global requests
+	go ssh.DiscardRequests(reqs)
+
+	// Handle channels
+	handleChannels(server, sshConn, chans)
 }
 
 // handleChannels handles the channels opened by the SSH client.
@@ -434,6 +467,23 @@ func GracefulShutdown(ctx context.Context, server *core.Server) error {
 		core.Logger.Info("Closing server listener...")
 		if err := server.Listener.Close(); err != nil {
 			core.Logger.Error("Error closing server listener", "error", err)
+		}
+
+		// Wait for ongoing connections to finish (with a timeout)
+		shutdownCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		defer cancel()
+
+		done := make(chan struct{})
+		go func() {
+			server.WaitGroup.Wait()
+			close(done)
+		}()
+
+		select {
+		case <-done:
+			core.Logger.Info("All connections closed successfully")
+		case <-shutdownCtx.Done():
+			core.Logger.Warn("Timed out waiting for connections to close")
 		}
 	}
 

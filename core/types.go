@@ -77,6 +77,7 @@ type Server struct {
 	Context              context.Context
 	Mutex                sync.Mutex
 	ActiveMotDs          []*MOTD
+	WaitGroup            sync.WaitGroup
 }
 
 type Player struct {

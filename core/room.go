@@ -245,6 +245,7 @@ func Move(c *Character, direction string) {
 	if c.Room == nil {
 		c.Player.ToPlayer <- "\n\rYou are not in any room to move from.\n\r"
 		Logger.Warn("Character has no current room", "character_name", c.Name)
+		c.Player.ToPlayer <- c.Player.Prompt
 		return
 	}
 
@@ -252,12 +253,14 @@ func Move(c *Character, direction string) {
 	if !exists {
 		c.Player.ToPlayer <- "\n\rYou cannot go that way.\n\r"
 		Logger.Warn("Invalid direction for movement", "character_name", c.Name, "direction", direction)
+		c.Player.ToPlayer <- c.Player.Prompt
 		return
 	}
 
 	if selectedExit.TargetRoom == nil {
 		c.Player.ToPlayer <- "\n\rThe path leads nowhere.\n\r"
 		Logger.Warn("Target room is nil", "character_name", c.Name, "direction", direction)
+		c.Player.ToPlayer <- c.Player.Prompt
 		return
 	}
 
@@ -278,12 +281,13 @@ func Move(c *Character, direction string) {
 	if newRoom.Characters == nil {
 		newRoom.Characters = make(map[uuid.UUID]*Character)
 	}
-	SendRoomMessage(newRoom, fmt.Sprintf("\n\r%s has arrived.\n\r", c.Name))
 	newRoom.Characters[c.ID] = c
 	newRoom.Mutex.Unlock()
+	SendRoomMessage(newRoom, fmt.Sprintf("\n\r%s has arrived.\n\r", c.Name))
 
 	// Let the character look around the new room
 	ExecuteLookCommand(c, []string{})
+
 	Logger.Info("Character moved successfully", "character_name", c.Name, "new_room_id", newRoom.RoomID)
 }
 
