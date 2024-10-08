@@ -24,8 +24,8 @@ func (kp *KeyPair) LoadArchetypes() (*ArchetypesData, error) {
 	}
 
 	for _, archetype := range archetypes {
-		archetypesData.Archetypes[archetype.Name] = archetype
-		Logger.Debug("Loaded archetype", "name", archetype.Name, "description", archetype.Description)
+		archetypesData.Archetypes[archetype.ArchetypeName] = archetype
+		Logger.Debug("Loaded archetype", "name", archetype.ArchetypeName, "description", archetype.Description)
 	}
 
 	return archetypesData, nil
@@ -36,10 +36,10 @@ func (kp *KeyPair) StoreArchetypes(archetypes *ArchetypesData) error {
 	for _, archetype := range archetypes.Archetypes {
 		err := kp.Put("archetypes", archetype)
 		if err != nil {
-			return fmt.Errorf("error storing archetype %s: %w", archetype.Name, err)
+			return fmt.Errorf("error storing archetype %s: %w", archetype.ArchetypeName, err)
 		}
 
-		Logger.Info("Stored archetype", "name", archetype.Name)
+		Logger.Info("Stored archetype", "name", archetype.ArchetypeName)
 	}
 
 	return nil

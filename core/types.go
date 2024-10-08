@@ -77,6 +77,7 @@ type Server struct {
 	Context              context.Context
 	Mutex                sync.Mutex
 	ActiveMotDs          []*MOTD
+	WaitGroup            sync.WaitGroup
 }
 
 type Player struct {
@@ -102,7 +103,7 @@ type Player struct {
 type PlayerData struct {
 	PlayerID      string            `json:"PlayerID" dynamodbav:"PlayerID"`
 	CharacterList map[string]string `json:"characterList" dynamodbav:"CharacterList"`
-	SeenMotDs     []string          `json:"seenMotDs" dynamodbav:"SeenMotDs"`
+	SeenMotDs     []string          `json:"seenMotD" dynamodbav:"SeenMotD"`
 }
 
 // Room represents the in-memory structure for a room
@@ -123,8 +124,8 @@ type RoomData struct {
 	Area        string   `json:"area" dynamodbav:"Area"`
 	Title       string   `json:"title" dynamodbav:"Title"`
 	Description string   `json:"description" dynamodbav:"Description"`
-	ExitIDs     []string `json:"exitIDs" dynamodbav:"ExitIDs"`
-	ItemIDs     []string `json:"itemIDs" dynamodbav:"ItemIDs"`
+	ExitIDs     []string `json:"exitID" dynamodbav:"ExitID"`
+	ItemIDs     []string `json:"itemID" dynamodbav:"ItemID"`
 }
 
 // Exit represents the in-memory structure for an exit
@@ -138,7 +139,6 @@ type Exit struct {
 // ExitData represents the structure for storing exit data in DynamoDB
 type ExitData struct {
 	ExitID     string `json:"ExitID" dynamodbav:"ExitID"`
-	RoomID     int64  `json:"RoomID" dynamodbav:"RoomID"`
 	Direction  string `json:"Direction" dynamodbav:"Direction"`
 	TargetRoom int64  `json:"TargetRoom" dynamodbav:"TargetRoom"`
 	Visible    bool   `json:"Visible" dynamodbav:"Visible"`
@@ -172,10 +172,10 @@ type CharacterData struct {
 }
 
 type Archetype struct {
-	Name        string             `json:"name" dynamodbav:"Name"`
-	Description string             `json:"description" dynamodbav:"Description"`
-	Attributes  map[string]float64 `json:"Attributes" dynamodbav:"Attributes"`
-	Abilities   map[string]float64 `json:"Abilities" dynamodbav:"Abilities"`
+	ArchetypeName string             `json:"ArchetypeName" dynamodbav:"ArchetypeName"`
+	Description   string             `json:"Description" dynamodbav:"Description"`
+	Attributes    map[string]float64 `json:"Attributes" dynamodbav:"Attributes"`
+	Abilities     map[string]float64 `json:"Abilities" dynamodbav:"Abilities"`
 }
 
 type ArchetypesData struct {
@@ -206,7 +206,7 @@ type Item struct {
 }
 
 type ItemData struct {
-	ID          string            `json:"id" dynamodbav:"ID"`
+	ItemID      string            `json:"itemId" dynamodbav:"ItemID"`
 	PrototypeID string            `json:"prototypeID" dynamodbav:"PrototypeID"`
 	Name        string            `json:"name" dynamodbav:"Name"`
 	Description string            `json:"description" dynamodbav:"Description"`
@@ -249,7 +249,7 @@ type Prototype struct {
 }
 
 type PrototypeData struct {
-	ID          string            `json:"id" dynamodbav:"id"`
+	PrototypeID string            `json:"id" dynamodbav:"prototypeID"`
 	Name        string            `json:"name" dynamodbav:"name"`
 	Description string            `json:"description" dynamodbav:"description"`
 	Mass        float64           `json:"mass" dynamodbav:"mass"`
@@ -282,8 +282,15 @@ type MultiHandler struct {
 }
 
 type MOTD struct {
-	ID        uuid.UUID `json:"motdID" dynamodbav:"motdID"`
-	Active    bool      `json:"active" dynamodbav:"Active"`
-	Message   string    `json:"message" dynamodbav:"Message"`
-	CreatedAt time.Time `json:"createdAt" dynamodbav:"CreatedAt"`
+	MotdID    uuid.UUID
+	Active    bool
+	Message   string
+	CreatedAt time.Time
+}
+
+type MOTDData struct {
+	MotdID    string `json:"MotdID" dynamodbav:"MotdID"`
+	Active    bool   `json:"active" dynamodbav:"Active"`
+	Message   string `json:"message" dynamodbav:"Message"`
+	CreatedAt string `json:"createdAt" dynamodbav:"CreatedAt"`
 }

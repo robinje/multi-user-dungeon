@@ -105,10 +105,10 @@ Resources:
     Properties:
       TableName: motd
       AttributeDefinitions:
-        - AttributeName: motdID
+        - AttributeName: MotdID
           AttributeType: S
       KeySchema:
-        - AttributeName: motdID
+        - AttributeName: MotdID
           KeyType: HASH
       ProvisionedThroughput:
         ReadCapacityUnits: 2

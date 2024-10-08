@@ -25,10 +25,10 @@ func (kp *KeyPair) StoreRooms(rooms map[int64]*Room) error {
 	return nil
 }
 
+// LoadRooms retrieves all rooms from the DynamoDB database and returns them as a map of Room instances.
 func (kp *KeyPair) LoadRooms() (map[int64]*Room, error) {
 	rooms := make(map[int64]*Room)
 
-	// Load room data
 	var roomsData []RoomData
 	err := kp.Scan("rooms", &roomsData)
 	if err != nil {
@@ -57,48 +57,39 @@ func (kp *KeyPair) LoadRooms() (map[int64]*Room, error) {
 	}
 
 	// Second pass: add exits and items to rooms, and resolve target rooms
-	for _, roomData := range roomsData {
-		room, exists := rooms[roomData.RoomID]
+	for _, room := range rooms {
+		roomData, exists := findRoomData(roomsData, room.RoomID)
 		if !exists {
-			Logger.Warn("Room not found in second pass", "room_id", roomData.RoomID)
+			Logger.Warn("Room data not found", "room_id", room.RoomID)
 			continue
 		}
 
 		// Add exits to the room
-		if roomExits, exists := allExits[roomData.RoomID]; exists {
-			room.Exits = roomExits
-		}
-
-		// Resolve TargetRoom pointers
-		for _, exit := range room.Exits {
-			if exit.TargetRoom == nil {
-				Logger.Warn("Nil TargetRoom found", "room_id", roomData.RoomID, "direction", exit.Direction)
-				continue
-			}
-			targetRoomID := exit.TargetRoom.RoomID
-			if targetRoom, exists := rooms[targetRoomID]; exists {
-				exit.TargetRoom = targetRoom
-			} else {
-				Logger.Warn("Target room not found for exit", "room_id", roomData.RoomID, "direction", exit.Direction, "target_room_id", targetRoomID)
+		room.Exits = make(map[string]*Exit)
+		for _, exitID := range roomData.ExitIDs {
+			if exit, exists := allExits[exitID]; exists {
+				room.Exits[exit.Direction] = exit
+				// Resolve TargetRoom pointer
+				if targetRoom, exists := rooms[exit.TargetRoom.RoomID]; exists {
+					exit.TargetRoom = targetRoom
+				} else {
+					Logger.Warn("Target room not found for exit", "room_id", room.RoomID, "direction", exit.Direction, "target_room_id", exit.TargetRoom.RoomID)
+				}
 			}
 		}
 
 		// Add items to the room
 		room.Items = make(map[uuid.UUID]*Item)
 		for _, itemID := range roomData.ItemIDs {
-			if itemID == "" {
-				Logger.Warn("Empty item ID found for room", "room_id", roomData.RoomID)
+			itemUUID, err := uuid.Parse(itemID)
+			if err != nil {
+				Logger.Error("Invalid item UUID", "item_id", itemID, "error", err)
 				continue
 			}
 			if item, exists := allItems[itemID]; exists {
-				itemUUID, err := uuid.Parse(itemID)
-				if err != nil {
-					Logger.Error("Invalid item UUID", "item_id", itemID, "error", err)
-					continue
-				}
 				room.Items[itemUUID] = item
 			} else {
-				Logger.Warn("Item not found for room", "room_id", roomData.RoomID, "item_id", itemID)
+				Logger.Warn("Item not found for room", "room_id", room.RoomID, "item_id", itemID)
 			}
 		}
 	}
@@ -107,41 +98,43 @@ func (kp *KeyPair) LoadRooms() (map[int64]*Room, error) {
 	return rooms, nil
 }
 
-// LoadExits retrieves all exits for a given room from the DynamoDB database.
-func (kp *KeyPair) LoadExits(roomID int64) (map[string]*Exit, error) {
-	exits := make(map[string]*Exit)
+// Helper function to find room data by ID
+func findRoomData(roomsData []RoomData, roomID int64) (RoomData, bool) {
+	for _, data := range roomsData {
+		if data.RoomID == roomID {
+			return data, true
+		}
+	}
+	return RoomData{}, false
+}
 
+// LoadAllExits loads all exits for all rooms.
+func (kp *KeyPair) LoadAllExits() (map[string]*Exit, error) {
 	var exitsData []ExitData
 
-	// Prepare the query input
-	keyCondition := "RoomID = :roomID"
-	expressionAttributeValues := map[string]*dynamodb.AttributeValue{
-		":roomID": {N: aws.String(strconv.FormatInt(roomID, 10))},
-	}
-
-	// Query the "exits" table for exits associated with the roomID
-	err := kp.Query("exits", keyCondition, expressionAttributeValues, &exitsData)
+	err := kp.Scan("exits", &exitsData)
 	if err != nil {
-		Logger.Error("Error querying exits", "room_id", roomID, "error", err)
-		return nil, fmt.Errorf("error querying exits: %w", err)
+		Logger.Error("Error scanning exits", "error", err)
+		return nil, fmt.Errorf("error scanning exits: %w", err)
 	}
 
-	// Process each exit data entry
+	exits := make(map[string]*Exit)
 	for _, exitData := range exitsData {
 		exitID, err := uuid.Parse(exitData.ExitID)
 		if err != nil {
 			Logger.Error("Invalid exit UUID", "exit_id", exitData.ExitID, "error", err)
 			continue
 		}
-		exits[exitData.Direction] = &Exit{
+
+		exits[exitData.ExitID] = &Exit{
 			ExitID:     exitID,
 			Direction:  exitData.Direction,
-			TargetRoom: nil, // This will be resolved later when all rooms are loaded
+			TargetRoom: &Room{RoomID: exitData.TargetRoom}, // Temporary Room object, will be resolved later
 			Visible:    exitData.Visible,
 		}
 	}
 
-	Logger.Info("Loaded exits for room", "room_id", roomID, "exit_count", len(exits))
+	Logger.Info("Loaded all exits", "total_exits", len(exits))
 	return exits, nil
 }
 
@@ -171,17 +164,8 @@ func (kp *KeyPair) WriteRoom(room *Room) error {
 
 	// Write exits separately
 	for _, exit := range room.Exits {
-		if exit == nil {
-			Logger.Warn("Skipping nil exit for room", "room_id", room.RoomID)
-			continue
-		}
-		if exit.TargetRoom == nil {
-			Logger.Warn("Skipping exit with nil TargetRoom for room", "room_id", room.RoomID, "direction", exit.Direction)
-			continue
-		}
 		exitData := ExitData{
 			ExitID:     exit.ExitID.String(),
-			RoomID:     room.RoomID,
 			Direction:  exit.Direction,
 			TargetRoom: exit.TargetRoom.RoomID,
 			Visible:    exit.Visible,
@@ -261,6 +245,7 @@ func Move(c *Character, direction string) {
 	if c.Room == nil {
 		c.Player.ToPlayer <- "\n\rYou are not in any room to move from.\n\r"
 		Logger.Warn("Character has no current room", "character_name", c.Name)
+		c.Player.ToPlayer <- c.Player.Prompt
 		return
 	}
 
@@ -268,12 +253,14 @@ func Move(c *Character, direction string) {
 	if !exists {
 		c.Player.ToPlayer <- "\n\rYou cannot go that way.\n\r"
 		Logger.Warn("Invalid direction for movement", "character_name", c.Name, "direction", direction)
+		c.Player.ToPlayer <- c.Player.Prompt
 		return
 	}
 
 	if selectedExit.TargetRoom == nil {
 		c.Player.ToPlayer <- "\n\rThe path leads nowhere.\n\r"
 		Logger.Warn("Target room is nil", "character_name", c.Name, "direction", direction)
+		c.Player.ToPlayer <- c.Player.Prompt
 		return
 	}
 
@@ -294,12 +281,13 @@ func Move(c *Character, direction string) {
 	if newRoom.Characters == nil {
 		newRoom.Characters = make(map[uuid.UUID]*Character)
 	}
-	SendRoomMessage(newRoom, fmt.Sprintf("\n\r%s has arrived.\n\r", c.Name))
 	newRoom.Characters[c.ID] = c
 	newRoom.Mutex.Unlock()
+	SendRoomMessage(newRoom, fmt.Sprintf("\n\r%s has arrived.\n\r", c.Name))
 
 	// Let the character look around the new room
 	ExecuteLookCommand(c, []string{})
+
 	Logger.Info("Character moved successfully", "character_name", c.Name, "new_room_id", newRoom.RoomID)
 }
 
@@ -333,12 +321,12 @@ func RoomInfo(r *Room, character *Character) string {
 	roomInfo.WriteString(ApplyColor("bright_white", fmt.Sprintf("\n\r[%s]\n\r", r.Title)) + fmt.Sprintf("%s\n\r", r.Description))
 
 	// Exits
-	exits := sortedExits(r)
-	if len(exits) == 0 {
-		roomInfo.WriteString("There are no exits.\n\r")
+	visibleExits := getVisibleExits(r)
+	if len(visibleExits) == 0 {
+		roomInfo.WriteString("There are no visible exits.\n\r")
 	} else {
 		roomInfo.WriteString("Obvious exits: ")
-		roomInfo.WriteString(strings.Join(exits, ", "))
+		roomInfo.WriteString(strings.Join(visibleExits, ", "))
 		roomInfo.WriteString("\n\r")
 	}
 
@@ -364,21 +352,23 @@ func RoomInfo(r *Room, character *Character) string {
 	return roomInfo.String()
 }
 
-// sortedExits returns a sorted list of exit directions from the room.
-func sortedExits(r *Room) []string {
-	Logger.Info("Sorting exits for room", "room_id", r.RoomID)
+// getVisibleExits returns a sorted list of visible exit directions from the room.
+func getVisibleExits(r *Room) []string {
+	Logger.Info("Getting visible exits for room", "room_id", r.RoomID)
 
 	if r.Exits == nil {
 		Logger.Info("Exits map is nil for room", "room_id", r.RoomID)
 		return []string{}
 	}
 
-	exits := make([]string, 0, len(r.Exits))
-	for direction := range r.Exits {
-		exits = append(exits, direction)
+	visibleExits := make([]string, 0, len(r.Exits))
+	for direction, exit := range r.Exits {
+		if exit.Visible {
+			visibleExits = append(visibleExits, direction)
+		}
 	}
-	sort.Strings(exits)
-	return exits
+	sort.Strings(visibleExits)
+	return visibleExits
 }
 
 // ToData converts a Room to RoomData for database storage.
@@ -387,8 +377,8 @@ func (r *Room) ToData() *RoomData {
 	defer r.Mutex.Unlock()
 
 	exitIDs := make([]string, 0, len(r.Exits))
-	for direction := range r.Exits {
-		exitIDs = append(exitIDs, direction)
+	for _, exit := range r.Exits {
+		exitIDs = append(exitIDs, exit.ExitID.String())
 	}
 
 	itemIDs := make([]string, 0, len(r.Items))
@@ -433,40 +423,6 @@ func (r *Room) FromData(data *RoomData, exits map[string]*Exit, items map[string
 	}
 }
 
-// LoadAllExits loads all exits for all rooms.
-func (kp *KeyPair) LoadAllExits() (map[int64]map[string]*Exit, error) {
-	var exitsData []ExitData
-
-	err := kp.Scan("exits", &exitsData)
-	if err != nil {
-		Logger.Error("Error scanning exits", "error", err)
-		return nil, fmt.Errorf("error scanning exits: %w", err)
-	}
-
-	exits := make(map[int64]map[string]*Exit)
-	for _, exitData := range exitsData {
-		if _, exists := exits[exitData.RoomID]; !exists {
-			exits[exitData.RoomID] = make(map[string]*Exit)
-		}
-
-		exitID, err := uuid.Parse(exitData.ExitID)
-		if err != nil {
-			Logger.Error("Invalid exit UUID", "exit_id", exitData.ExitID, "error", err)
-			continue
-		}
-
-		exits[exitData.RoomID][exitData.Direction] = &Exit{
-			ExitID:     exitID,
-			Direction:  exitData.Direction,
-			TargetRoom: nil, // This will be resolved later when linking rooms
-			Visible:    exitData.Visible,
-		}
-	}
-
-	Logger.Info("Loaded all exits", "total_rooms", len(exits))
-	return exits, nil
-}
-
 // LoadItemsForRoom loads all items for a specific room
 func (kp *KeyPair) LoadItemsForRoom(roomID int64) (map[uuid.UUID]*Item, error) {
 	items := make(map[uuid.UUID]*Item)
@@ -484,7 +440,7 @@ func (kp *KeyPair) LoadItemsForRoom(roomID int64) (map[uuid.UUID]*Item, error) {
 	for _, itemData := range itemsData {
 		item, err := kp.itemFromData(&itemData)
 		if err != nil {
-			Logger.Error("Error creating item from data", "item_id", itemData.ID, "error", err)
+			Logger.Error("Error creating item from data", "item_id", itemData.ItemID, "error", err)
 			continue
 		}
 		items[item.ID] = item

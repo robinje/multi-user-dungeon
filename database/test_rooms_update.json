@@ -5,15 +5,8 @@
       "Area": "The Vedant Forest",
       "Title": "Whispering Glade",
       "Description": "Amidst the Verdant Forest, sunlight pierces the leafy canopy, illuminating moss-covered trees. Birds chirp melodically, blending with rustling leaves. The air, rich with pine, invigorates. A tranquil, timeless haven.",
-      "Exits": [
-        {
-          "ExitID": "b47ac10b-58cc-4372-a567-0e02b2c3d496",
-          "Direction": "out",
-          "TargetRoom": 2,
-          "Visible": true
-        }
-      ],
-      "ItemIDs": []
+      "ExitID": ["b47ac10b-58cc-4372-a567-0e02b2c3d496"],
+      "ItemID": []
     }
   ]
 }

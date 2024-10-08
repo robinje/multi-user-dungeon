@@ -1,241 +1,233 @@
 {
   "itemPrototypes": [
     {
-      "id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
-      "name": "Long Sword",
-      "description": "A finely crafted long sword with a sharp blade, glinting in the light.",
-      "mass": 4.5,
-      "value": 50,
-      "stackable": false,
-      "max_stack": 1,
-      "quantity": 1,
-      "wearable": true,
-      "worn": ["waist"],
-      "verbs": {
+      "PrototypeID": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+      "Name": "Long Sword",
+      "Description": "A finely crafted long sword with a sharp blade, glinting in the light.",
+      "Mass": 4.5,
+      "Value": 50,
+      "Stackable": false,
+      "MaxStack": 1,
+      "Quantity": 1,
+      "Wearable": true,
+      "WornOn": ["waist"],
+      "Verbs": {
         "use": "You wield the long sword, ready for battle.",
         "examine": "The sword's blade is etched with ancient runes."
       },
-      "overrides": {
+      "Overrides": {
         "attack": "attack"
       },
-      "trait_mods": {
+      "TraitMods": {
         "strength": 2,
         "agility": -1
       },
-      "container": false,
-      "contents": [],
-      "is_prototype": true,
-      "is_worn": false,
-      "can_pick_up": true,
-      "metadata": {
+      "Container": false,
+      "Contents": [],
+      "IsWorn": false,
+      "CanPickUp": true,
+      "Metadata": {
         "material": "steel",
         "craftsmanship": "excellent"
       }
     },
     {
-      "id": "e47ac10b-58cc-4372-a567-0e02b2c3d480",
-      "name": "Magic Book",
-      "description": "An ancient tome filled with arcane knowledge and mystical spells.",
-      "mass": 2.0,
-      "value": 100,
-      "stackable": false,
-      "max_stack": 1,
-      "quantity": 1,
-      "wearable": false,
-      "worn_on": [],
-      "verbs": {
+      "PrototypeID": "e47ac10b-58cc-4372-a567-0e02b2c3d480",
+      "Name": "Magic Book",
+      "Description": "An ancient tome filled with arcane knowledge and mystical spells.",
+      "Mass": 2.0,
+      "Value": 100,
+      "Stackable": false,
+      "MaxStack": 1,
+      "Quantity": 1,
+      "Wearable": false,
+      "WornOn": [],
+      "Verbs": {
         "use": "You open the magic book and begin to recite a spell.",
         "examine": "The book's pages are filled with magical incantations and diagrams."
       },
-      "overrides": {
+      "Overrides": {
         "read": "learn"
       },
-      "trait_mods": {
+      "TraitMods": {
         "intelligence": 3
       },
-      "container": false,
-      "contents": [],
-      "is_prototype": true,
-      "is_worn": false,
-      "can_pick_up": true,
-      "metadata": {
+      "Container": false,
+      "Contents": [],
+      "IsWorn": false,
+      "CanPickUp": true,
+      "Metadata": {
         "school_of_magic": "arcane",
         "age": "ancient"
       }
     },
     {
-      "id": "d47ac10b-58cc-4372-a567-0e02b2c3d481",
-      "name": "Bow",
-      "description": "A sturdy bow made of fine wood, capable of shooting arrows with great precision.",
-      "mass": 3.0,
-      "value": 75,
-      "stackable": false,
-      "max_stack": 1,
-      "quantity": 1,
-      "wearable": true,
-      "worn_on": ["back"],
-      "verbs": {
+      "PrototypeID": "d47ac10b-58cc-4372-a567-0e02b2c3d481",
+      "Name": "Bow",
+      "Description": "A sturdy bow made of fine wood, capable of shooting arrows with great precision.",
+      "Mass": 3.0,
+      "Value": 75,
+      "Stackable": false,
+      "MaxStack": 1,
+      "Quantity": 1,
+      "Wearable": true,
+      "WornOn": ["back"],
+      "Verbs": {
         "use": "You take aim with the bow, ready to loose an arrow at your target.",
         "examine": "The wood of the bow is polished to a smooth finish, and the string is taut and strong."
       },
-      "overrides": {
+      "Overrides": {
         "shoot": "target"
       },
-      "trait_mods": {
+      "TraitMods": {
         "dexterity": 2
       },
-      "container": false,
-      "contents": [],
-      "is_prototype": true,
-      "is_worn": false,
-      "can_pick_up": true,
-      "metadata": {
+      "Container": false,
+      "Contents": [],
+      "IsWorn": false,
+      "CanPickUp": true,
+      "Metadata": {
         "material": "yew",
         "range": "long"
       }
     },
     {
-      "id": "c47ac10b-58cc-4372-a567-0e02b2c3d482",
-      "name": "Leather Armor",
-      "description": "A set of well-crafted leather armor, offering decent protection without sacrificing mobility.",
-      "mass": 8.0,
-      "value": 80,
-      "stackable": false,
-      "max_stack": 1,
-      "quantity": 1,
-      "wearable": true,
-      "worn_on": ["chest"],
-      "verbs": {
+      "PrototypeID": "c47ac10b-58cc-4372-a567-0e02b2c3d482",
+      "Name": "Leather Armor",
+      "Description": "A set of well-crafted leather armor, offering decent protection without sacrificing mobility.",
+      "Mass": 8.0,
+      "Value": 80,
+      "Stackable": false,
+      "MaxStack": 1,
+      "Quantity": 1,
+      "Wearable": true,
+      "WornOn": ["chest"],
+      "Verbs": {
         "use": "You put on the leather armor, feeling its protective embrace.",
         "examine": "The leather is thick and sturdy, with reinforced stitching at key points."
       },
-      "overrides": {},
-      "trait_mods": {
+      "Overrides": {},
+      "TraitMods": {
         "defense": 3,
         "agility": -1
       },
-      "container": false,
-      "contents": [],
-      "is_prototype": true,
-      "is_worn": false,
-      "can_pick_up": true,
-      "metadata": {
+      "Container": false,
+      "Contents": [],
+      "IsWorn": false,
+      "CanPickUp": true,
+      "Metadata": {
         "material": "leather",
         "armor_class": "medium"
       }
     },
     {
-      "id": "b47ac10b-58cc-4372-a567-0e02b2c3d483",
-      "name": "Healing Potion",
-      "description": "A small vial containing a red, shimmering liquid that seems to glow with restorative energy.",
-      "mass": 0.5,
-      "value": 25,
-      "stackable": true,
-      "max_stack": 5,
-      "quantity": 1,
-      "wearable": false,
-      "worn_on": [],
-      "verbs": {
+      "PrototypeID": "b47ac10b-58cc-4372-a567-0e02b2c3d483",
+      "Name": "Healing Potion",
+      "Description": "A small vial containing a red, shimmering liquid that seems to glow with restorative energy.",
+      "Mass": 0.5,
+      "Value": 25,
+      "Stackable": true,
+      "MaxStack": 5,
+      "Quantity": 1,
+      "Wearable": false,
+      "WornOn": [],
+      "Verbs": {
         "use": "You drink the healing potion, feeling a warm sensation spread through your body.",
         "examine": "The liquid inside the vial swirls with magical energy."
       },
-      "overrides": {
+      "Overrides": {
         "drink": "use"
       },
-      "trait_mods": {},
-      "container": false,
-      "contents": [],
-      "is_prototype": true,
-      "is_worn": false,
-      "can_pick_up": true,
-      "metadata": {
+      "TraitMods": {},
+      "Container": false,
+      "Contents": [],
+      "IsWorn": false,
+      "CanPickUp": true,
+      "Metadata": {
         "potion_strength": "minor",
         "healing_amount": "2d4+2"
       }
     },
     {
-      "id": "a47ac10b-58cc-4372-a567-0e02b2c3d484",
-      "name": "Backpack",
-      "description": "A sturdy leather backpack with multiple compartments, perfect for storing various items.",
-      "mass": 2.0,
-      "value": 20,
-      "stackable": false,
-      "max_stack": 1,
-      "quantity": 1,
-      "wearable": true,
-      "worn_on": ["back"],
-      "verbs": {
+      "PrototypeID": "a47ac10b-58cc-4372-a567-0e02b2c3d484",
+      "Name": "Backpack",
+      "Description": "A sturdy leather backpack with multiple compartments, perfect for storing various items.",
+      "Mass": 2.0,
+      "Value": 20,
+      "Stackable": false,
+      "MaxStack": 1,
+      "Quantity": 1,
+      "Wearable": true,
+      "WornOn": ["back"],
+      "Verbs": {
         "use": "You open the backpack, ready to store or retrieve items.",
         "examine": "The backpack is made of thick leather with reinforced straps and multiple pockets."
       },
-      "overrides": {},
-      "trait_mods": {
+      "Overrides": {},
+      "TraitMods": {
         "carry_capacity": 5
       },
-      "container": true,
-      "contents": ["b47ac10b-58cc-4372-a567-0e02b2c3d483", "947ac10b-58cc-4372-a567-0e02b2c3d486"],
-      "is_prototype": true,
-      "is_worn": false,
-      "can_pick_up": true,
-      "metadata": {
+      "Container": true,
+      "Contents": ["b47ac10b-58cc-4372-a567-0e02b2c3d483", "947ac10b-58cc-4372-a567-0e02b2c3d486"],
+      "IsWorn": false,
+      "CanPickUp": true,
+      "Metadata": {
         "material": "leather",
         "capacity": "medium"
       }
     },
     {
-      "id": "947ac10b-58cc-4372-a567-0e02b2c3d485",
-      "name": "Magic Ring",
-      "description": "A small, intricately carved golden ring that pulses with magical energy.",
-      "mass": 0.1,
-      "value": 200,
-      "stackable": false,
-      "max_stack": 1,
-      "quantity": 1,
-      "wearable": true,
-      "worn_on": ["left_finger", "right_finger"],
-      "verbs": {
+      "PrototypeID": "947ac10b-58cc-4372-a567-0e02b2c3d485",
+      "Name": "Magic Ring",
+      "Description": "A small, intricately carved golden ring that pulses with magical energy.",
+      "Mass": 0.1,
+      "Value": 200,
+      "Stackable": false,
+      "MaxStack": 1,
+      "Quantity": 1,
+      "Wearable": true,
+      "WornOn": ["left_finger", "right_finger"],
+      "Verbs": {
         "use": "You slip the ring onto your finger, feeling a surge of magical power.",
         "examine": "The ring's surface is covered in tiny, glowing runes."
       },
-      "overrides": {},
-      "trait_mods": {
+      "Overrides": {},
+      "TraitMods": {
         "magic_power": 2
       },
-      "container": false,
-      "contents": [],
-      "is_prototype": true,
-      "is_worn": false,
-      "can_pick_up": true,
-      "metadata": {
+      "Container": false,
+      "Contents": [],
+      "IsWorn": false,
+      "CanPickUp": true,
+      "Metadata": {
         "material": "gold",
         "enchantment": "minor"
       }
     },
     {
-      "id": "947ac10b-58cc-4372-a567-0e02b2c3d486",
-      "name": "Torch",
-      "description": "A wooden torch with a cloth-wrapped end, ready to be lit for illumination.",
-      "mass": 1.0,
-      "value": 5,
-      "stackable": true,
-      "max_stack": 10,
-      "quantity": 1,
-      "wearable": false,
-      "worn_on": [],
-      "verbs": {
+      "PrototypeID": "947ac10b-58cc-4372-a567-0e02b2c3d486",
+      "Name": "Torch",
+      "Description": "A wooden torch with a cloth-wrapped end, ready to be lit for illumination.",
+      "Mass": 1.0,
+      "Value": 5,
+      "Stackable": true,
+      "MaxStack": 10,
+      "Quantity": 1,
+      "Wearable": false,
+      "WornOn": [],
+      "Verbs": {
         "use": "You light the torch, casting a warm glow around you.",
         "examine": "The torch is made of sturdy wood with a cloth-wrapped end soaked in flammable oil."
       },
-      "overrides": {
+      "Overrides": {
         "light": "use"
       },
-      "trait_mods": {},
-      "container": false,
-      "contents": [],
-      "is_prototype": true,
-      "is_worn": false,
-      "can_pick_up": true,
-      "metadata": {
+      "TraitMods": {},
+      "Container": false,
+      "Contents": [],
+      "IsWorn": false,
+      "CanPickUp": true,
+      "Metadata": {
         "burn_time": "1 hour",
         "light_radius": "30 feet"
       }

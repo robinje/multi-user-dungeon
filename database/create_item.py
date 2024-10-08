@@ -72,7 +72,7 @@ def display_prototypes(dynamodb) -> list:
         print("Available Prototypes:")
         for prototype in prototypes:
             prototype_id = prototype.get("PrototypeID", "No ID")
-            name = prototype.get("name", "No Name")
+            name = prototype.get("Name", "No Name")
             print(f"{prototype_id}: {name}")
         return prototypes
     except ClientError as e:
@@ -103,55 +103,25 @@ def create_new_item_from_prototype(prototype: dict) -> dict:
     new_item: dict = {
         "ItemID": str(uuid.uuid4()),
         "PrototypeID": prototype.get("PrototypeID", "No ID"),
-        "Name": prototype.get("name", "Unnamed Item"),
-        "Description": prototype.get("description", ""),
-        "Mass": Decimal(str(prototype.get("mass", 0))),
-        "Value": Decimal(str(prototype.get("value", 0))),
-        "Stackable": prototype.get("stackable", False),
-        "MaxStack": Decimal(str(prototype.get("max_stack", 1))),
+        "Name": prototype.get("Name", "Unnamed Item"),
+        "Description": prototype.get("Description", ""),
+        "Mass": Decimal(str(prototype.get("Mass", 0))),
+        "Value": Decimal(str(prototype.get("Value", 0))),
+        "Stackable": prototype.get("Stackable", False),
+        "MaxStack": Decimal(str(prototype.get("MaxStack", 1))),
         "Quantity": Decimal("1"),
-        "Wearable": prototype.get("wearable", False),
-        "WornOn": prototype.get("worn_on", []),
-        "Verbs": prototype.get("verbs", {}),
-        "Overrides": prototype.get("overrides", {}),
-        "TraitMods": {k: Decimal(str(v)) for k, v in prototype.get("trait_mods", {}).items()},
-        "Container": prototype.get("container", False),
-        "IsPrototype": False,
+        "Wearable": prototype.get("Wearable", False),
+        "WornOn": prototype.get("WornOn", []),
+        "Verbs": prototype.get("Verbs", {}),
+        "Overrides": prototype.get("Overrides", {}),
+        "TraitMods": {k: Decimal(str(v)) for k, v in prototype.get("TraitMods", {}).items()},
+        "Container": prototype.get("Container", False),
+        "Contents": prototype.get("Contents", []),
         "IsWorn": False,
-        "CanPickUp": prototype.get("can_pick_up", True),
-        "Contents": prototype.get("contents", []),
-        "Metadata": prototype.get("metadata", {}),
+        "CanPickUp": prototype.get("CanPickUp", True),
+        "Metadata": prototype.get("Metadata", {}),
     }
     return new_item
-
-
-def ensure_item_ids_list(dynamodb, room_id: int) -> bool:
-    """
-    Ensures that the ItemIDs attribute exists in the room and is a list.
-    If it doesn't exist, it creates an empty list.
-
-    Args:
-        dynamodb: The DynamoDB resource object.
-        room_id: The ID of the room to check.
-
-    Returns:
-        True if the operation was successful, False otherwise.
-    """
-    rooms_table = dynamodb.Table("rooms")
-    try:
-        _ = rooms_table.update_item(
-            Key={"RoomID": room_id},
-            UpdateExpression="SET ItemIDs = if_not_exists(ItemIDs, :empty_list)",
-            ExpressionAttributeValues={
-                ":empty_list": [],
-            },
-            ReturnValues="UPDATED_NEW",
-        )
-        print(f"Ensured ItemIDs is a list for room {room_id}.")
-        return True
-    except ClientError as e:
-        print(f"Error ensuring ItemIDs is a list: {e.response['Error']['Message']}")
-        return False
 
 
 def add_item_to_table(dynamodb, new_item: dict) -> bool:
@@ -187,10 +157,7 @@ def add_item_to_room(dynamodb, room: dict, new_item: dict) -> bool:
     Returns:
         True if the item was successfully added to the room, False otherwise.
     """
-    items_table = dynamodb.Table("items")
     rooms_table = dynamodb.Table("rooms")
-
-    # Update the room to include the new item
     room_id = int(room.get("RoomID", 0))
 
     try:
@@ -206,20 +173,13 @@ def add_item_to_room(dynamodb, room: dict, new_item: dict) -> bool:
         print(f"Room {room_id} not found.")
         return False
 
-    current_item_ids = current_room.get("ItemIDs", [])
-
-    print(f"Current ItemIDs for room {room_id}: {current_item_ids}")
+    current_item_ids = current_room.get("ItemID", [])
 
     # Ensure current_item_ids is a list
-    if current_item_ids is None:
-        current_item_ids = []
-    elif isinstance(current_item_ids, str):
-        current_item_ids = [current_item_ids]
-    elif not isinstance(current_item_ids, list):
-        print(f"Unexpected type for ItemIDs: {type(current_item_ids)}")
-        return False
+    if not isinstance(current_item_ids, list):
+        current_item_ids = [current_item_ids] if current_item_ids else []
 
-    # Add the new item's ID to the room's ItemIDs list
+    # Add the new item's ID to the room's ItemID list
     item_id = new_item.get("ItemID")
     if not item_id:
         print("New item does not have an ID.")
@@ -227,22 +187,20 @@ def add_item_to_room(dynamodb, room: dict, new_item: dict) -> bool:
 
     current_item_ids.append(item_id)
 
-    print(f"Updated ItemIDs for room {room_id}: {current_item_ids}")
-
     try:
-        # Update the room with the new ItemIDs list
+        # Update the room with the new ItemID list
         response = rooms_table.update_item(
             Key={"RoomID": room_id},
-            UpdateExpression="SET ItemIDs = :item_ids",
+            UpdateExpression="SET ItemID = :item_ids",
             ExpressionAttributeValues={":item_ids": current_item_ids},
             ReturnValues="UPDATED_NEW",
         )
-        print(f"Response from updating room: {response}")
-        print(f"Successfully updated room {room_id}. New ItemIDs: {response['Attributes'].get('ItemIDs', [])}")
+        print(f"Successfully updated room {room_id}. New ItemID: {response['Attributes'].get('ItemID', [])}")
     except ClientError as e:
         print(f"Error updating room: {e.response['Error']['Message']}")
         # Attempt to roll back by deleting the item we just added
         try:
+            items_table = dynamodb.Table("items")
             items_table.delete_item(Key={"ItemID": new_item["ItemID"]})
             print(f"Rolled back: Deleted item '{new_item['Name']}' from items table.")
         except ClientError as del_e:
@@ -258,7 +216,7 @@ def main() -> None:
     Allows the user to select a room and a prototype, and then adds an item to the room.
     """
 
-    dynamodb = boto3.resource("dynamodb", region_name=REGION)  # Replace with your AWS region
+    dynamodb = boto3.resource("dynamodb", region_name=REGION)
 
     while True:
         rooms: list = display_rooms(dynamodb)

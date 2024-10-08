@@ -47,7 +47,7 @@ func DisplayUnseenMOTDs(server *Server, player *Player) {
 
 	// First, look for and display the welcome message
 	for _, motd := range server.ActiveMotDs {
-		if motd != nil && motd.ID == defaultMOTDID {
+		if motd != nil && motd.MotdID == defaultMOTDID {
 			player.ToPlayer <- fmt.Sprintf("\n\r%s\n\r", motd.Message)
 			welcomeDisplayed = true
 			break
@@ -61,14 +61,14 @@ func DisplayUnseenMOTDs(server *Server, player *Player) {
 
 	// Then display other unseen MOTDs
 	for _, motd := range server.ActiveMotDs {
-		if motd == nil || motd.ID == defaultMOTDID {
+		if motd == nil || motd.MotdID == defaultMOTDID {
 			continue
 		}
 
 		// Check if the player has already seen this MOTD
 		seenMOTD := false
 		for _, seenID := range player.SeenMotD {
-			if seenID == motd.ID {
+			if seenID == motd.MotdID {
 				seenMOTD = true
 				break
 			}
@@ -79,7 +79,7 @@ func DisplayUnseenMOTDs(server *Server, player *Player) {
 			player.ToPlayer <- fmt.Sprintf("\n\r%s\n\r", motd.Message)
 
 			// Mark the MOTD as seen
-			player.SeenMotD = append(player.SeenMotD, motd.ID)
+			player.SeenMotD = append(player.SeenMotD, motd.MotdID)
 		}
 	}
 
