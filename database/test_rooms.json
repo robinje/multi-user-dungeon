@@ -13,7 +13,11 @@
       "Area": "The Vedant Forest",
       "Title": "Forest Path",
       "Description": "A well-trodden path leads through the dense forest, the trees forming a green tunnel overhead. The air is cool and damp, and the scent of earth and decaying leaves permeates the atmosphere. The sound of leaves rustling in the wind is accompanied by the distant call of a woodpecker.",
-      "ExitID": ["e47ac10b-58cc-4372-a567-0e02b2c3d480", "d47ac10b-58cc-4372-a567-0e02b2c3d481", "c47ac10b-58cc-4372-a567-0e02b2c3d482"],
+      "ExitID": [
+        "e47ac10b-58cc-4372-a567-0e02b2c3d480",
+        "d47ac10b-58cc-4372-a567-0e02b2c3d481",
+        "c47ac10b-58cc-4372-a567-0e02b2c3d482"
+      ],
       "ItemID": []
     },
     {
