@@ -1,3 +1,7 @@
+"""
+Utility to add an item to a room in the DynamoDB database.
+"""
+
 import argparse
 import json
 import logging
