@@ -58,9 +58,15 @@ func (kp *KeyPair) LoadRooms() (map[int64]*Room, error) {
 
 	// Second pass: add exits and items to rooms, and resolve target rooms
 	for _, room := range rooms {
+		roomData, exists := findRoomData(roomsData, room.RoomID)
+		if !exists {
+			Logger.Warn("Room data not found", "room_id", room.RoomID)
+			continue
+		}
+
 		// Add exits to the room
 		room.Exits = make(map[string]*Exit)
-		for _, exitID := range roomsData[room.RoomID].ExitIDs {
+		for _, exitID := range roomData.ExitIDs {
 			if exit, exists := allExits[exitID]; exists {
 				room.Exits[exit.Direction] = exit
 				// Resolve TargetRoom pointer
@@ -74,13 +80,13 @@ func (kp *KeyPair) LoadRooms() (map[int64]*Room, error) {
 
 		// Add items to the room
 		room.Items = make(map[uuid.UUID]*Item)
-		for _, itemID := range roomsData[room.RoomID].ItemIDs {
+		for _, itemID := range roomData.ItemIDs {
 			itemUUID, err := uuid.Parse(itemID)
 			if err != nil {
 				Logger.Error("Invalid item UUID", "item_id", itemID, "error", err)
 				continue
 			}
-			if item, exists := allItems[itemID]; exists { // Use itemID (string) instead of itemUUID
+			if item, exists := allItems[itemID]; exists {
 				room.Items[itemUUID] = item
 			} else {
 				Logger.Warn("Item not found for room", "room_id", room.RoomID, "item_id", itemID)
@@ -90,6 +96,16 @@ func (kp *KeyPair) LoadRooms() (map[int64]*Room, error) {
 
 	Logger.Info("Successfully loaded rooms from database", "count", len(rooms))
 	return rooms, nil
+}
+
+// Helper function to find room data by ID
+func findRoomData(roomsData []RoomData, roomID int64) (RoomData, bool) {
+	for _, data := range roomsData {
+		if data.RoomID == roomID {
+			return data, true
+		}
+	}
+	return RoomData{}, false
 }
 
 // LoadAllExits loads all exits for all rooms.
