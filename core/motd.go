@@ -67,7 +67,7 @@ func DisplayUnseenMOTDs(server *Server, player *Player) {
 
 		// Check if the player has already seen this MOTD
 		seenMOTD := false
-		for _, seenID := range player.SeenMotDs {
+		for _, seenID := range player.SeenMotD {
 			if seenID == motd.ID {
 				seenMOTD = true
 				break
@@ -79,7 +79,7 @@ func DisplayUnseenMOTDs(server *Server, player *Player) {
 			player.ToPlayer <- fmt.Sprintf("\n\r%s\n\r", motd.Message)
 
 			// Mark the MOTD as seen
-			player.SeenMotDs = append(player.SeenMotDs, motd.ID)
+			player.SeenMotD = append(player.SeenMotD, motd.ID)
 		}
 	}
 

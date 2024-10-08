@@ -72,8 +72,8 @@ type Server struct {
 	Archetypes           *ArchetypesData
 	Health               uint16
 	Essence              uint16
-	Items                map[uint64]*Item
-	ItemPrototypes       map[uint64]*Item
+	Items                map[uuid.UUID]*Item
+	Prototypes           map[uuid.UUID]*Prototype
 	Context              context.Context
 	Mutex                sync.Mutex
 	ActiveMotDs          []*MOTD
@@ -96,7 +96,7 @@ type Player struct {
 	LoginTime     time.Time
 	PasswordHash  string
 	Mutex         sync.Mutex
-	SeenMotDs     []uuid.UUID
+	SeenMotD      []uuid.UUID
 }
 
 type PlayerData struct {
@@ -105,21 +105,43 @@ type PlayerData struct {
 	SeenMotDs     []string          `json:"seenMotDs" dynamodbav:"SeenMotDs"`
 }
 
+// Room represents the in-memory structure for a room
 type Room struct {
-	RoomID      int64                    `json:"roomID" dynamodbav:"RoomID"`
-	Area        string                   `json:"area" dynamodbav:"Area"`
-	Title       string                   `json:"title" dynamodbav:"Title"`
-	Description string                   `json:"description" dynamodbav:"Description"`
-	Exits       map[string]*Exit         `json:"-"`
-	Characters  map[uuid.UUID]*Character `json:"-"`
-	Items       map[string]*Item         `json:"-"`
-	Mutex       sync.Mutex               `json:"-"`
+	RoomID      int64
+	Area        string
+	Title       string
+	Description string
+	Exits       map[string]*Exit
+	Characters  map[uuid.UUID]*Character
+	Items       map[uuid.UUID]*Item
+	Mutex       sync.Mutex
 }
 
+// RoomData represents the structure for storing room data in DynamoDB
+type RoomData struct {
+	RoomID      int64    `json:"roomID" dynamodbav:"RoomID"`
+	Area        string   `json:"area" dynamodbav:"Area"`
+	Title       string   `json:"title" dynamodbav:"Title"`
+	Description string   `json:"description" dynamodbav:"Description"`
+	ExitIDs     []string `json:"exitIDs" dynamodbav:"ExitIDs"`
+	ItemIDs     []string `json:"itemIDs" dynamodbav:"ItemIDs"`
+}
+
+// Exit represents the in-memory structure for an exit
 type Exit struct {
-	TargetRoom int64  `json:"targetRoom" dynamodbav:"TargetRoom"`
-	Visible    bool   `json:"visible" dynamodbav:"Visible"`
-	Direction  string `json:"direction" dynamodbav:"Direction"`
+	ExitID     uuid.UUID
+	Direction  string
+	TargetRoom *Room
+	Visible    bool
+}
+
+// ExitData represents the structure for storing exit data in DynamoDB
+type ExitData struct {
+	ExitID     string `json:"ExitID" dynamodbav:"ExitID"`
+	RoomID     int64  `json:"RoomID" dynamodbav:"RoomID"`
+	Direction  string `json:"Direction" dynamodbav:"Direction"`
+	TargetRoom int64  `json:"TargetRoom" dynamodbav:"TargetRoom"`
+	Visible    bool   `json:"Visible" dynamodbav:"Visible"`
 }
 
 type Character struct {
@@ -162,6 +184,7 @@ type ArchetypesData struct {
 
 type Item struct {
 	ID          uuid.UUID
+	PrototypeID uuid.UUID
 	Name        string
 	Description string
 	Mass        float64
@@ -176,7 +199,6 @@ type Item struct {
 	TraitMods   map[string]int8
 	Container   bool
 	Contents    []*Item
-	IsPrototype bool
 	IsWorn      bool
 	CanPickUp   bool
 	Metadata    map[string]string
@@ -185,6 +207,7 @@ type Item struct {
 
 type ItemData struct {
 	ID          string            `json:"id" dynamodbav:"ID"`
+	PrototypeID string            `json:"prototypeID" dynamodbav:"PrototypeID"`
 	Name        string            `json:"name" dynamodbav:"Name"`
 	Description string            `json:"description" dynamodbav:"Description"`
 	Mass        float64           `json:"mass" dynamodbav:"Mass"`
@@ -199,21 +222,59 @@ type ItemData struct {
 	TraitMods   map[string]int8   `json:"trait_mods" dynamodbav:"TraitMods"`
 	Container   bool              `json:"container" dynamodbav:"Container"`
 	Contents    []string          `json:"contents" dynamodbav:"Contents"`
-	IsPrototype bool              `json:"is_prototype" dynamodbav:"IsPrototype"`
 	IsWorn      bool              `json:"is_worn" dynamodbav:"IsWorn"`
 	CanPickUp   bool              `json:"can_pick_up" dynamodbav:"CanPickUp"`
 	Metadata    map[string]string `json:"metadata" dynamodbav:"Metadata"`
 }
 
-type PrototypesData struct {
-	ItemPrototypes []ItemData `json:"itemPrototypes"`
+type Prototype struct {
+	ID          uuid.UUID
+	Name        string
+	Description string
+	Mass        float64
+	Value       uint64
+	Stackable   bool
+	MaxStack    uint32
+	Quantity    uint32
+	Wearable    bool
+	WornOn      []string
+	Verbs       map[string]string
+	Overrides   map[string]string
+	TraitMods   map[string]int8
+	Container   bool
+	Contents    []uuid.UUID
+	CanPickUp   bool
+	Metadata    map[string]string
+	Mutex       sync.Mutex
+}
+
+type PrototypeData struct {
+	ID          string            `json:"id" dynamodbav:"id"`
+	Name        string            `json:"name" dynamodbav:"name"`
+	Description string            `json:"description" dynamodbav:"description"`
+	Mass        float64           `json:"mass" dynamodbav:"mass"`
+	Value       uint64            `json:"value" dynamodbav:"value"`
+	Stackable   bool              `json:"stackable" dynamodbav:"stackable"`
+	MaxStack    uint32            `json:"max_stack" dynamodbav:"max_stack"`
+	Quantity    uint32            `json:"quantity" dynamodbav:"quantity"`
+	Wearable    bool              `json:"wearable" dynamodbav:"wearable"`
+	WornOn      []string          `json:"worn_on" dynamodbav:"worn_on"`
+	Verbs       map[string]string `json:"verbs" dynamodbav:"verbs"`
+	Overrides   map[string]string `json:"overrides" dynamodbav:"overrides"`
+	TraitMods   map[string]int8   `json:"trait_mods" dynamodbav:"trait_mods"`
+	Container   bool              `json:"container" dynamodbav:"container"`
+	Contents    []string          `json:"contents" dynamodbav:"contents"`
+	CanPickUp   bool              `json:"can_pick_up" dynamodbav:"can_pick_up"`
+	Metadata    map[string]string `json:"metadata" dynamodbav:"metadata"`
 }
 
 type CloudWatchHandler struct {
-	client    *cloudwatchlogs.Client
-	logGroup  string
-	logStream string
-	attrs     []slog.Attr
+	client      *cloudwatchlogs.Client
+	logGroup    string
+	logStream   string
+	attrs       []slog.Attr
+	mutex       sync.Mutex
+	initialized bool
 }
 
 type MultiHandler struct {

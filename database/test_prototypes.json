@@ -10,7 +10,7 @@
       "max_stack": 1,
       "quantity": 1,
       "wearable": true,
-      "worn_on": ["waist"],
+      "worn": ["waist"],
       "verbs": {
         "use": "You wield the long sword, ready for battle.",
         "examine": "The sword's blade is etched with ancient runes."

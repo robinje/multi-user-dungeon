@@ -84,7 +84,7 @@ func (c *Character) FromData(cd *CharacterData, server *Server) error {
 			Logger.Error("Error parsing item UUID", "itemID", itemIDStr, "error", err)
 			continue
 		}
-		item, err := server.Database.LoadItem(itemID.String(), false)
+		item, err := server.Database.LoadItem(itemID.String())
 		if err != nil {
 			Logger.Error("Error loading item for character", "itemID", itemID, "characterName", c.Name, "error", err)
 			continue
@@ -507,4 +507,22 @@ func RemoveWornItem(c *Character, item *Item) error {
 
 	Logger.Info("Item removed from worn location and placed in hand", "characterName", c.Name, "itemName", item.Name, "handSlot", handSlot)
 	return nil
+}
+
+// getOtherCharacters returns a list of character names in the room, excluding the current character.
+func getOtherCharacters(r *Room, currentCharacter *Character) []string {
+	if r == nil || r.Characters == nil {
+		Logger.Warn("Room or Characters map is nil in getOtherCharacters")
+		return []string{}
+	}
+
+	otherCharacters := make([]string, 0)
+	for _, c := range r.Characters {
+		if c != nil && c != currentCharacter {
+			otherCharacters = append(otherCharacters, c.Name)
+		}
+	}
+
+	Logger.Info("Found other characters in room", "count", len(otherCharacters), "room_id", r.RoomID)
+	return otherCharacters
 }
