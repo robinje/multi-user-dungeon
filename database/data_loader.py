@@ -1,10 +1,3 @@
-"""
-This module loads game data from JSON files and stores it in DynamoDB.
-
-It handles rooms, exits, archetypes, and item prototypes, storing them into their respective DynamoDB tables.
-It also loads the data back from DynamoDB and displays it for verification.
-"""
-
 import argparse
 import json
 import logging
@@ -48,42 +41,58 @@ def convert_to_dynamodb_format(data):
         return data
 
 
-def store_rooms_and_exits(dynamodb, rooms_data):
+def store_exits(dynamodb, exits_data):
     """
-    Stores room data into the 'rooms' DynamoDB table and exit data into the 'exits' table.
+    Stores exit data into the 'exits' DynamoDB table.
+
+    Args:
+        dynamodb: The DynamoDB resource object.
+        exits_data (dict): The exits data to store.
+    """
+    exits_table = dynamodb.Table("exits")
+    try:
+        with exits_table.batch_writer() as exits_batch:
+            for exit_data in exits_data.get("exits", []):
+                exit_item = {
+                    "ExitID": exit_data["ExitID"],
+                    "Direction": exit_data["Direction"],
+                    "TargetRoom": exit_data["TargetRoom"],
+                    "Visible": exit_data["Visible"],
+                }
+                exits_batch.put_item(Item=convert_to_dynamodb_format(exit_item))
+        print("Exit data stored in DynamoDB successfully")
+    except ClientError as e:
+        logging.error(f"An error occurred while storing exits: {e.response['Error']['Message']}")
+    except Exception as e:
+        logging.error(f"An unexpected error occurred while storing exits: {str(e)}")
+
+
+def store_rooms(dynamodb, rooms_data):
+    """
+    Stores room data into the 'rooms' DynamoDB table.
 
     Args:
         dynamodb: The DynamoDB resource object.
         rooms_data (dict): The rooms data to store.
     """
     rooms_table = dynamodb.Table("rooms")
-    exits_table = dynamodb.Table("exits")
     try:
-        with rooms_table.batch_writer() as rooms_batch, exits_table.batch_writer() as exits_batch:
+        with rooms_table.batch_writer() as rooms_batch:
             for room in rooms_data.get("rooms", []):
                 room_item = {
                     "RoomID": room["RoomID"],
                     "Area": room["Area"],
                     "Title": room["Title"],
                     "Description": room["Description"],
-                    "ItemIDs": room.get("ItemIDs", []),
+                    "ExitID": room["ExitID"],
+                    "ItemID": room.get("ItemID", []),
                 }
                 rooms_batch.put_item(Item=convert_to_dynamodb_format(room_item))
-
-                for exit_data in room.get("Exits", []):
-                    exit_item = {
-                        "ExitID": exit_data["ExitID"],
-                        "RoomID": room["RoomID"],
-                        "Direction": exit_data["Direction"],
-                        "TargetRoom": exit_data["TargetRoom"],
-                        "Visible": exit_data["Visible"],
-                    }
-                    exits_batch.put_item(Item=convert_to_dynamodb_format(exit_item))
-        print("Room and exit data stored in DynamoDB successfully")
+        print("Room data stored in DynamoDB successfully")
     except ClientError as e:
-        logging.error(f"An error occurred while storing rooms and exits: {e.response['Error']['Message']}")
+        logging.error(f"An error occurred while storing rooms: {e.response['Error']['Message']}")
     except Exception as e:
-        logging.error(f"An unexpected error occurred while storing rooms and exits: {str(e)}")
+        logging.error(f"An unexpected error occurred while storing rooms: {str(e)}")
 
 
 def store_archetypes(dynamodb, archetypes_data):
@@ -100,8 +109,7 @@ def store_archetypes(dynamodb, archetypes_data):
             for name, archetype in archetypes_data.get("archetypes", {}).items():
                 archetype_item = {
                     "ArchetypeName": name,
-                    "Name": archetype.get("name", ""),
-                    "Description": archetype.get("description", ""),
+                    "Description": archetype.get("Description", ""),
                     "Attributes": archetype.get("Attributes", {}),
                     "Abilities": archetype.get("Abilities", {}),
                 }
@@ -125,7 +133,7 @@ def store_item_prototypes(dynamodb, prototypes_data):
     try:
         with table.batch_writer() as batch:
             for prototype in prototypes_data.get("itemPrototypes", []):
-                prototype["PrototypeID"] = prototype.pop("id")
+                prototype["PrototypeID"] = prototype.pop("PrototypeID")
                 batch.put_item(Item=convert_to_dynamodb_format(prototype))
         print("Item prototype data stored in DynamoDB successfully")
     except ClientError as err:
@@ -134,45 +142,51 @@ def store_item_prototypes(dynamodb, prototypes_data):
         logging.error(f"An unexpected error occurred while storing item prototypes: {str(err)}")
 
 
-def load_rooms_and_exits(dynamodb):
+def load_exits(dynamodb):
     """
-    Loads room data from the 'rooms' and 'exits' DynamoDB tables.
+    Loads exit data from the 'exits' DynamoDB table.
 
     Args:
         dynamodb: The DynamoDB resource object.
 
     Returns:
-        dict: A dictionary of room data with exits included.
+        dict: A dictionary of exit data.
     """
-    rooms_table = dynamodb.Table("rooms")
     exits_table = dynamodb.Table("exits")
     try:
-        rooms_response = rooms_table.scan()
         exits_response = exits_table.scan()
-
-        rooms = {item["RoomID"]: item for item in rooms_response.get("Items", [])}
-
-        for exit_item in exits_response.get("Items", []):
-            room_id = exit_item["RoomID"]
-            if room_id in rooms:
-                if "Exits" not in rooms[room_id]:
-                    rooms[room_id]["Exits"] = []
-                rooms[room_id]["Exits"].append(
-                    {
-                        "ExitID": exit_item["ExitID"],
-                        "Direction": exit_item["Direction"],
-                        "TargetRoom": exit_item["TargetRoom"],
-                        "Visible": exit_item["Visible"],
-                    }
-                )
-
-        print("Room and exit data loaded from DynamoDB successfully")
-        return rooms
+        exits = {item["ExitID"]: item for item in exits_response.get("Items", [])}
+        print("Exit data loaded from DynamoDB successfully")
+        return exits
     except ClientError as e:
-        logging.error(f"An error occurred while loading rooms and exits: {e.response['Error']['Message']}")
+        logging.error(f"An error occurred while loading exits: {e.response['Error']['Message']}")
         return {}
     except Exception as e:
-        logging.error(f"An unexpected error occurred while loading rooms and exits: {str(e)}")
+        logging.error(f"An unexpected error occurred while loading exits: {str(e)}")
+        return {}
+
+
+def load_rooms(dynamodb):
+    """
+    Loads room data from the 'rooms' DynamoDB table.
+
+    Args:
+        dynamodb: The DynamoDB resource object.
+
+    Returns:
+        dict: A dictionary of room data.
+    """
+    rooms_table = dynamodb.Table("rooms")
+    try:
+        rooms_response = rooms_table.scan()
+        rooms = {item["RoomID"]: item for item in rooms_response.get("Items", [])}
+        print("Room data loaded from DynamoDB successfully")
+        return rooms
+    except ClientError as e:
+        logging.error(f"An error occurred while loading rooms: {e.response['Error']['Message']}")
+        return {}
+    except Exception as e:
+        logging.error(f"An unexpected error occurred while loading rooms: {str(e)}")
         return {}
 
 
@@ -224,6 +238,22 @@ def load_item_prototypes(dynamodb):
         return {}
 
 
+def display_exits(exits):
+    """
+    Displays exit information.
+
+    Args:
+        exits (dict): The exits data to display.
+    """
+    print("Exits:")
+    for exit_id, exit_data in exits.items():
+        print(f"Exit ID: {exit_id}")
+        print(f"  Direction: {exit_data['Direction']}")
+        print(f"  Target Room: {exit_data['TargetRoom']}")
+        print(f"  Visible: {exit_data['Visible']}")
+        print()
+
+
 def display_rooms(rooms):
     """
     Displays room information.
@@ -236,8 +266,8 @@ def display_rooms(rooms):
         print(f"Room {room_id}: {room.get('Title', 'No Title')}")
         print(f"  Area: {room.get('Area', 'Unknown')}")
         print(f"  Description: {room.get('Description', 'No description')}")
-        for exit_data in room.get("Exits", []):
-            print(f"  Exit {exit_data['Direction']} (ID: {exit_data['ExitID']}) to room {exit_data['TargetRoom']}")
+        print(f"  Exits: {', '.join(room.get('ExitID', []))}")
+        print(f"  Items: {', '.join(room.get('ItemID', []))}")
         print()
 
 
@@ -271,13 +301,13 @@ def display_item_prototypes(prototypes):
     print("Item Prototypes:")
     for prototype in prototypes.get("itemPrototypes", []):
         print(f"ID: {prototype.get('PrototypeID', 'No ID')}")
-        print(f"  Name: {prototype.get('name', 'No Name')}")
-        print(f"  Description: {prototype.get('description', 'No description')}")
-        print(f"  Mass: {prototype.get('mass', 'Unknown')}")
-        print(f"  Value: {prototype.get('value', 'Unknown')}")
-        print(f"  Wearable: {prototype.get('wearable', False)}")
-        if prototype.get("wearable"):
-            print(f"  Worn on: {', '.join(prototype.get('worn_on', []))}")
+        print(f"  Name: {prototype.get('Name', 'No Name')}")
+        print(f"  Description: {prototype.get('Description', 'No description')}")
+        print(f"  Mass: {prototype.get('Mass', 'Unknown')}")
+        print(f"  Value: {prototype.get('Value', 'Unknown')}")
+        print(f"  Wearable: {prototype.get('Wearable', False)}")
+        if prototype.get("Wearable"):
+            print(f"  Worn on: {', '.join(prototype.get('WornOn', []))}")
         print()
 
 
@@ -292,6 +322,7 @@ def main():
     """
     parser = argparse.ArgumentParser(description="Load and store game data in DynamoDB.")
     parser.add_argument("-r", "--rooms", default="test_rooms.json", help="Path to the Rooms JSON file.")
+    parser.add_argument("-e", "--exits", default="test_exits.json", help="Path to the Exits JSON file.")
     parser.add_argument("-a", "--archetypes", default="test_archetypes.json", help="Path to the Archetypes JSON file.")
     parser.add_argument("-p", "--prototypes", default="test_prototypes.json", help="Path to the Prototypes JSON file.")
     parser.add_argument("-region", default="us-east-1", help="AWS region for DynamoDB.")
@@ -302,9 +333,13 @@ def main():
     try:
         dynamodb = boto3.resource("dynamodb", region_name=args.region)
 
-        # Load and store rooms and exits
+        # Load and store exits
+        exits_data = load_json(args.exits)
+        store_exits(dynamodb, exits_data)
+
+        # Load and store rooms
         rooms_data = load_json(args.rooms)
-        store_rooms_and_exits(dynamodb, rooms_data)
+        store_rooms(dynamodb, rooms_data)
 
         # Load and store archetypes
         archetypes_data = load_json(args.archetypes)
@@ -315,7 +350,10 @@ def main():
         store_item_prototypes(dynamodb, prototypes_data)
 
         # Load data from DynamoDB and display
-        loaded_rooms = load_rooms_and_exits(dynamodb)
+        loaded_exits = load_exits(dynamodb)
+        display_exits(loaded_exits)
+
+        loaded_rooms = load_rooms(dynamodb)
         display_rooms(loaded_rooms)
 
         loaded_archetypes = load_archetypes(dynamodb)
