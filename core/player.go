@@ -20,7 +20,7 @@ func (k *KeyPair) WritePlayer(player *Player) error {
 	pd := PlayerData{
 		PlayerID:      player.PlayerID,
 		CharacterList: make(map[string]string),
-		SeenMotDs:     make([]string, len(player.SeenMotDs)),
+		SeenMotDs:     make([]string, len(player.SeenMotD)),
 	}
 
 	// Convert UUIDs to strings for CharacterList
@@ -29,7 +29,7 @@ func (k *KeyPair) WritePlayer(player *Player) error {
 	}
 
 	// Convert UUIDs to strings for SeenMotDs
-	for i, motdID := range player.SeenMotDs {
+	for i, motdID := range player.SeenMotD {
 		pd.SeenMotDs[i] = motdID.String()
 	}
 
@@ -40,7 +40,7 @@ func (k *KeyPair) WritePlayer(player *Player) error {
 		return fmt.Errorf("error storing player data: %w", err)
 	}
 
-	Logger.Info("Successfully wrote player data", "playerName", player.PlayerID, "characterCount", len(player.CharacterList), "seenMotDCount", len(player.SeenMotDs))
+	Logger.Info("Successfully wrote player data", "playerName", player.PlayerID, "characterCount", len(player.CharacterList), "seenMotDCount", len(player.SeenMotD))
 	return nil
 }
 
@@ -286,7 +286,7 @@ func SelectCharacter(player *Player, server *Server) (*Character, error) {
 				Logger.Error("Failed to delete character", "characterName", characterToDelete, "error", err)
 				player.ToPlayer <- fmt.Sprintf("Failed to delete character: %v\n\r", err)
 			} else {
-				player.ToPlayer <- fmt.Sprintf("Character '%s' has been deleted.\n\r", characterToDelete)
+				player.ToPlayer <- fmt.Sprintf("\n\rCharacter '%s' has been deleted.\n\r", characterToDelete)
 			}
 			continue
 		}
