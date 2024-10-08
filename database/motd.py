@@ -41,8 +41,8 @@ def add_or_update_motd(message: str, active: bool = True) -> dict:
 
     try:
         # Put the item into the 'motd' table
-        response = table.put_item(Item=motd_item)
-        print(f"MOTD added successfully.")
+        _ = table.put_item(Item=motd_item)
+        print("MOTD added successfully.")
         print(f"MOTD ID: {motd_id}")
         return motd_item
     except ClientError as e:
