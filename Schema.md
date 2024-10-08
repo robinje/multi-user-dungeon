@@ -76,6 +76,7 @@ By adhering to this schema, developers can ensure data consistency and ease of a
 | Field        | Type      | Description                                     |
 | ------------ | --------- | ----------------------------------------------- |
 | `ExitID`     | `STRING`  | UUID of the exit.                               |
+| `RoomID`     | `NUMBER`  | ID of the room where the exit is located.       |
 | `Direction`  | `STRING`  | Direction of the exit (e.g., "north", "south"). |
 | `TargetRoom` | `NUMBER`  | ID of the room the exit leads to.               |
 | `Visible`    | `BOOLEAN` | Indicates if the exit is visible to players.    |
@@ -108,7 +109,6 @@ By adhering to this schema, developers can ensure data consistency and ease of a
 | `TraitMods`   | `MAP`     | Modifications to character traits when item is used/worn.     |
 | `Container`   | `BOOLEAN` | Indicates if the item can contain other items.                |
 | `Contents`    | `LIST`    | List of item UUIDs contained within this item.                |
-| `IsPrototype` | `BOOLEAN` | Flag to indicate if the item is a prototype.                  |
 | `IsWorn`      | `BOOLEAN` | Indicates if the item is currently worn by a character.       |
 | `CanPickUp`   | `BOOLEAN` | Indicates if the item can be picked up by players.            |
 | `Metadata`    | `MAP`     | Additional custom data related to the item.                   |
@@ -139,7 +139,7 @@ By adhering to this schema, developers can ensure data consistency and ease of a
 
 | Field         | Type      | Description                                                   |
 | ------------- | --------- | ------------------------------------------------------------- |
-| `ID`          | `STRING`  | UUID of the item.                                             |
+| `PrototypeID` | `STRING`  | UUID of the item.                                             |
 | `Name`        | `STRING`  | Name of the item.                                             |
 | `Description` | `STRING`  | Description of the item.                                      |
 | `Mass`        | `NUMBER`  | Weight or mass of the item.                                   |
@@ -157,7 +157,7 @@ By adhering to this schema, developers can ensure data consistency and ease of a
 | `CanPickUp`   | `BOOLEAN` | Indicates if the item can be picked up by players.            |
 | `Metadata`    | `MAP`     | Additional custom data related to the item.                   |
 
-- **`ID`**: Primary key, uniquely identifies the item.
+- **`PrototypeID`**: Primary key, uniquely identifies the item.
 - **`Name`**: The item's name as displayed to players.
 - **`Description`**: Detailed text about the item.
 - **`Mass`**: Used for weight calculations and inventory limits.
@@ -182,14 +182,14 @@ By adhering to this schema, developers can ensure data consistency and ease of a
 
 ## Archetypes Table
 
-| Field         | Type     | Description                           |
-| ------------- | -------- | ------------------------------------- |
-| `Name`        | `STRING` | Name of the archetype.                |
-| `Description` | `STRING` | Description of the archetype.         |
-| `Attributes`  | `MAP`    | Default attributes for the archetype. |
-| `Abilities`   | `MAP`    | Default abilities for the archetype.  |
+| Field          | Type     | Description                           |
+| -------------- | -------- | ------------------------------------- |
+| `ArchetypeName`| `STRING` | Name of the archetype.                |
+| `Description`  | `STRING` | Description of the archetype.         |
+| `Attributes`   | `MAP`    | Default attributes for the archetype. |
+| `Abilities`    | `MAP`    | Default abilities for the archetype.  |
 
-- **`Name`**: Primary key for the archetype.
+- **`ArchetypeName`**: Primary key for the archetype.
 - **`Description`**: Explains the archetype's role or characteristics.
 - **`Attributes`**: Base attribute values assigned to the archetype.
 - **`Abilities`**: Starting abilities associated with the archetype.

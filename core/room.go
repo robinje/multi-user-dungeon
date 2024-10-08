@@ -484,7 +484,7 @@ func (kp *KeyPair) LoadItemsForRoom(roomID int64) (map[uuid.UUID]*Item, error) {
 	for _, itemData := range itemsData {
 		item, err := kp.itemFromData(&itemData)
 		if err != nil {
-			Logger.Error("Error creating item from data", "item_id", itemData.ID, "error", err)
+			Logger.Error("Error creating item from data", "item_id", itemData.ItemID, "error", err)
 			continue
 		}
 		items[item.ID] = item

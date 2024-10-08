@@ -20,7 +20,7 @@ func DisplayPrototypes(prototypes map[uuid.UUID]*Prototype) {
 func (kp *KeyPair) StorePrototypes(prototypes map[uuid.UUID]*Prototype) error {
 	for _, prototype := range prototypes {
 		prototypeData := PrototypeData{
-			ID:          prototype.ID.String(),
+			PrototypeID: prototype.ID.String(),
 			Name:        prototype.Name,
 			Description: prototype.Description,
 			Mass:        prototype.Mass,
@@ -61,9 +61,9 @@ func (kp *KeyPair) LoadPrototypes() (map[uuid.UUID]*Prototype, error) {
 
 	prototypes := make(map[uuid.UUID]*Prototype)
 	for _, prototypeData := range prototypeDataList {
-		id, err := uuid.Parse(prototypeData.ID)
+		id, err := uuid.Parse(prototypeData.PrototypeID)
 		if err != nil {
-			Logger.Error("Error parsing prototype UUID", "id", prototypeData.ID, "error", err)
+			Logger.Error("Error parsing prototype UUID", "id", prototypeData.PrototypeID, "error", err)
 			continue
 		}
 		prototype := &Prototype{
@@ -134,7 +134,7 @@ func (k *KeyPair) WriteItem(obj *Item) error {
 
 	// Create the ItemData struct to store in DynamoDB
 	itemData := ItemData{
-		ID:          obj.ID.String(),
+		ItemID:      obj.ID.String(),
 		PrototypeID: obj.PrototypeID.String(),
 		Name:        obj.Name,
 		Description: obj.Description,
@@ -308,7 +308,7 @@ func (kp *KeyPair) itemFromData(itemData *ItemData) (*Item, error) {
 		return nil, fmt.Errorf("itemData is nil")
 	}
 
-	itemID, err := uuid.Parse(itemData.ID)
+	itemID, err := uuid.Parse(itemData.ItemID)
 	if err != nil {
 		return nil, fmt.Errorf("error parsing item UUID: %w", err)
 	}
@@ -443,16 +443,16 @@ func (kp *KeyPair) LoadAllItems() (map[string]*Item, error) {
 
 	items := make(map[string]*Item)
 	for _, itemData := range itemsData {
-		if itemData.ID == "" {
+		if itemData.ItemID == "" {
 			Logger.Warn("Skipping item with empty ID")
 			continue
 		}
 		item, err := kp.itemFromData(&itemData)
 		if err != nil {
-			Logger.Error("Error creating item from data", "item_id", itemData.ID, "error", err)
+			Logger.Error("Error creating item from data", "item_id", itemData.ItemID, "error", err)
 			continue
 		}
-		items[itemData.ID] = item
+		items[itemData.ItemID] = item
 	}
 
 	return items, nil
