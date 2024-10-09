@@ -181,7 +181,7 @@ By adhering to this schema, developers can ensure data consistency and ease of a
 ## Archetypes Table
 
 | Field           | Type     | Description                                |
-| --------------- | -------- | -------------------------------------------|
+| --------------- | -------- | ------------------------------------------ |
 | `ArchetypeName` | `STRING` | Name of the archetype.                     |
 | `Description`   | `STRING` | Description of the archetype.              |
 | `Attributes`    | `MAP`    | Default attributes for the archetype.      |
