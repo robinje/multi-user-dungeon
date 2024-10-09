@@ -344,6 +344,7 @@ func SelectCharacter(player *Player, server *Server) (*Character, error) {
 // CreateCharacter handles the character creation process for a player.
 // It prompts the player for a character name and archetype, and initializes the character.
 func (s *Server) CreateCharacter(player *Player) (*Character, error) {
+
 	Logger.Info("Player is creating a new character", "playerName", player.PlayerID)
 
 	player.ToPlayer <- "\n\rEnter your character name: "
@@ -367,7 +368,7 @@ func (s *Server) CreateCharacter(player *Player) (*Character, error) {
 		return nil, fmt.Errorf("character name must be 15 characters or fewer")
 	}
 
-	if s.CharacterNameExists(charName) {
+	if s.CharacterBloomFilter.Test([]byte(charName)) {
 		player.ToPlayer <- "Character name already exists. Please choose another name.\n\r"
 		return nil, fmt.Errorf("character name already exists")
 	}
@@ -375,11 +376,11 @@ func (s *Server) CreateCharacter(player *Player) (*Character, error) {
 	var selectedArchetype string
 
 	// If archetypes are available, prompt the player to select one
-	if s.Archetypes != nil && len(s.Archetypes.Archetypes) > 0 {
+	if len(s.ArcheTypes) > 0 {
 		for {
 			selectionMsg := "\n\rSelect a character archetype.\n\r"
-			archetypeOptions := make([]string, 0, len(s.Archetypes.Archetypes))
-			for name, archetype := range s.Archetypes.Archetypes {
+			archetypeOptions := make([]string, 0, len(s.ArcheTypes))
+			for name, archetype := range s.ArcheTypes {
 				archetypeOptions = append(archetypeOptions, name+" - "+archetype.Description)
 			}
 			sort.Strings(archetypeOptions)
@@ -411,7 +412,7 @@ func (s *Server) CreateCharacter(player *Player) (*Character, error) {
 	Logger.Info("Creating character", "characterName", charName)
 
 	// Attempt to find the starting room
-	room, ok := s.Rooms[1]
+	room, ok := s.Rooms[1] // This should be pulled ftom the Archtype
 	if !ok {
 		Logger.Warn("Starting room not found, using default room", "startingRoomID", 1)
 
@@ -425,8 +426,16 @@ func (s *Server) CreateCharacter(player *Player) (*Character, error) {
 		}
 	}
 
+	s.Mutex.Lock()
+	defer s.Mutex.Unlock()
+
 	// Create the new character
-	character := s.NewCharacter(charName, player, room, selectedArchetype)
+	character, err := s.NewCharacter(charName, player, room, selectedArchetype)
+	if err != nil {
+		Logger.Error("Error creating character", "characterName", charName, "error", err)
+		player.ToPlayer <- "Error creating character. Please try again later.\n\r"
+		return nil, fmt.Errorf("failed to create character: %w", err)
+	}
 
 	player.Mutex.Lock()
 	if player.CharacterList == nil {
@@ -438,7 +447,7 @@ func (s *Server) CreateCharacter(player *Player) (*Character, error) {
 	Logger.Info("Added character to player's character list", "characterName", charName, "characterID", character.ID, "playerName", player.PlayerID)
 
 	// Save the character to the database with error handling
-	err := s.Database.WriteCharacter(character)
+	err = s.Database.WriteCharacter(character)
 	if err != nil {
 		Logger.Error("Error saving character to database", "characterName", charName, "error", err)
 		player.ToPlayer <- "Error saving character to database. Please try again later.\n\r"

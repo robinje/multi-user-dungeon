@@ -116,6 +116,7 @@ def store_archetypes(dynamodb, archetypes_data):
                     "Description": archetype.get("Description", ""),
                     "Attributes": archetype.get("Attributes", {}),
                     "Abilities": archetype.get("Abilities", {}),
+                    "StartRoom": archetype.get("StartRoom", 0),
                 }
                 batch.put_item(Item=convert_to_dynamodb_format(archetype_item))
         print("Archetype data stored in DynamoDB successfully")

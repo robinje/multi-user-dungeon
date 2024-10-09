@@ -71,6 +71,7 @@ The current implementation includes an SSH server for secure authentication and 
 - [x] Add a Message of the Day (MOTD) command.
 - [x] Add Bloom Filter to check for existing characters names being used.
 - [x] Add the ability to delete characters.
+- [x] Allow starting room to be set by Archtype.
 - [ ] Add look at item command.
 - [ ] Implement an obscenity filter.
 - [ ] Validate graph of loaded rooms and exits.
@@ -78,8 +79,9 @@ The current implementation includes an SSH server for secure authentication and 
 - [ ] Improve the input filters
 - [ ] Create administrative interface.
 - [ ] Force Password Resets when needed.
-- [ ] Allow starting room to be set by Archtype.
 - [ ] Add the ability to delete accounts.
+- [ ] Add the ability to ban accounts.
+- [ ] Add the ability to mute accounts.
 
 ## Project Overview
 
