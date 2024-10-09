@@ -60,7 +60,7 @@ func NewServer(config core.Configuration) (*core.Server, error) {
 
 	// Load archetypes from the database
 	core.Logger.Info("Loading archetypes from database...")
-	server.Archetypes, err = server.Database.LoadArchetypes()
+	err = server.LoadArchetypes()
 	if err != nil {
 		core.Logger.Error("Error loading archetypes from database", "error", err)
 		// If archetypes are critical, consider exiting

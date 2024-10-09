@@ -30,7 +30,8 @@
         "FirstAid": 1.0,
         "Foraging": 1.0,
         "Appraise": 1.0
-      }
+      },
+      "StartRoom": 8
     },
     "rogue": {
       "ArchetypeName": "Rogue",
@@ -62,7 +63,8 @@
         "FirstAid": 0.0,
         "Foraging": 0.0,
         "Appraise": 0.0
-      }
+      },
+      "StartRoom": 10
     },
     "warrior": {
       "ArchetypeName": "Warrior",
@@ -94,7 +96,8 @@
         "FirstAid": 0.0,
         "Foraging": 0.0,
         "Appraise": 0.0
-      }
+      },
+      "StartRoom": 3
     }
   }
 }

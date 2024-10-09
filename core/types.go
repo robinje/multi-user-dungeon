@@ -69,7 +69,7 @@ type Server struct {
 	Characters           map[uuid.UUID]*Character
 	Balance              float64
 	AutoSave             uint16
-	Archetypes           *ArchetypesData
+	ArcheTypes           map[string]*Archetype
 	Health               uint16
 	Essence              uint16
 	Items                map[uuid.UUID]*Item
@@ -176,10 +176,7 @@ type Archetype struct {
 	Description   string             `json:"Description" dynamodbav:"Description"`
 	Attributes    map[string]float64 `json:"Attributes" dynamodbav:"Attributes"`
 	Abilities     map[string]float64 `json:"Abilities" dynamodbav:"Abilities"`
-}
-
-type ArchetypesData struct {
-	Archetypes map[string]Archetype `json:"archetypes"`
+	StartRoom     int64              `json:"StartRoom" dynamodbav:"StartRoom"`
 }
 
 type Item struct {
