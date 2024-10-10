@@ -21,6 +21,17 @@ The goal of this project is to create a commercial-quality multi-user dungeon (M
 
 The current implementation includes an SSH server for secure authentication and communication between the player and the server. The engine is primarily written in Go. Additionally, there is a user management system stub written in JavaScript and various utility scripts written in Python.
 
+## Project Overview
+
+The engine is primarily written in Go (version 1.22) with an SSH server for secure authentication and communication between the player and the server. Additionally, there are database utility scripts written in Python (version 3.12) and various deployment scripts.
+
+Key components:
+
+- Go server (v1.22) for game logic and player interactions
+- Python (v3.12) scripts for database management and deployment
+- AWS services for database (DynamoDB) and Identity Provider (Cognito)
+- CloudFormation templates for AWS resource management
+
 ## Current Objectives
 
 - [x] Create the TCP server for client connections.
@@ -82,17 +93,96 @@ The current implementation includes an SSH server for secure authentication and 
 - [ ] Add the ability to delete accounts.
 - [ ] Add the ability to ban accounts.
 - [ ] Add the ability to mute accounts.
+- [ ] Improve error handling.
+- [ ] Perform data validation for base data.
+- [ ] Add rate limiting to the server.
+- [ ] Expand error handling.
+- [ ] Add Session Timeout.
+- [ ] Handle unplanned disconnections.
 
-## Project Overview
+## Commands
 
-The engine is primarily written in Go (version 1.22) with an SSH server for secure authentication and communication between the player and the server. Additionally, there are database utility scripts written in Python (version 3.12) and various deployment scripts.
+Game Information:
+- [x] HELP: Display a list of commands.
+- [ ] MAP: Display a map of the current area.
+- [ ] TIME: Display the current time.
+- [ ] MOTD: Display the message of the day.
+- [ ] REPORT: Report a bug or issue.
+- [ ] BUG: Report a bug or issue.
+- [x] WHO: Display a list of players.
 
-Key components:
+Basic Movement:
+- [x] GO: Move to a new room.
+- [x] LOOK: Look at the current room.
+- [ ] CLIMB: Climb an object like a tree or ladder.
+- [ ] SWIM: Swim through water.
+- [ ] JUMP: Jump over an object.
+- [ ] SNEAK: Move quietly.
 
-- Go server (v1.22) for game logic and player interactions
-- Python (v3.12) scripts for database management and deployment
-- AWS services for database (DynamoDB) and Identity Provider (Cognito)
-- CloudFormation templates for AWS resource management
+Objects and Inventory:
+- [ ] GET: Pick up an object.
+- [ ] DROP: Drop an object.
+- [ ] PUT: Put an object in a container.
+- [ ] TAKE: Take an object from a container.
+- [ ] INVENTORY: Display the contents of your inventory.
+- [ ] WEAR: Wear an object.
+- [ ] REMOVE: Remove an object.
+- [ ] EXAMINE: Examine an object.
+- [ ] EAT: Eat an object.
+- [ ] DRINK: Drink an object.
+
+Communication:
+- [ ] SAY: Speak to other players.
+- [ ] WHISPER: Speak privately to another player.
+- [ ] SHOUT: Shout to the adjacent rooms.
+- [ ] EMOTE: Perform an action.
+
+Combat:
+- [ ] ATTACK: Attack another player or NPC.
+- [ ] PARRY: Defend against an attack.
+- [ ] DODGE: Avoid an attack.
+- [ ] LOAD: Load a weapon.
+- [ ] FIRE: Fire a weapon.
+
+Character Manegment:
+- [ ] SKILLS: Display your skills.
+- [ ] STATUS: Display the character status.
+
+Group:
+- [ ] GROUP: Create a group.
+- [ ] JOIN: Join a group.
+- [ ] FOPLLOW: Follow a group member.
+- [ ] LEAVE: Leave a group.
+- [ ] DISBAND: Disband a group.
+- [ ] FRIEND: Add a friend.
+
+Commerce:
+- [ ] SHOP: Brows items available from a merchant
+- [ ] BUY: Purchase an item from a merchant.
+- [ ] SELL: Sell an item to a merchant.
+- [ ] TRADE: Trade an item with another player.
+
+Magic:
+- [ ] PREPARE: Prepare a spell or ritual
+- [ ] CAST: Cast a spell or ritual.
+- [ ] DISPEL: Dispel a spell.
+
+Crafting:
+- [ ] FORAGE: Gather materials from the environment.
+- [ ] CRAFT: Create an item from materials.
+- [ ] SKIN: Remove materials from a creature.
+
+Session Management:
+- [ ] PASSWORD: Change your password.
+- [ ] QUIT: Exit the game (return to character managment)
+- [ ] LOGOUT: Exit the game.
+- [ ] SETTINGS: Change your settings.
+
+OTHER:
+- [ ] HIDE: Hide from other players.
+- [ ] SEARCH: Search for hidden objects.
+- [ ] UNHIDE: Reveal yourself.
+- [ ] USE: Use an object.
 
 ## Deployment
 
