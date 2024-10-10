@@ -103,6 +103,7 @@ Key components:
 ## Commands
 
 Game Information:
+
 - [x] HELP: Display a list of commands.
 - [ ] MAP: Display a map of the current area.
 - [ ] TIME: Display the current time.
@@ -112,6 +113,7 @@ Game Information:
 - [x] WHO: Display a list of players.
 
 Basic Movement:
+
 - [x] GO: Move to a new room.
 - [x] LOOK: Look at the current room.
 - [ ] CLIMB: Climb an object like a tree or ladder.
@@ -120,6 +122,7 @@ Basic Movement:
 - [ ] SNEAK: Move quietly.
 
 Objects and Inventory:
+
 - [ ] GET: Pick up an object.
 - [ ] DROP: Drop an object.
 - [ ] PUT: Put an object in a container.
@@ -132,12 +135,14 @@ Objects and Inventory:
 - [ ] DRINK: Drink an object.
 
 Communication:
+
 - [ ] SAY: Speak to other players.
 - [ ] WHISPER: Speak privately to another player.
 - [ ] SHOUT: Shout to the adjacent rooms.
 - [ ] EMOTE: Perform an action.
 
 Combat:
+
 - [ ] ATTACK: Attack another player or NPC.
 - [ ] PARRY: Defend against an attack.
 - [ ] DODGE: Avoid an attack.
@@ -145,10 +150,12 @@ Combat:
 - [ ] FIRE: Fire a weapon.
 
 Character Manegment:
+
 - [ ] SKILLS: Display your skills.
 - [ ] STATUS: Display the character status.
 
 Group:
+
 - [ ] GROUP: Create a group.
 - [ ] JOIN: Join a group.
 - [ ] FOPLLOW: Follow a group member.
@@ -157,28 +164,33 @@ Group:
 - [ ] FRIEND: Add a friend.
 
 Commerce:
+
 - [ ] SHOP: Brows items available from a merchant
 - [ ] BUY: Purchase an item from a merchant.
 - [ ] SELL: Sell an item to a merchant.
 - [ ] TRADE: Trade an item with another player.
 
 Magic:
+
 - [ ] PREPARE: Prepare a spell or ritual
 - [ ] CAST: Cast a spell or ritual.
 - [ ] DISPEL: Dispel a spell.
 
 Crafting:
+
 - [ ] FORAGE: Gather materials from the environment.
 - [ ] CRAFT: Create an item from materials.
 - [ ] SKIN: Remove materials from a creature.
 
 Session Management:
+
 - [ ] PASSWORD: Change your password.
 - [ ] QUIT: Exit the game (return to character managment)
 - [ ] LOGOUT: Exit the game.
 - [ ] SETTINGS: Change your settings.
 
 OTHER:
+
 - [ ] HIDE: Hide from other players.
 - [ ] SEARCH: Search for hidden objects.
 - [ ] UNHIDE: Reveal yourself.
