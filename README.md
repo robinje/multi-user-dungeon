@@ -143,6 +143,9 @@ Communication:
 
 Combat:
 
+- [ ] ADVACE: Move towards another player or NPC.
+- [ ] RETREAT: Move away from another player or NPC.
+- [ ] ASSESS: Assess the situation.
 - [ ] ATTACK: Attack another player or NPC.
 - [ ] PARRY: Defend against an attack.
 - [ ] DODGE: Avoid an attack.
@@ -185,8 +188,8 @@ Crafting:
 Session Management:
 
 - [ ] PASSWORD: Change your password.
-- [ ] QUIT: Exit the game (return to character managment)
-- [ ] LOGOUT: Exit the game.
+- [ ] QUIT: Exit the game.
+- [ ] LOGOUT: Exit the game. (return to character managment)
 - [ ] SETTINGS: Change your settings.
 
 OTHER:
