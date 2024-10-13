@@ -84,6 +84,7 @@ Key components:
 - [x] Add the ability to delete characters.
 - [x] Allow starting room to be set by Archtype.
 - [x] Improve the input filters
+- [x] Handle unplanned disconnections.
 - [ ] Add look at item command.
 - [ ] Implement an obscenity filter.
 - [ ] Validate graph of loaded rooms and exits.
@@ -98,7 +99,7 @@ Key components:
 - [ ] Add rate limiting to the server.
 - [ ] Expand error handling.
 - [ ] Add Session Timeout.
-- [ ] Handle unplanned disconnections.
+
 
 ## Commands
 
