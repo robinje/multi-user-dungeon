@@ -20,13 +20,18 @@ jobs:
           channel: "stable"
 
       - name: Install dependencies
+        working-directory: registration
         run: flutter pub get
 
       - name: Verify formatting
+        working-directory: registration
         run: dart format --output=none --set-exit-if-changed .
 
       - name: Analyze project source
-        run: flutter analyze
+        working-directory: registration
+        run: | 
+          flutter fix
+          flutter analyze
 
       - name: Run tests
         run: flutter test
