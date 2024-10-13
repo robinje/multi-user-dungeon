@@ -5,6 +5,7 @@ phases:
     runtime-versions:
       nodejs: 20
     commands:
+      - apt-get update -y -q
       - echo Installing Flutter...
       - git clone https://github.com/flutter/flutter.git -b stable
       - export PATH="$PATH:`pwd`/flutter/bin"
@@ -13,7 +14,7 @@ phases:
       - flutter config --enable-web
 
   pre_build:
-    commands:
+    commands:   
       - cd registration
       - flutter pub get
       - flutter fix
