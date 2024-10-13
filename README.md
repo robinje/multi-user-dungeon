@@ -100,7 +100,6 @@ Key components:
 - [ ] Expand error handling.
 - [ ] Add Session Timeout.
 
-
 ## Commands
 
 Game Information:
