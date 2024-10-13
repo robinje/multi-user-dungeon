@@ -1,5 +1,7 @@
+# Required
 PyYAML==6.0.2
 boto3==1.35.34
 
+# Dependancies
 botocore==1.35.34
 s3transfer==0.10.2

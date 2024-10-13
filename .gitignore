@@ -49,3 +49,7 @@
 **/node_modules/
 
 **/dist/
+
+## Jupyter
+
+**/*.ipynb_checkpoints/
