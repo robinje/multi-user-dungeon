@@ -16,15 +16,13 @@ phases:
     commands:
       - cd registration
       - flutter pub get
+      - flutter fix
       - flutter analyze
 
   build:
     commands:
-      - echo Replacing Cognito credentials...
-      - sed -i 's/YOUR_USER_POOL_ID/$USER_POOL_ID/' lib/main.dart
-      - sed -i 's/YOUR_CLIENT_ID/$CLIENT_ID/' lib/main.dart
       - echo Building web application...
-      - flutter build web --release
+      - flutter build web --release --dart-define=USER_POOL_ID=$USER_POOL_ID --dart-define=CLIENT_ID=$CLIENT_ID
 
   post_build:
     commands:

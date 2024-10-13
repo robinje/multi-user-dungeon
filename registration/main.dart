@@ -29,8 +29,8 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
   String _message = '';
 
   final userPool = CognitoUserPool(
-    'YOUR_USER_POOL_ID',
-    'YOUR_CLIENT_ID',
+    const String.fromEnvironment('USER_POOL_ID'),
+    const String.fromEnvironment('CLIENT_ID'),
   );
 
   Future<void> _signUp() async {
