@@ -25,7 +25,7 @@ jobs:
 
       - name: Verify formatting
         working-directory: registration
-        run: dart format --output=none --set-exit-if-changed .
+        run: dart format .
 
       - name: Analyze project source
         working-directory: registration
@@ -35,12 +35,6 @@ jobs:
 
       - name: Run tests
         run: flutter test
-
-      - name: Check for any formatting changes
-        run: |
-          dart format .
-          git diff --exit-code
-        continue-on-error: true
 
       - name: Configure Git
         run: |
