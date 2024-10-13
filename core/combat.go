@@ -32,8 +32,6 @@ func (c *Character) SetCombatRange(target *Character, CombatRange int) {
 
 // GetCombatRange gets the range to a target character, returning RangeFar if not in combat
 func (c *Character) GetCombatRange(target *Character) int {
-	c.Mutex.Lock()
-	defer c.Mutex.Unlock()
 	if c.CombatRange == nil {
 		return 0 // RangeFar
 	}
@@ -45,8 +43,6 @@ func (c *Character) GetCombatRange(target *Character) int {
 
 // IsInCombat checks if the character is currently in combat
 func (c *Character) IsInCombat() bool {
-	c.Mutex.Lock()
-	defer c.Mutex.Unlock()
 	return c.CombatRange != nil && len(c.CombatRange) > 0
 }
 
