@@ -1,3 +1,4 @@
+---
 AWSTemplateFormatVersion: "2010-09-09"
 Description: "CloudFormation template for Cognito User Pool and IAM Policy"
 
@@ -10,25 +11,37 @@ Parameters:
     Type: String
     Description: Name of the app client
     Default: my-app-client
+  CallbackURL:
+    Type: String
+    Description: URL of the callback for the app client
+    Default: https://localhost:3000/callback
+  SignOutURL:
+    Type: String
+    Description: URL of the sign-out page for the app client
+    Default: https://localhost:3000/sign-out
   ReplyEmailAddress:
     Type: String
-    Description: Email address to send from (reply-to address)
+    Description: Email address to send from
   VerificationSubject:
     Type: String
     Description: Subject of the email verification message
-    Default: "Verify your email for MyApp"
+    Default: Your verification link
 
 Resources:
   CognitoUserPool:
     Type: AWS::Cognito::UserPool
     Properties:
       UserPoolName: !Ref UserPoolName
-      UsernameAttributes:
-        - email
-      AutoVerifiedAttributes:
-        - email
-      UsernameConfiguration:
-        CaseSensitive: false
+      EmailConfiguration:
+        EmailSendingAccount: COGNITO_DEFAULT
+        ReplyToEmailAddress: !Ref ReplyEmailAddress
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: false
+        InviteMessageTemplate:
+          EmailMessage: "Your username is {username} and temporary password is {####}."
+          EmailSubject: "Your temporary password"
+          SMSMessage: "Your username is {username} and temporary password is {####}."
+        UnusedAccountValidityDays: 7
       Policies:
         PasswordPolicy:
           MinimumLength: 8
@@ -36,30 +49,77 @@ Resources:
           RequireNumbers: true
           RequireSymbols: true
           RequireUppercase: true
-      AdminCreateUserConfig:
-        AllowAdminCreateUserOnly: false
-      EmailVerificationSubject: !Ref VerificationSubject
-      EmailVerificationMessage: "Please verify your email address by entering the following code: {####}"
-      EmailConfiguration:
-        EmailSendingAccount: COGNITO_DEFAULT
-        ReplyToEmailAddress: !Ref ReplyEmailAddress
       Schema:
-        - Name: email
-          AttributeDataType: String
+        - AttributeDataType: String
+          Name: email
           Required: true
+        - AttributeDataType: String
+          Name: given_name
+          Required: false
+        - AttributeDataType: String
+          Name: family_name
+          Required: false
+      UsernameAttributes:
+        - email
+      UsernameConfiguration:
+        CaseSensitive: false
+      AutoVerifiedAttributes:
+        - email
+      EmailVerificationSubject: !Ref VerificationSubject
+      EmailVerificationMessage: "Please click the link below to verify your email address. {####}"
 
   CognitoUserPoolClient:
     Type: AWS::Cognito::UserPoolClient
     Properties:
       UserPoolId: !Ref CognitoUserPool
       ClientName: !Ref AppClientName
-      GenerateSecret: false
+      GenerateSecret: true
       ExplicitAuthFlows:
+        - ALLOW_ADMIN_USER_PASSWORD_AUTH
         - ALLOW_USER_PASSWORD_AUTH
         - ALLOW_REFRESH_TOKEN_AUTH
-        - ALLOW_USER_SRP_AUTH
         - ALLOW_CUSTOM_AUTH
+        - ALLOW_USER_SRP_AUTH
       PreventUserExistenceErrors: ENABLED
+      CallbackURLs:
+        - !Ref CallbackURL
+      LogoutURLs:
+        - !Ref SignOutURL
+
+  CognitoUserPoolDomain:
+    Type: AWS::Cognito::UserPoolDomain
+    Properties:
+      UserPoolId: !Ref CognitoUserPool
+      Domain: !Ref UserPoolName
+
+  CognitoReadOnlyPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      Description: "Policy providing read-only access to Cognito user objects"
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - cognito-idp:ListUsers
+              - cognito-idp:DescribeUserPool
+            Resource: !Sub "arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/${CognitoUserPool}"
+
+  CognitoReadOnlyRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - cognito-idp.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      ManagedPolicyArns:
+        - !Ref CognitoReadOnlyPolicy
+      Description: "Role with read-only access to Cognito user objects"
 
 Outputs:
   UserPoolId:
@@ -71,3 +131,9 @@ Outputs:
   UserPoolClientId:
     Description: The ID of the user pool client
     Value: !Ref CognitoUserPoolClient
+  UserPoolClientSecret:
+    Description: The secret of the user pool client
+    Value: !GetAtt CognitoUserPoolClient.ClientSecret
+  UserPoolDomain:
+    Description: The domain of the user pool
+    Value: !Ref CognitoUserPoolDomain
