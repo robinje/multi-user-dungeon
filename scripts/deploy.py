@@ -3,6 +3,7 @@ Multi User Dungeon Deployment Script
 """
 
 import traceback
+
 import boto3
 import yaml
 from botocore.exceptions import ClientError
@@ -22,8 +23,9 @@ CLOUDWATCH_TEMPLATE_PATH = "../cloudformation/cloudwatch.yml"
 # Configuration file path
 CONFIG_PATH = "../ssh_server/config.yml"
 
+
 def validate_s3_bucket(bucket_name, region="us-east-1"):
-    s3_client = boto3.client('s3', region_name=region)
+    s3_client = boto3.client("s3", region_name=region)
     try:
         s3_client.head_bucket(Bucket=bucket_name)
         print(f"S3 bucket '{bucket_name}' exists and is accessible")
@@ -32,9 +34,11 @@ def validate_s3_bucket(bucket_name, region="us-east-1"):
         print(f"Error accessing S3 bucket '{bucket_name}': {e}")
         return False
 
+
 def load_template(template_path):
     with open(template_path, "r", encoding="utf-8") as file:
         return file.read()
+
 
 def deploy_stack(client, stack_name, template_body, parameters):
     cf_parameters = [{"ParameterKey": k, "ParameterValue": v} for k, v in parameters.items()]
@@ -70,6 +74,7 @@ def deploy_stack(client, stack_name, template_body, parameters):
                 print(f"Error deleting stack {stack_name}: {delete_err}")
         return False
 
+
 def stack_exists(client, stack_name):
     try:
         client.describe_stacks(StackName=stack_name)
@@ -77,16 +82,19 @@ def stack_exists(client, stack_name):
     except client.exceptions.ClientError:
         return False
 
+
 def wait_for_stack_completion(client, stack_name):
     print(f"Waiting for stack {stack_name} to complete...")
     waiter = client.get_waiter("stack_create_complete")
     waiter.wait(StackName=stack_name)
     print("Stack operation completed.")
 
+
 def get_stack_outputs(client, stack_name):
     stack = client.describe_stacks(StackName=stack_name)
     outputs = stack["Stacks"][0]["Outputs"]
     return {output["OutputKey"]: output["OutputValue"] for output in outputs}
+
 
 def update_configuration_file(config_updates):
     try:
@@ -146,6 +154,7 @@ def update_configuration_file(config_updates):
         print("Current config_updates:", config_updates)
         print("Current config:", config)
 
+
 def gather_all_parameters():
     parameters = {}
 
@@ -180,6 +189,7 @@ def gather_all_parameters():
 
     return parameters
 
+
 def main():
     cloudformation_client = boto3.client("cloudformation")
 
@@ -210,10 +220,9 @@ def main():
         dynamo_outputs = get_stack_outputs(cloudformation_client, DYNAMO_STACK_NAME)
 
         # Update CodeBuild parameters with Cognito outputs
-        all_parameters["codebuild"].update({
-            "UserPoolId": cognito_outputs.get("UserPoolId", ""),
-            "ClientId": cognito_outputs.get("UserPoolClientId", "")
-        })
+        all_parameters["codebuild"].update(
+            {"UserPoolId": cognito_outputs.get("UserPoolId", ""), "ClientId": cognito_outputs.get("UserPoolClientId", "")}
+        )
 
         # Deploy CodeBuild stack
         codebuild_template = load_template(CODEBUILD_TEMPLATE_PATH)
@@ -244,6 +253,7 @@ def main():
     except Exception as e:
         print(f"An unexpected error occurred during deployment: {e}")
         traceback.print_exc()
+
 
 if __name__ == "__main__":
     main()
