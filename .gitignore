@@ -49,3 +49,7 @@
 **/node_modules/
 
 **/dist/
+
+# Flutter / Dart
+
+**/.dart_tool/
