@@ -84,7 +84,7 @@ func (c *Character) FromData(cd *CharacterData, server *Server) error {
 			Logger.Error("Error parsing item UUID", "itemID", itemIDStr, "error", err)
 			continue
 		}
-		item, err := server.Database.LoadItem(itemID.String(), false)
+		item, err := server.Database.LoadItem(itemID.String())
 		if err != nil {
 			Logger.Error("Error loading item for character", "itemID", itemID, "characterName", c.Name, "error", err)
 			continue
@@ -96,7 +96,12 @@ func (c *Character) FromData(cd *CharacterData, server *Server) error {
 }
 
 // NewCharacter creates a new character with the specified name and archetype.
-func (s *Server) NewCharacter(name string, player *Player, room *Room, archetypeName string) *Character {
+func (s *Server) NewCharacter(name string, player *Player, room *Room, archetypeName string) (*Character, error) {
+	// Check if the character name already exists
+	if s.CharacterBloomFilter.Test([]byte(name)) {
+		return nil, fmt.Errorf("character name '%s' already exists", name)
+	}
+
 	character := &Character{
 		ID:         uuid.New(),
 		Room:       room,
@@ -111,22 +116,36 @@ func (s *Server) NewCharacter(name string, player *Player, room *Room, archetype
 		Mutex:      sync.Mutex{},
 	}
 
-	// Add character name to bloom filter to prevent duplicates
-	s.AddCharacterName(name)
+	s.Mutex.Lock()
+	defer s.Mutex.Unlock()
+
+	// Add character name to bloom filter
+	s.CharacterBloomFilter.Add([]byte(name))
 
 	// Apply archetype attributes and abilities
 	if archetypeName != "" {
-		if archetype, ok := s.Archetypes.Archetypes[archetypeName]; ok {
+		if archetype, ok := s.ArcheTypes[archetypeName]; ok {
 			for attr, value := range archetype.Attributes {
 				character.Attributes[attr] = value
 			}
 			for ability, value := range archetype.Abilities {
 				character.Abilities[ability] = value
 			}
+			// Set the start room if it's defined in the archetype
+			if archetype.StartRoom != 0 {
+				if startRoom, ok := s.Rooms[archetype.StartRoom]; ok {
+					character.Room = startRoom
+				}
+			}
+		} else {
+			return nil, fmt.Errorf("archetype '%s' not found", archetypeName)
 		}
 	}
 
-	return character
+	// Add the character to the server's Characters map
+	s.Characters[character.ID] = character
+
+	return character, nil
 }
 
 // WriteCharacter saves the character to the DynamoDB database.
@@ -183,6 +202,40 @@ func (kp *KeyPair) LoadCharacter(characterID uuid.UUID, player *Player, server *
 
 	Logger.Info("Loaded character", "characterName", character.Name, "characterID", character.ID)
 	return character, nil
+}
+
+// DeleteCharacter removes a character from the player's character list and the database.
+func (s *Server) DeleteCharacter(player *Player, characterName string) error {
+	Logger.Info("Attempting to delete character", "playerName", player.PlayerID, "characterName", characterName)
+
+	// Check if the character exists in the player's character list
+	characterID, exists := player.CharacterList[characterName]
+	if !exists {
+		return fmt.Errorf("character %s not found for player %s", characterName, player.PlayerID)
+	}
+
+	// Remove the character from the player's character list
+	delete(player.CharacterList, characterName)
+
+	// Update the player data in the database
+	err := s.Database.WritePlayer(player)
+	if err != nil {
+		Logger.Error("Failed to update player data after character deletion", "playerName", player.PlayerID, "error", err)
+		return fmt.Errorf("failed to update player data: %w", err)
+	}
+
+	// Delete the character from the database
+	key := map[string]*dynamodb.AttributeValue{
+		"CharacterID": {S: aws.String(characterID.String())},
+	}
+	err = s.Database.Delete("characters", key)
+	if err != nil {
+		Logger.Error("Failed to delete character from database", "characterName", characterName, "characterID", characterID, "error", err)
+		return fmt.Errorf("failed to delete character from database: %w", err)
+	}
+
+	Logger.Info("Successfully deleted character", "playerName", player.PlayerID, "characterName", characterName, "characterID", characterID)
+	return nil
 }
 
 // LoadCharacterNames loads all character names from the database to initialize the bloom filter.
@@ -473,4 +526,22 @@ func RemoveWornItem(c *Character, item *Item) error {
 
 	Logger.Info("Item removed from worn location and placed in hand", "characterName", c.Name, "itemName", item.Name, "handSlot", handSlot)
 	return nil
+}
+
+// getOtherCharacters returns a list of character names in the room, excluding the current character.
+func getOtherCharacters(r *Room, currentCharacter *Character) []string {
+	if r == nil || r.Characters == nil {
+		Logger.Warn("Room or Characters map is nil in getOtherCharacters")
+		return []string{}
+	}
+
+	otherCharacters := make([]string, 0)
+	for _, c := range r.Characters {
+		if c != nil && c != currentCharacter {
+			otherCharacters = append(otherCharacters, c.Name)
+		}
+	}
+
+	Logger.Info("Found other characters in room", "count", len(otherCharacters), "room_id", r.RoomID)
+	return otherCharacters
 }

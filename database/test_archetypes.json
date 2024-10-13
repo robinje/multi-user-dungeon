@@ -1,8 +1,8 @@
 {
   "archetypes": {
     "wizard": {
-      "name": "Wizard",
-      "description": "A Wizard!",
+      "ArchetypeName": "Wizard",
+      "Description": "A Wizard!",
       "Attributes": {
         "Strength": 1.0,
         "Agility": 1.0,
@@ -30,11 +30,12 @@
         "FirstAid": 1.0,
         "Foraging": 1.0,
         "Appraise": 1.0
-      }
+      },
+      "StartRoom": 8
     },
     "rogue": {
-      "name": "Rogue",
-      "description": "A Rogue!",
+      "ArchetypeName": "Rogue",
+      "Description": "A Rogue!",
       "Attributes": {
         "Strength": 2.0,
         "Agility": 2.0,
@@ -62,11 +63,12 @@
         "FirstAid": 0.0,
         "Foraging": 0.0,
         "Appraise": 0.0
-      }
+      },
+      "StartRoom": 10
     },
     "warrior": {
-      "name": "Warrior",
-      "description": "A Warrior!",
+      "ArchetypeName": "Warrior",
+      "Description": "A Warrior!",
       "Attributes": {
         "Strength": 2.0,
         "Agility": 2.0,
@@ -94,7 +96,8 @@
         "FirstAid": 0.0,
         "Foraging": 0.0,
         "Appraise": 0.0
-      }
+      },
+      "StartRoom": 3
     }
   }
 }

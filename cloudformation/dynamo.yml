@@ -49,15 +49,11 @@ Resources:
     Properties:
       TableName: exits
       AttributeDefinitions:
-        - AttributeName: RoomID
-          AttributeType: N
-        - AttributeName: Direction
+        - AttributeName: ExitID
           AttributeType: S
       KeySchema:
-        - AttributeName: RoomID
+        - AttributeName: ExitID
           KeyType: HASH
-        - AttributeName: Direction
-          KeyType: RANGE
       ProvisionedThroughput:
         ReadCapacityUnits: 2
         WriteCapacityUnits: 2
@@ -109,10 +105,10 @@ Resources:
     Properties:
       TableName: motd
       AttributeDefinitions:
-        - AttributeName: motdID
+        - AttributeName: MotdID
           AttributeType: S
       KeySchema:
-        - AttributeName: motdID
+        - AttributeName: MotdID
           KeyType: HASH
       ProvisionedThroughput:
         ReadCapacityUnits: 2

@@ -2,10 +2,12 @@ package core
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
 	"runtime"
+	"sync"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -105,9 +107,11 @@ func EnableXRay(cfg *Configuration) error {
 
 func NewCloudWatchHandler(client *cloudwatchlogs.Client, logGroup, logStream string) *CloudWatchHandler {
 	return &CloudWatchHandler{
-		client:    client,
-		logGroup:  logGroup,
-		logStream: logStream,
+		client:      client,
+		logGroup:    logGroup,
+		logStream:   logStream,
+		mutex:       sync.Mutex{},
+		initialized: false,
 	}
 }
 
@@ -116,6 +120,12 @@ func (h *CloudWatchHandler) Enabled(ctx context.Context, level slog.Level) bool 
 }
 
 func (h *CloudWatchHandler) Handle(ctx context.Context, r slog.Record) error {
+	if err := h.initializeLogStream(ctx); err != nil {
+		// Log the error to stdout as a fallback
+		fmt.Printf("Failed to initialize CloudWatch log stream: %v\n", err)
+		return err
+	}
+
 	message := r.Message
 	for _, attr := range h.attrs {
 		message += fmt.Sprintf(" %s=%v", attr.Key, attr.Value)
@@ -125,7 +135,7 @@ func (h *CloudWatchHandler) Handle(ctx context.Context, r slog.Record) error {
 		return true
 	})
 
-	_, err := h.client.PutLogEvents(ctx, &cloudwatchlogs.PutLogEventsInput{
+	input := &cloudwatchlogs.PutLogEventsInput{
 		LogGroupName:  aws.String(h.logGroup),
 		LogStreamName: aws.String(h.logStream),
 		LogEvents: []cwlogtypes.InputLogEvent{
@@ -134,8 +144,24 @@ func (h *CloudWatchHandler) Handle(ctx context.Context, r slog.Record) error {
 				Timestamp: aws.Int64(time.Now().UnixNano() / int64(time.Millisecond)),
 			},
 		},
-	})
-	return err
+	}
+
+	// Implement retry logic
+	maxRetries := 3
+	for i := 0; i < maxRetries; i++ {
+		_, err := h.client.PutLogEvents(ctx, input)
+		if err == nil {
+			return nil
+		}
+		if i == maxRetries-1 {
+			// Log the error to stdout as a fallback
+			fmt.Printf("Failed to write log to CloudWatch after %d retries: %v\n", maxRetries, err)
+			return err
+		}
+		// Wait before retrying (you might want to implement exponential backoff here)
+		time.Sleep(time.Second * time.Duration(i+1))
+	}
+	return fmt.Errorf("failed to write log to CloudWatch after %d retries", maxRetries)
 }
 
 func (h *CloudWatchHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
@@ -236,4 +262,44 @@ func SendMetrics(s *Server, interval time.Duration) error {
 			return nil
 		}
 	}
+}
+
+func (h *CloudWatchHandler) initializeLogStream(ctx context.Context) error {
+	h.mutex.Lock()
+	defer h.mutex.Unlock()
+
+	if h.initialized {
+		return nil
+	}
+
+	// Check if the log stream exists
+	describeLogStreamsInput := &cloudwatchlogs.DescribeLogStreamsInput{
+		LogGroupName:        aws.String(h.logGroup),
+		LogStreamNamePrefix: aws.String(h.logStream),
+	}
+
+	output, err := h.client.DescribeLogStreams(ctx, describeLogStreamsInput)
+	if err != nil {
+		// If the error is not because the stream doesn't exist, return the error
+		var notFoundErr *types.ResourceNotFoundException
+		if !errors.As(err, &notFoundErr) {
+			return fmt.Errorf("failed to describe log streams: %w", err)
+		}
+	}
+
+	// If the log stream doesn't exist, create it
+	if output == nil || len(output.LogStreams) == 0 {
+		createLogStreamInput := &cloudwatchlogs.CreateLogStreamInput{
+			LogGroupName:  aws.String(h.logGroup),
+			LogStreamName: aws.String(h.logStream),
+		}
+
+		_, err = h.client.CreateLogStream(ctx, createLogStreamInput)
+		if err != nil {
+			return fmt.Errorf("failed to create log stream: %w", err)
+		}
+	}
+
+	h.initialized = true
+	return nil
 }
