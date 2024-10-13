@@ -14,7 +14,7 @@ phases:
       - flutter config --enable-web
 
   pre_build:
-    commands:   
+    commands:
       - cd registration
       - flutter pub get
       - flutter fix
