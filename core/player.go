@@ -2,7 +2,7 @@ package core
 
 import (
 	"bufio"
-	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"sort"
@@ -90,18 +90,21 @@ func (k *KeyPair) ReadPlayer(playerName string) (string, map[string]uuid.UUID, [
 func PlayerInput(p *Player) {
 	Logger.Info("Player input goroutine started", "playerName", p.PlayerID)
 
-	var inputBuffer bytes.Buffer
-	const maxBufferSize = 1024 // Maximum input size in bytes
-
+	var inputBuffer []rune
 	reader := bufio.NewReader(p.Connection)
 
+	defer func() {
+		close(p.FromPlayer)
+		Logger.Info("Player input goroutine ended", "playerName", p.PlayerID)
+	}()
+
 	for {
-		char, _, err := reader.ReadRune()
+		r, _, err := reader.ReadRune()
 		if err != nil {
 			if err == io.EOF {
 				Logger.Info("Player disconnected", "playerName", p.PlayerID)
 				p.PlayerError <- err
-				break
+				return
 			} else {
 				Logger.Error("Error reading from player", "playerName", p.PlayerID, "error", err)
 				p.PlayerError <- err
@@ -109,33 +112,36 @@ func PlayerInput(p *Player) {
 			}
 		}
 
-		if p.Echo && char != '\n' && char != '\r' {
-			if _, err := p.Connection.Write([]byte(string(char))); err != nil {
-				Logger.Error("Failed to echo character to player", "playerName", p.PlayerID, "error", err)
+		switch r {
+		case '\n', '\r':
+			if len(inputBuffer) > 0 {
+				p.FromPlayer <- string(inputBuffer)
+				inputBuffer = inputBuffer[:0]
+			}
+			if p.Echo {
+				p.Connection.Write([]byte("\r\n"))
+			}
+		case '\b', 127: // Backspace and Delete
+			if len(inputBuffer) > 0 {
+				inputBuffer = inputBuffer[:len(inputBuffer)-1]
+				if p.Echo {
+					p.Connection.Write([]byte("\b \b"))
+				}
+			}
+		case '\x03': // Ctrl+C
+			Logger.Info("Player sent interrupt signal", "playerName", p.PlayerID)
+			p.PlayerError <- errors.New("player interrupt")
+			p.Connection.Close()
+			return
+		default:
+			if len(inputBuffer) < 1024 { // Max input size
+				inputBuffer = append(inputBuffer, r)
+				if p.Echo {
+					p.Connection.Write([]byte(string(r)))
+				}
 			}
 		}
-
-		if char == '\n' || char == '\r' {
-			if inputBuffer.Len() > 0 {
-				// Send the accumulated input to the FromPlayer channel
-				p.FromPlayer <- inputBuffer.String()
-				inputBuffer.Reset()
-			}
-			continue
-		}
-
-		if inputBuffer.Len() >= maxBufferSize {
-			Logger.Warn("Input buffer overflow, discarding input", "playerName", p.PlayerID)
-			p.ToPlayer <- "\n\rInput too long, discarded.\n\r"
-			inputBuffer.Reset()
-			continue
-		}
-
-		inputBuffer.WriteRune(char)
 	}
-
-	// Close the FromPlayer channel to signal that no more input will be sent
-	close(p.FromPlayer)
 }
 
 // PlayerOutput handles sending messages to the player in a separate goroutine.
