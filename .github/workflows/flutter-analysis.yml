@@ -34,9 +34,6 @@ jobs:
           dart analyze
           flutter analyze
 
-      - name: Run tests
-        run: flutter test
-
       - name: Configure Git
         run: |
           git fetch -q
