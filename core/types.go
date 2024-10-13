@@ -156,6 +156,7 @@ type Character struct {
 	Inventory   map[string]*Item
 	Server      *Server
 	Mutex       sync.Mutex
+	Facing      *Character
 	CombatRange map[uuid.UUID]int // nil when not in combat
 }
 

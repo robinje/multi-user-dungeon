@@ -143,9 +143,10 @@ Communication:
 
 Combat:
 
+- [x] FACE: Face another player or NPC.
 - [ ] ADVACE: Move towards another player or NPC.
 - [ ] RETREAT: Move away from another player or NPC.
-- [ ] ASSESS: Assess the situation.
+- [x] ASSESS: Assess the situation.
 - [ ] ATTACK: Attack another player or NPC.
 - [ ] PARRY: Defend against an attack.
 - [ ] DODGE: Avoid an attack.

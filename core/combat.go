@@ -66,3 +66,22 @@ func (c *Character) CanEscape() bool {
 	// No characters at melee range, can escape
 	return true
 }
+
+// SetFacing sets the character's facing to the target character
+func (c *Character) SetFacing(target *Character) {
+	c.Mutex.Lock()
+	defer c.Mutex.Unlock()
+	c.Facing = target
+}
+
+// GetFacing returns the character that this character is facing
+func (c *Character) GetFacing() *Character {
+	return c.Facing
+}
+
+// ClearFacing clears the character's facing
+func (c *Character) ClearFacing() {
+	c.Mutex.Lock()
+	defer c.Mutex.Unlock()
+	c.Facing = nil
+}

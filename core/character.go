@@ -31,6 +31,61 @@ var WearLocations = map[string]bool{
 	"right_wrist":  true,
 }
 
+// NewCharacter creates a new character with the specified name and archetype.
+func (s *Server) NewCharacter(name string, player *Player, room *Room, archetypeName string) (*Character, error) {
+	// Check if the character name already exists
+	if s.CharacterBloomFilter.Test([]byte(name)) {
+		return nil, fmt.Errorf("character name '%s' already exists", name)
+	}
+
+	character := &Character{
+		ID:          uuid.New(),
+		Room:        room,
+		Name:        name,
+		Player:      player,
+		Health:      float64(s.Health),
+		Essence:     float64(s.Essence),
+		Attributes:  make(map[string]float64),
+		Abilities:   make(map[string]float64),
+		Inventory:   make(map[string]*Item),
+		Server:      s,
+		Mutex:       sync.Mutex{},
+		CombatRange: nil,
+		Facing:      nil,
+	}
+
+	s.Mutex.Lock()
+	defer s.Mutex.Unlock()
+
+	// Add character name to bloom filter
+	s.CharacterBloomFilter.Add([]byte(name))
+
+	// Apply archetype attributes and abilities
+	if archetypeName != "" {
+		if archetype, ok := s.ArcheTypes[archetypeName]; ok {
+			for attr, value := range archetype.Attributes {
+				character.Attributes[attr] = value
+			}
+			for ability, value := range archetype.Abilities {
+				character.Abilities[ability] = value
+			}
+			// Set the start room if it's defined in the archetype
+			if archetype.StartRoom != 0 {
+				if startRoom, ok := s.Rooms[archetype.StartRoom]; ok {
+					character.Room = startRoom
+				}
+			}
+		} else {
+			return nil, fmt.Errorf("archetype '%s' not found", archetypeName)
+		}
+	}
+
+	// Add the character to the server's Characters map
+	s.Characters[character.ID] = character
+
+	return character, nil
+}
+
 // ToData converts a Character object into a CharacterData struct for database storage.
 func (c *Character) ToData() *CharacterData {
 	inventoryIDs := make(map[string]string)
@@ -93,60 +148,6 @@ func (c *Character) FromData(cd *CharacterData, server *Server) error {
 	}
 
 	return nil
-}
-
-// NewCharacter creates a new character with the specified name and archetype.
-func (s *Server) NewCharacter(name string, player *Player, room *Room, archetypeName string) (*Character, error) {
-	// Check if the character name already exists
-	if s.CharacterBloomFilter.Test([]byte(name)) {
-		return nil, fmt.Errorf("character name '%s' already exists", name)
-	}
-
-	character := &Character{
-		ID:          uuid.New(),
-		Room:        room,
-		Name:        name,
-		Player:      player,
-		Health:      float64(s.Health),
-		Essence:     float64(s.Essence),
-		Attributes:  make(map[string]float64),
-		Abilities:   make(map[string]float64),
-		Inventory:   make(map[string]*Item),
-		Server:      s,
-		Mutex:       sync.Mutex{},
-		CombatRange: nil,
-	}
-
-	s.Mutex.Lock()
-	defer s.Mutex.Unlock()
-
-	// Add character name to bloom filter
-	s.CharacterBloomFilter.Add([]byte(name))
-
-	// Apply archetype attributes and abilities
-	if archetypeName != "" {
-		if archetype, ok := s.ArcheTypes[archetypeName]; ok {
-			for attr, value := range archetype.Attributes {
-				character.Attributes[attr] = value
-			}
-			for ability, value := range archetype.Abilities {
-				character.Abilities[ability] = value
-			}
-			// Set the start room if it's defined in the archetype
-			if archetype.StartRoom != 0 {
-				if startRoom, ok := s.Rooms[archetype.StartRoom]; ok {
-					character.Room = startRoom
-				}
-			}
-		} else {
-			return nil, fmt.Errorf("archetype '%s' not found", archetypeName)
-		}
-	}
-
-	// Add the character to the server's Characters map
-	s.Characters[character.ID] = character
-
-	return character, nil
 }
 
 // WriteCharacter saves the character to the DynamoDB database.
