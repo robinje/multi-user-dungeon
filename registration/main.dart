@@ -20,7 +20,8 @@ class MyApp extends StatelessWidget {
 
 class EmailVerificationScreen extends StatefulWidget {
   @override
-  _EmailVerificationScreenState createState() => _EmailVerificationScreenState();
+  _EmailVerificationScreenState createState() =>
+      _EmailVerificationScreenState();
 }
 
 class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
@@ -38,7 +39,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
       try {
         await userPool.signUp(
           _emailController.text,
-          'tempPassword123!',  // This is a temporary password
+          'tempPassword123!', // This is a temporary password
           userAttributes: [
             AttributeArg(name: 'email', value: _emailController.text),
           ],
