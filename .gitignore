@@ -24,6 +24,8 @@
 
 **/*.sum
 
+**/*.lock
+
 # Don't import keys.
 
 *.key
@@ -53,3 +55,4 @@
 # Flutter / Dart
 
 **/.dart_tool/
+
