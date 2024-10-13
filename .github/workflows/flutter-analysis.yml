@@ -30,7 +30,8 @@ jobs:
       - name: Analyze project source
         working-directory: registration
         run: |
-          flutter fix
+          dart fix
+          dart analyze
           flutter analyze
 
       - name: Run tests
