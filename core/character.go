@@ -103,17 +103,18 @@ func (s *Server) NewCharacter(name string, player *Player, room *Room, archetype
 	}
 
 	character := &Character{
-		ID:         uuid.New(),
-		Room:       room,
-		Name:       name,
-		Player:     player,
-		Health:     float64(s.Health),
-		Essence:    float64(s.Essence),
-		Attributes: make(map[string]float64),
-		Abilities:  make(map[string]float64),
-		Inventory:  make(map[string]*Item),
-		Server:     s,
-		Mutex:      sync.Mutex{},
+		ID:          uuid.New(),
+		Room:        room,
+		Name:        name,
+		Player:      player,
+		Health:      float64(s.Health),
+		Essence:     float64(s.Essence),
+		Attributes:  make(map[string]float64),
+		Abilities:   make(map[string]float64),
+		Inventory:   make(map[string]*Item),
+		Server:      s,
+		Mutex:       sync.Mutex{},
+		CombatRange: nil,
 	}
 
 	s.Mutex.Lock()

@@ -136,6 +136,13 @@ func ExecuteGoCommand(character *Character, tokens []string) bool {
 
 	Logger.Info("Player is attempting to move", "playerName", character.Player.PlayerID)
 
+	if !character.CanEscape() {
+		character.Player.ToPlayer <- "\n\rYou can't escape!\n\r"
+		return false
+	}
+
+	// Ensure the correct number of arguments are provided
+
 	if len(tokens) < 2 {
 		character.Player.ToPlayer <- "\n\rWhich direction do you want to go?\n\r"
 		return false
@@ -143,6 +150,9 @@ func ExecuteGoCommand(character *Character, tokens []string) bool {
 
 	direction := tokens[1]
 	Move(character, direction)
+
+	character.ExitCombat()
+
 	return false
 }
 
