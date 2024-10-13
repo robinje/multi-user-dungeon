@@ -36,7 +36,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
   Future<void> _signUp() async {
     if (_formKey.currentState!.validate()) {
       try {
-        final signUpResult = await userPool.signUp(
+        await userPool.signUp(
           _emailController.text,
           'tempPassword123!',  // This is a temporary password
           userAttributes: [
