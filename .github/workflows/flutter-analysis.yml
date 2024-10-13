@@ -19,6 +19,14 @@ jobs:
           flutter-version: "3.x"
           channel: "stable"
 
+      - name: Configure Git
+        run: |
+          git fetch -q
+          git checkout ${{github.head_ref}} --progress
+          git config --global user.name "Dark Relics Automatic"
+          git config --global user.email "contact@darkrelics.net"
+          git pull
+
       - name: Install dependencies
         working-directory: registration
         run: flutter pub get
@@ -34,26 +42,18 @@ jobs:
           dart analyze
           flutter analyze
 
-      - name: Configure Git
+      - name: Check for changes
+        id: git-check
         run: |
-          git fetch -q
-          git checkout ${{github.head_ref}} --progress
-          git config --global user.name "Dark Relics Automatic"
-          git config --global user.email "contact@darkrelics.net"
-          git pull
-
-          - name: Check for changes
-          id: git-check
-          run: |
             git add . -vv
             if git diff-index --quiet HEAD; then
                 echo "changes=false" >> $GITHUB_OUTPUT
             else
                 echo "changes=true" >> $GITHUB_OUTPUT
             fi
-
-          - name: Commit and push changes
-              if: steps.git-check.outputs.changes == 'true'
-              run: |
-              git commit -m "Apply Autoformatting" -vv
-              git push -vv
+  
+      - name: Commit and push changes
+        if: steps.git-check.outputs.changes == 'true'
+        run: |
+            git commit -m "Apply Flutter Autoformatting" -vv
+            git push -vv

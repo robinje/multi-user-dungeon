@@ -52,5 +52,5 @@ jobs:
       - name: Commit and push changes
         if: steps.git-check.outputs.changes == 'true'
         run: |
-          git commit -m "Apply Autoformatting" -vv
+          git commit -m "Apply Python Autoformatting" -vv
           git push -vv
