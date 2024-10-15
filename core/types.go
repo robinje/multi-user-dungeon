@@ -145,17 +145,19 @@ type ExitData struct {
 }
 
 type Character struct {
-	ID         uuid.UUID
-	Player     *Player
-	Name       string
-	Attributes map[string]float64
-	Abilities  map[string]float64
-	Essence    float64
-	Health     float64
-	Room       *Room
-	Inventory  map[string]*Item
-	Server     *Server
-	Mutex      sync.Mutex
+	ID          uuid.UUID
+	Player      *Player
+	Name        string
+	Attributes  map[string]float64
+	Abilities   map[string]float64
+	Essence     float64
+	Health      float64
+	Room        *Room
+	Inventory   map[string]*Item
+	Server      *Server
+	Mutex       sync.Mutex
+	Facing      *Character
+	CombatRange map[uuid.UUID]int // nil when not in combat
 }
 
 // CharacterData for unmarshalling character.

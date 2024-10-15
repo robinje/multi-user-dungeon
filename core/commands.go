@@ -27,6 +27,7 @@ var CommandHandlers = map[string]CommandHandler{
 	"wear":      ExecuteWearCommand,
 	"remove":    ExecuteRemoveCommand,
 	"examine":   ExecuteExamineCommand,
+	"assess":    ExecuteAssessCommand,
 	"i":         ExecuteInventoryCommand, // Alias for inventory command
 	"inv":       ExecuteInventoryCommand, // Alias for inventory command
 	"\"":        ExecuteSayCommand,       // Allow for double quotes to be used as a shortcut for the say command
@@ -136,6 +137,13 @@ func ExecuteGoCommand(character *Character, tokens []string) bool {
 
 	Logger.Info("Player is attempting to move", "playerName", character.Player.PlayerID)
 
+	if !character.CanEscape() {
+		character.Player.ToPlayer <- "\n\rYou can't escape!\n\r"
+		return false
+	}
+
+	// Ensure the correct number of arguments are provided
+
 	if len(tokens) < 2 {
 		character.Player.ToPlayer <- "\n\rWhich direction do you want to go?\n\r"
 		return false
@@ -143,6 +151,9 @@ func ExecuteGoCommand(character *Character, tokens []string) bool {
 
 	direction := tokens[1]
 	Move(character, direction)
+
+	character.ExitCombat()
+
 	return false
 }
 
@@ -526,6 +537,98 @@ func ExecuteExamineCommand(character *Character, tokens []string) bool {
 	return false
 }
 
+func ExecuteAssessCommand(character *Character, tokens []string) bool {
+	Logger.Info("Player is assessing combat situation", "playerName", character.Player.PlayerID)
+
+	if !character.IsInCombat() {
+		character.Player.ToPlayer <- "\n\rYou are not currently in combat.\n\r"
+		return false
+	}
+
+	var assessment strings.Builder
+	assessment.WriteString("\n\rCombat Assessment:\n\r")
+
+	if len(character.CombatRange) == 0 {
+		assessment.WriteString("You are in combat, but not engaged with any specific opponents.\n\r")
+	} else {
+		for targetID, distance := range character.CombatRange {
+			targetCharacter := character.Server.Characters[targetID]
+			if targetCharacter == nil {
+				continue // Skip if the character is not found (should not happen in normal circumstances)
+			}
+
+			var rangeDescription string
+			switch distance {
+			case 0:
+				rangeDescription = "far"
+			case 1:
+				rangeDescription = "pole"
+			case 2:
+				rangeDescription = "melee"
+			default:
+				rangeDescription = "unknown"
+			}
+
+			facingInfo := ""
+			if targetCharacter.GetFacing() == character {
+				facingInfo = " and is facing you"
+			}
+
+			assessment.WriteString(fmt.Sprintf("%s is at %s range%s.\n\r", targetCharacter.Name, rangeDescription, facingInfo))
+		}
+	}
+
+	if character.CanEscape() {
+		assessment.WriteString("You can attempt to escape from combat.\n\r")
+	} else {
+		assessment.WriteString("You cannot escape from combat at this time.\n\r")
+	}
+
+	character.Player.ToPlayer <- assessment.String()
+	return false
+}
+
+func ExecuteFaceCommand(character *Character, tokens []string) bool {
+	if len(tokens) < 2 {
+		character.Player.ToPlayer <- "\n\rUsage: face <character name>\n\r"
+		return false
+	}
+
+	targetName := strings.Join(tokens[1:], " ")
+	var targetCharacter *Character
+
+	// Find the target character in the same room
+	for _, c := range character.Room.Characters {
+		if strings.EqualFold(c.Name, targetName) {
+			targetCharacter = c
+			break
+		}
+	}
+
+	if targetCharacter == nil {
+		character.Player.ToPlayer <- fmt.Sprintf("\n\rYou don't see %s here.\n\r", targetName)
+		return false
+	}
+
+	// Set facing for the character executing the command
+	character.SetFacing(targetCharacter)
+
+	// Enter combat and set range to far (0) for both characters
+	character.EnterCombat()
+	targetCharacter.EnterCombat()
+
+	character.SetCombatRange(targetCharacter, 0) // 0 represents far range
+	targetCharacter.SetCombatRange(character, 0) // Reciprocal setting
+
+	character.Player.ToPlayer <- fmt.Sprintf("\n\rYou are now facing %s at far range.\n\r", targetCharacter.Name)
+
+	// Notify the target character
+	targetCharacter.Player.ToPlayer <- fmt.Sprintf("\n\r%s is now facing you at far range.\n\r", character.Name)
+	targetCharacter.Player.ToPlayer <- targetCharacter.Player.Prompt
+
+	return false
+}
+
 func ExecuteHelpCommand(character *Character, tokens []string) bool {
 
 	Logger.Info("Player is requesting help", "playerName", character.Player.PlayerID)
@@ -542,6 +645,8 @@ func ExecuteHelpCommand(character *Character, tokens []string) bool {
 		"\n\rremove <item> - Remove a worn item" +
 		"\n\rexamine <item> - Get detailed information about an item" +
 		"\n\rinventory (or i) - Check your inventory" +
+		"\n\rassess - Assess your current combat situation" +
+		"\n\rface <character> - Face a character in the room" +
 		"\n\rwho - List all characters online" +
 		"\n\rpassword <oldPassword> <newPassword> - Change your password" +
 		"\n\rquit - Quit the game\n\r"
