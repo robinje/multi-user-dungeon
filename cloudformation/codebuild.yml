@@ -1,6 +1,5 @@
----
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "CloudFormation template for CodeBuild Project and IAM Policy"
+Description: "CloudFormation template for CodeBuild Project and IAM Policy for Flutter Web application"
 
 Parameters:
   UserPoolId:
@@ -55,7 +54,7 @@ Resources:
     Type: AWS::CodeBuild::Project
     Properties:
       Name: RegistrationApplicationBuild
-      Description: Build project for the Registration Application
+      Description: Build project for the Flutter Web Registration Application
       ServiceRole: !GetAtt CodeBuildServiceRole.Arn
       Artifacts:
         Type: NO_ARTIFACTS

@@ -28,3 +28,8 @@ updates:
       interval: "weekly"
     allow:
       - dependency-type: production
+
+  - package-ecosystem: "pub"
+    directory: "/"
+    schedule:
+      interval: "weekly"
