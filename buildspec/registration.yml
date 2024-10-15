@@ -17,8 +17,8 @@ phases:
     commands:
       - cd registration
       - flutter pub get
-      - flutter fix
-      - flutter analyze
+      - dart fix
+      - dart analyze
 
   build:
     commands:
