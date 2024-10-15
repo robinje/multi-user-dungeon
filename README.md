@@ -9,8 +9,7 @@
 
 ![Go](https://img.shields.io/badge/go-%2300ADD8.svg?style=for-the-badge&logo=go&logoColor=white)
 ![Python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54)
-![JavaScript](https://img.shields.io/badge/javascript-%23323330.svg?style=for-the-badge&logo=javascript&logoColor=%23F7DF1E)
-![Webpack](https://img.shields.io/badge/webpack-%238DD6F9.svg?style=for-the-badge&logo=webpack&logoColor=black)
+![Flutter](https://img.shields.io/badge/Flutter-%2302569B.svg?style=for-the-badge&logo=Flutter&logoColor=white)
 
 ![Linux](https://img.shields.io/badge/Linux-FCC624?style=for-the-badge&logo=linux&logoColor=black)
 ![Windows](https://img.shields.io/badge/Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white)
@@ -83,11 +82,12 @@ Key components:
 - [x] Add Bloom Filter to check for existing characters names being used.
 - [x] Add the ability to delete characters.
 - [x] Allow starting room to be set by Archtype.
+- [x] Improve the input filters
+- [x] Handle unplanned disconnections.
 - [ ] Add look at item command.
 - [ ] Implement an obscenity filter.
 - [ ] Validate graph of loaded rooms and exits.
 - [ ] Improve the say command.
-- [ ] Improve the input filters
 - [ ] Create administrative interface.
 - [ ] Force Password Resets when needed.
 - [ ] Add the ability to delete accounts.
@@ -98,7 +98,6 @@ Key components:
 - [ ] Add rate limiting to the server.
 - [ ] Expand error handling.
 - [ ] Add Session Timeout.
-- [ ] Handle unplanned disconnections.
 
 ## Commands
 
@@ -143,6 +142,10 @@ Communication:
 
 Combat:
 
+- [x] FACE: Face another player or NPC.
+- [ ] ADVACE: Move towards another player or NPC.
+- [ ] RETREAT: Move away from another player or NPC.
+- [x] ASSESS: Assess the situation.
 - [ ] ATTACK: Attack another player or NPC.
 - [ ] PARRY: Defend against an attack.
 - [ ] DODGE: Avoid an attack.
@@ -185,8 +188,8 @@ Crafting:
 Session Management:
 
 - [ ] PASSWORD: Change your password.
-- [ ] QUIT: Exit the game (return to character managment)
-- [ ] LOGOUT: Exit the game.
+- [ ] QUIT: Exit the game.
+- [ ] LOGOUT: Exit the game. (return to character managment)
 - [ ] SETTINGS: Change your settings.
 
 OTHER:

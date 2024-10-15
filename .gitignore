@@ -24,6 +24,8 @@
 
 **/*.sum
 
+**/*.lock
+
 # Don't import keys.
 
 *.key
@@ -50,6 +52,11 @@
 
 **/dist/
 
+
 ## Jupyter
 
 **/*.ipynb_checkpoints/
+
+# Flutter / Dart
+
+**/.dart_tool/
