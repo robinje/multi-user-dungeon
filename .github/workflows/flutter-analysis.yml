@@ -1,29 +1,27 @@
-name: Python Autoformatting
+name: Dart Format and Analyze
 
 on:
+  push:
+    branches: [develop]
   pull_request:
+    branches: "**"
 
 permissions:
   pull-requests: write
   contents: write
 
 jobs:
-  auto-format-python:
+  format-and-analyze:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v3
 
-      - name: Set up Python 3.12
-        uses: actions/setup-python@v5
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
         with:
-          python-version: "3.12"
-
-      - name: Install Python Autoformatting Tools
-        run: |
-          python -m pip install --upgrade pip
-          pip install --upgrade wheel
-          pip install --upgrade isort black ruff
+          flutter-version: "3.x"
+          channel: "stable"
 
       - name: Configure Git
         run: |
@@ -33,11 +31,20 @@ jobs:
           git config --global user.email "contact@darkrelics.net"
           git pull
 
-      - name: Autoformat Python Files
+      - name: Install dependencies
+        working-directory: registration
+        run: flutter pub get
+
+      - name: Verify formatting
+        working-directory: registration
+        run: dart format .
+
+      - name: Analyze project source
+        working-directory: registration
         run: |
-          isort --atomic --py 312 .
-          ruff check . --ignore E501 --fix
-          black . -l 132 -t py312
+          dart fix --apply 
+          dart analyze
+          flutter analyze
 
       - name: Check for changes
         id: git-check
@@ -52,5 +59,5 @@ jobs:
       - name: Commit and push changes
         if: steps.git-check.outputs.changes == 'true'
         run: |
-          git commit -m "Apply Python Autoformatting" -vv
+          git commit -m "Apply Flutter Autoformatting" -vv
           git push -vv
