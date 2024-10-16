@@ -1,11 +1,11 @@
 {
-    "name": "registration",
-    "short_name": "registration",
+    "name": "Cognito Email Verification",
+    "short_name": "Email Verify",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "A Flutter app for Cognito email verification.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
