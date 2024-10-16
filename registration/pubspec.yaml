@@ -2,7 +2,7 @@ name: cognito_email_verification
 description: A simple Flutter app for Cognito email verification
 
 environment:
-  sdk: '>=3.5.0 <4.0.0'
+  sdk: ">=3.5.0 <4.0.0"
 
 dependencies:
   flutter:
