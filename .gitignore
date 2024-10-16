@@ -56,3 +56,5 @@
 
 **/.dart_tool/
 
+**/*.metadata
+
