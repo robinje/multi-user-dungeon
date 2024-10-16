@@ -6,7 +6,7 @@ phases:
       nodejs: 20
     commands:
       - apt-get update -y -q
-      - apt-get install -y clang cmake ninja-build libgtk-3-dev
+      - apt-get install -y clang cmake ninja-build libgtk-3-dev -q
       - echo Installing Flutter...
       - git clone https://github.com/flutter/flutter.git -b stable
       - export PATH="$PATH:`pwd`/flutter/bin"
@@ -24,7 +24,9 @@ phases:
   build:
     commands:
       - echo Building web application...
-      - flutter build web --release --dart-define=USER_POOL_ID=$USER_POOL_ID --dart-define=CLIENT_ID=$CLIENT_ID --target=main.dart
+      - echo "Current directory:"
+      - pwd
+      - flutter build web --release --dart-define=USER_POOL_ID=$USER_POOL_ID --dart-define=CLIENT_ID=$CLIENT_ID
 
   post_build:
     commands:
