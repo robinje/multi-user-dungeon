@@ -1,0 +1,36 @@
+name: Check Pip Conflicts
+
+on:
+  pull_request:
+    branches: "**"
+  push:
+    branches: [develop, qa, prod]
+
+jobs:
+  check-pip-conflicts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+
+      - name: Install pip-tools
+        run: pip install pip-tools
+
+      - name: Check for conflicts
+        run: |
+          exit_code=0
+          for file in requirements/*requirements.txt; do
+            echo "Checking $file for conflicts..."
+            if pip-compile "$file" --dry-run --output-file - > /dev/null 2>&1; then
+              echo "No conflicts found in $file"
+            else
+              echo "Conflicts detected in $file"
+              pip-compile "$file" --dry-run --output-file - || true
+              exit_code=1
+            fi
+          done
+          exit $exit_code
