@@ -60,3 +60,5 @@
 # Flutter / Dart
 
 **/.dart_tool/
+
+**/*.metadata

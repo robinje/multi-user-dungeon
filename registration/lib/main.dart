@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:amazon_cognito_identity_dart_2/cognito.dart';
 
 void main() {
-  runApp(MyApp());
+  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
+  const MyApp({Key? key}) : super(key: key);
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -13,14 +15,16 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
-      home: EmailVerificationScreen(),
+      home: const EmailVerificationScreen(),
     );
   }
 }
 
 class EmailVerificationScreen extends StatefulWidget {
+  const EmailVerificationScreen({Key? key}) : super(key: key);
+
   @override
-  _EmailVerificationScreenState createState() =>
+  State<EmailVerificationScreen> createState() =>
       _EmailVerificationScreenState();
 }
 
@@ -60,17 +64,17 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Email Verification'),
+        title: const Text('Email Verification'),
       ),
       body: Padding(
-        padding: EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(16.0),
         child: Form(
           key: _formKey,
           child: Column(
             children: <Widget>[
               TextFormField(
                 controller: _emailController,
-                decoration: InputDecoration(labelText: 'Email'),
+                decoration: const InputDecoration(labelText: 'Email'),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Please enter your email';
@@ -78,12 +82,12 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
                   return null;
                 },
               ),
-              SizedBox(height: 20),
+              const SizedBox(height: 20),
               ElevatedButton(
                 onPressed: _signUp,
-                child: Text('Send Verification Email'),
+                child: const Text('Send Verification Email'),
               ),
-              SizedBox(height: 20),
+              const SizedBox(height: 20),
               Text(_message),
             ],
           ),
