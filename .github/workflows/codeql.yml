@@ -15,23 +15,34 @@ jobs:
       actions: read
       contents: read
 
-    strategy:
-      fail-fast: false
-      matrix:
-        language: [go, python]
-        build-mode: [autobuild, none]
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Initialize CodeQL
+      - name: Initialize CodeQL for Go
+        if: contains(github.event.repository.language, 'Go')
         uses: github/codeql-action/init@v3
         with:
-          languages: ${{ matrix.language }}
-          build-mode: ${{ matrix.build-mode }}
+          languages: go
+          build-mode: autobuild
 
-      - name: Perform CodeQL Analysis
+      - name: Initialize CodeQL for Python
+        if: contains(github.event.repository.language, 'Python')
+        uses: github/codeql-action/init@v3
+        with:
+          languages: python
+          build-mode: none
+
+      # You can add any custom build steps here if required for Go, with manual build mode.
+
+      - name: Perform CodeQL Analysis for Go
+        if: contains(github.event.repository.language, 'Go')
         uses: github/codeql-action/analyze@v3
         with:
-          category: "/language:${{matrix.language}}"
+          category: "/language:go"
+
+      - name: Perform CodeQL Analysis for Python
+        if: contains(github.event.repository.language, 'Python')
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:python"
