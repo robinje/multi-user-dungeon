@@ -52,7 +52,11 @@
 
 **/dist/
 
+
+## Jupyter
+
+**/*.ipynb_checkpoints/
+
 # Flutter / Dart
 
 **/.dart_tool/
-
