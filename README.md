@@ -232,8 +232,6 @@ Deploying the server involves several steps:
 - `scripts/` directory contains deployment and utility scripts.
 - `ssh_server/` directory contains the main server implementation.
 
-
-
 ## License
 
 This project is licensed under the Apache 2.0 License. See the LICENSE file for more details.
