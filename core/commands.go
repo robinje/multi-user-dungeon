@@ -150,7 +150,7 @@ func ExecuteGoCommand(character *Character, tokens []string) bool {
 	}
 
 	direction := tokens[1]
-	Move(character, direction)
+	character.Move(direction)
 
 	character.ExitCombat()
 

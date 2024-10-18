@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
@@ -14,12 +15,23 @@ import (
 
 // StoreRooms stores all rooms into the DynamoDB database.
 func (kp *KeyPair) StoreRooms(rooms map[int64]*Room) error {
+
 	for _, room := range rooms {
+		room.Mutex.Lock()
+
+		// Cleanup nil items before saving
+		room.CleanupNilItems()
+
 		err := kp.WriteRoom(room)
 		if err != nil {
 			Logger.Error("Error storing room", "room_id", room.RoomID, "error", err)
 			return fmt.Errorf("error storing room %d: %w", room.RoomID, err)
 		}
+
+		room.LastSaved = time.Now()
+
+		room.Mutex.Unlock()
+
 	}
 	Logger.Info("Successfully stored all rooms")
 	return nil
@@ -131,6 +143,8 @@ func (kp *KeyPair) LoadAllExits() (map[string]*Exit, error) {
 			Direction:  exitData.Direction,
 			TargetRoom: &Room{RoomID: exitData.TargetRoom}, // Temporary Room object, will be resolved later
 			Visible:    exitData.Visible,
+			LastSaved:  time.Now(),
+			LastEdited: time.Now(),
 		}
 	}
 
@@ -155,12 +169,8 @@ func (kp *KeyPair) WriteRoom(room *Room) error {
 		return fmt.Errorf("cannot write nil room")
 	}
 
-	roomData := room.ToData()
-	err := kp.Put("rooms", roomData)
-	if err != nil {
-		Logger.Error("Error writing room data", "room_id", room.RoomID, "error", err)
-		return fmt.Errorf("error writing room data: %w", err)
-	}
+	room.Mutex.Lock()
+	defer room.Mutex.Unlock()
 
 	// Write exits separately
 	for _, exit := range room.Exits {
@@ -175,14 +185,25 @@ func (kp *KeyPair) WriteRoom(room *Room) error {
 			Logger.Error("Error writing exit data", "room_id", room.RoomID, "direction", exit.Direction, "error", err)
 			return fmt.Errorf("error writing exit data: %w", err)
 		}
+
+		exit.LastSaved = time.Now()
 	}
+
+	roomData := room.ToData()
+	err := kp.Put("rooms", roomData)
+	if err != nil {
+		Logger.Error("Error writing room data", "room_id", room.RoomID, "error", err)
+		return fmt.Errorf("error writing room data: %w", err)
+	}
+
+	room.LastSaved = time.Now()
 
 	Logger.Info("Successfully wrote room and exits to database", "room_id", room.RoomID)
 	return nil
 }
 
-// SaveActiveRooms saves all active rooms to the database.
-func SaveActiveRooms(s *Server) error {
+// SaveActiveRooms saves all active rooms to the database if they have been edited since the last save.
+func (s *Server) SaveActiveRooms() error {
 	if s == nil {
 		return fmt.Errorf("server is nil")
 	}
@@ -190,14 +211,28 @@ func SaveActiveRooms(s *Server) error {
 	s.Mutex.Lock()
 	defer s.Mutex.Unlock()
 
+	Logger.Info("Starting to save active rooms...")
+
 	for roomID, room := range s.Rooms {
 		if room == nil {
 			Logger.Warn("Skipping nil room", "room_id", roomID)
 			continue
 		}
+
+		// Check if LastEdited is after LastSaved, skip if it is not
+		if !room.LastEdited.After(room.LastSaved) {
+			Logger.Info("Room not edited since last save, skipping", "room_id", roomID)
+			continue
+		}
+
+		// Attempt to write the room to the database
 		if err := s.Database.WriteRoom(room); err != nil {
 			Logger.Error("Error saving room", "room_id", roomID, "error", err)
 			// Continue saving other rooms even if one fails
+		} else {
+			// Update LastSaved after successful save
+			room.LastSaved = time.Now()
+			Logger.Info("Successfully saved room", "room_id", roomID)
 		}
 	}
 
@@ -216,6 +251,8 @@ func NewRoom(roomID int64, area string, title string, description string) *Room 
 		Characters:  make(map[uuid.UUID]*Character),
 		Items:       make(map[uuid.UUID]*Item),
 		Mutex:       sync.Mutex{},
+		LastSaved:   time.Now(),
+		LastEdited:  time.Now(),
 	}
 	Logger.Info("Created room", "room_title", room.Title, "room_id", room.RoomID)
 	return room
@@ -232,63 +269,10 @@ func (r *Room) AddExit(exit *Exit) {
 	}
 
 	r.Exits[exit.Direction] = exit
+
+	r.LastEdited = time.Now()
+
 	Logger.Info("Added exit to room", "room_id", r.RoomID, "direction", exit.Direction)
-}
-
-// Move handles character movement from one room to another based on the direction.
-func Move(c *Character, direction string) {
-	Logger.Info("Player is attempting to move", "player_name", c.Name, "direction", direction)
-
-	c.Mutex.Lock()
-	defer c.Mutex.Unlock()
-
-	if c.Room == nil {
-		c.Player.ToPlayer <- "\n\rYou are not in any room to move from.\n\r"
-		Logger.Warn("Character has no current room", "character_name", c.Name)
-		c.Player.ToPlayer <- c.Player.Prompt
-		return
-	}
-
-	selectedExit, exists := c.Room.Exits[direction]
-	if !exists {
-		c.Player.ToPlayer <- "\n\rYou cannot go that way.\n\r"
-		Logger.Warn("Invalid direction for movement", "character_name", c.Name, "direction", direction)
-		c.Player.ToPlayer <- c.Player.Prompt
-		return
-	}
-
-	if selectedExit.TargetRoom == nil {
-		c.Player.ToPlayer <- "\n\rThe path leads nowhere.\n\r"
-		Logger.Warn("Target room is nil", "character_name", c.Name, "direction", direction)
-		c.Player.ToPlayer <- c.Player.Prompt
-		return
-	}
-
-	newRoom := selectedExit.TargetRoom
-
-	// Safely remove the character from the old room
-	oldRoom := c.Room
-	oldRoom.Mutex.Lock()
-	delete(oldRoom.Characters, c.ID)
-	oldRoom.Mutex.Unlock()
-	SendRoomMessage(oldRoom, fmt.Sprintf("\n\r%s has left going %s.\n\r", c.Name, direction))
-
-	// Update character's room
-	c.Room = newRoom
-
-	// Safely add the character to the new room
-	newRoom.Mutex.Lock()
-	if newRoom.Characters == nil {
-		newRoom.Characters = make(map[uuid.UUID]*Character)
-	}
-	newRoom.Characters[c.ID] = c
-	newRoom.Mutex.Unlock()
-	SendRoomMessage(newRoom, fmt.Sprintf("\n\r%s has arrived.\n\r", c.Name))
-
-	// Let the character look around the new room
-	ExecuteLookCommand(c, []string{})
-
-	Logger.Info("Character moved successfully", "character_name", c.Name, "new_room_id", newRoom.RoomID)
 }
 
 // SendRoomMessage sends a message to all characters in the room.
@@ -447,4 +431,19 @@ func (kp *KeyPair) LoadItemsForRoom(roomID int64) (map[uuid.UUID]*Item, error) {
 	}
 
 	return items, nil
+}
+
+// CleanupNilItems removes any nil items from the room's item list.
+func (r *Room) CleanupNilItems() {
+	r.Mutex.Lock()
+	defer r.Mutex.Unlock()
+
+	for id, item := range r.Items {
+		if item == nil {
+			delete(r.Items, id)
+			Logger.Info("Removed nil item from room", "itemID", id, "roomID", r.RoomID)
+		}
+	}
+
+	r.LastEdited = time.Now()
 }

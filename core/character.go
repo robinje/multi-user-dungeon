@@ -443,7 +443,7 @@ func (server *Server) CharacterNameExists(name string) bool {
 }
 
 // SaveActiveCharacters saves all active characters to the database if they have been edited since the last save.
-func SaveActiveCharacters(s *Server) error {
+func (s *Server) SaveActiveCharacters() error {
 
 	Logger.Info("Saving active characters...")
 
@@ -704,4 +704,62 @@ func getOtherCharacters(r *Room, currentCharacter *Character) []string {
 
 	Logger.Info("Found other characters in room", "count", len(otherCharacters), "room_id", r.RoomID)
 	return otherCharacters
+}
+
+// Move handles character movement from one room to another based on the direction.
+func (c *Character) Move(direction string) {
+	Logger.Info("Player is attempting to move", "player_name", c.Name, "direction", direction)
+
+	c.Mutex.Lock()
+	defer c.Mutex.Unlock()
+
+	if c.Room == nil {
+		c.Player.ToPlayer <- "\n\rYou are not in any room to move from.\n\r"
+		Logger.Warn("Character has no current room", "character_name", c.Name)
+		c.Player.ToPlayer <- c.Player.Prompt
+		return
+	}
+
+	selectedExit, exists := c.Room.Exits[direction]
+	if !exists {
+		c.Player.ToPlayer <- "\n\rYou cannot go that way.\n\r"
+		Logger.Warn("Invalid direction for movement", "character_name", c.Name, "direction", direction)
+		c.Player.ToPlayer <- c.Player.Prompt
+		return
+	}
+
+	if selectedExit.TargetRoom == nil {
+		c.Player.ToPlayer <- "\n\rThe path leads nowhere.\n\r"
+		Logger.Warn("Target room is nil", "character_name", c.Name, "direction", direction)
+		c.Player.ToPlayer <- c.Player.Prompt
+		return
+	}
+
+	newRoom := selectedExit.TargetRoom
+
+	// Safely remove the character from the old room
+	oldRoom := c.Room
+	oldRoom.Mutex.Lock()
+	delete(oldRoom.Characters, c.ID)
+	oldRoom.Mutex.Unlock()
+	SendRoomMessage(oldRoom, fmt.Sprintf("\n\r%s has left going %s.\n\r", c.Name, direction))
+
+	// Update character's room
+	c.Room = newRoom
+
+	// Safely add the character to the new room
+	newRoom.Mutex.Lock()
+	if newRoom.Characters == nil {
+		newRoom.Characters = make(map[uuid.UUID]*Character)
+	}
+	newRoom.Characters[c.ID] = c
+	newRoom.Mutex.Unlock()
+	SendRoomMessage(newRoom, fmt.Sprintf("\n\r%s has arrived.\n\r", c.Name))
+
+	// Let the character look around the new room
+	ExecuteLookCommand(c, []string{})
+
+	c.LastEdited = time.Now()
+
+	Logger.Info("Character moved successfully", "character_name", c.Name, "new_room_id", newRoom.RoomID)
 }
