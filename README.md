@@ -84,6 +84,7 @@ Key components:
 - [x] Allow starting room to be set by Archtype.
 - [x] Improve the input filters
 - [x] Handle unplanned disconnections.
+- [x] Limit Auto Save to updated objects.
 - [ ] Add look at item command.
 - [ ] Implement an obscenity filter.
 - [ ] Validate graph of loaded rooms and exits.
