@@ -341,7 +341,7 @@ func RoomInfo(r *Room, character *Character) string {
 	}
 
 	// Items in the room
-	items := getVisibleItems(r)
+	items := r.getVisibleItems()
 	if len(items) > 0 {
 		roomInfo.WriteString("Items in the room:\n\r")
 		for _, item := range items {
