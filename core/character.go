@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
@@ -54,6 +55,8 @@ func (s *Server) NewCharacter(name string, player *Player, room *Room, archetype
 		Mutex:       sync.Mutex{},
 		CombatRange: nil,
 		Facing:      nil,
+		LastSaved:   time.Now(),
+		LastEdited:  time.Now(),
 	}
 
 	s.Mutex.Lock()
@@ -290,11 +293,15 @@ func (kp *KeyPair) WriteCharacter(character *Character) error {
 	}
 
 	Logger.Info("Successfully wrote character to database", "characterName", character.Name, "characterID", character.ID)
+
+	character.LastSaved = time.Now()
+
 	return nil
 }
 
 // LoadCharacter retrieves a character from the DynamoDB database and reconstructs the Character object.
 func (kp *KeyPair) LoadCharacter(characterID uuid.UUID, player *Player, server *Server) (*Character, error) {
+
 	key := map[string]*dynamodb.AttributeValue{
 		"CharacterID": {S: aws.String(characterID.String())},
 	}
@@ -331,6 +338,9 @@ func (kp *KeyPair) LoadCharacter(characterID uuid.UUID, player *Player, server *
 	}
 
 	Logger.Info("Loaded character", "characterName", character.Name, "characterID", character.ID)
+
+	character.LastSaved = time.Now()
+
 	return character, nil
 }
 
@@ -432,19 +442,30 @@ func (server *Server) CharacterNameExists(name string) bool {
 	return exists
 }
 
-// SaveActiveCharacters saves all active characters to the database.
+// SaveActiveCharacters saves all active characters to the database if they have been edited since the last save.
 func SaveActiveCharacters(s *Server) error {
-	s.Mutex.Lock()
-	defer s.Mutex.Unlock()
 
 	Logger.Info("Saving active characters...")
 
 	for _, character := range s.Characters {
+		// Check if the character's LastEdited is before LastSaved
+		if !character.LastEdited.After(character.LastSaved) {
+			Logger.Info("Character not edited since last save, skipping", "characterName", character.Name)
+			continue // Skip writing this character
+		}
+
+		character.Mutex.Lock()
+		// Attempt to write the character to the database
 		err := s.Database.WriteCharacter(character)
 		if err != nil {
 			Logger.Error("Error saving character", "characterName", character.Name, "error", err)
-			continue // Continue saving other characters
+			continue // Continue saving other characters even if one fails
 		}
+
+		// Update LastSaved after a successful write
+		character.LastSaved = time.Now()
+		Logger.Info("Character saved successfully", "characterName", character.Name)
+		character.Mutex.Unlock()
 	}
 
 	Logger.Info("Active characters saved successfully.")
@@ -452,7 +473,7 @@ func SaveActiveCharacters(s *Server) error {
 }
 
 // WearItem allows a character to wear an item from their inventory.
-func WearItem(c *Character, item *Item) error {
+func (c *Character) WearItem(item *Item) error {
 	c.Mutex.Lock()
 	defer c.Mutex.Unlock()
 
@@ -492,11 +513,14 @@ func WearItem(c *Character, item *Item) error {
 	delete(c.Inventory, handSlot) // Remove from hand slot
 
 	Logger.Info("Item worn", "characterName", c.Name, "itemName", item.Name, "wornOn", item.WornOn)
+
+	c.LastEdited = time.Now()
+
 	return nil
 }
 
 // ListInventory lists the items in a character's inventory.
-func ListInventory(c *Character) string {
+func (c *Character) ListInventory() string {
 	Logger.Debug("Character is listing inventory", "characterName", c.Name)
 
 	c.Mutex.Lock()
@@ -533,7 +557,7 @@ func ListInventory(c *Character) string {
 }
 
 // AddToInventory adds an item to the character's inventory.
-func AddToInventory(c *Character, item *Item) {
+func (c *Character) AddToInventory(item *Item) {
 	Logger.Debug("Character is adding item to inventory", "characterName", c.Name, "itemName", item.Name)
 
 	c.Mutex.Lock()
@@ -556,11 +580,13 @@ func AddToInventory(c *Character, item *Item) {
 		}
 	}
 
+	c.LastEdited = time.Now()
+
 	Logger.Info("Item added to inventory", "characterName", c.Name, "itemName", item.Name)
 }
 
 // FindInInventory searches for an item in the character's inventory by name.
-func FindInInventory(c *Character, itemName string) *Item {
+func (c *Character) FindInInventory(itemName string) *Item {
 	Logger.Debug("Character is searching inventory for item", "characterName", c.Name, "itemName", itemName)
 
 	c.Mutex.Lock()
@@ -578,7 +604,7 @@ func FindInInventory(c *Character, itemName string) *Item {
 }
 
 // RemoveFromInventory removes an item from the character's inventory.
-func RemoveFromInventory(c *Character, item *Item) {
+func (c *Character) RemoveFromInventory(item *Item) {
 	Logger.Debug("Character is removing item from inventory", "characterName", c.Name, "itemName", item.Name)
 
 	c.Mutex.Lock()
@@ -599,12 +625,14 @@ func RemoveFromInventory(c *Character, item *Item) {
 		}
 	}
 
+	c.LastEdited = time.Now()
+
 	Logger.Info("Item removed from inventory", "characterName", c.Name, "itemName", item.Name)
 }
 
 // CanCarryItem checks if the character can carry the specified item.
 // This is a placeholder for future weight and capacity checks.
-func CanCarryItem(c *Character, item *Item) bool {
+func (c *Character) CanCarryItem(item *Item) bool {
 	Logger.Info("Character is checking if they can carry item", "characterName", c.Name, "itemName", item.Name)
 
 	// Placeholder implementation; always returns true for now
@@ -612,7 +640,7 @@ func CanCarryItem(c *Character, item *Item) bool {
 }
 
 // RemoveWornItem allows a character to remove a worn item.
-func RemoveWornItem(c *Character, item *Item) error {
+func (c *Character) RemoveWornItem(item *Item) error {
 	c.Mutex.Lock()
 	defer c.Mutex.Unlock()
 
@@ -653,6 +681,8 @@ func RemoveWornItem(c *Character, item *Item) error {
 
 	// Place item in hand slot
 	c.Inventory[handSlot] = item
+
+	c.LastEdited = time.Now()
 
 	Logger.Info("Item removed from worn location and placed in hand", "characterName", c.Name, "itemName", item.Name, "handSlot", handSlot)
 	return nil

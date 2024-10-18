@@ -39,13 +39,6 @@ func AutoSave(server *Server) {
 			Logger.Info("Active characters saved successfully")
 		}
 
-		// Save active rooms
-		if err := SaveActiveRooms(server); err != nil {
-			Logger.Error("Failed to save rooms", "error", err)
-		} else {
-			Logger.Info("Active rooms saved successfully")
-		}
-
 		// Save active items
 		if err := server.SaveActiveItems(); err != nil {
 			Logger.Error("Failed to save items", "error", err)
@@ -54,6 +47,14 @@ func AutoSave(server *Server) {
 		}
 
 		Logger.Info("Auto-save process completed")
+
+		// Save active rooms
+		if err := SaveActiveRooms(server); err != nil {
+			Logger.Error("Failed to save rooms", "error", err)
+		} else {
+			Logger.Info("Active rooms saved successfully")
+		}
+
 	}
 }
 
