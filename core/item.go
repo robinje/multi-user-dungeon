@@ -3,6 +3,7 @@ package core
 import (
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
@@ -44,6 +45,8 @@ func (kp *KeyPair) StorePrototypes(prototypes map[uuid.UUID]*Prototype) error {
 			return fmt.Errorf("error storing prototype %s: %w", prototype.Name, err)
 		}
 
+		prototype.LastSaved = time.Now()
+
 		Logger.Info("Stored prototype", "name", prototype.Name, "prototypeID", prototype.ID)
 	}
 
@@ -84,6 +87,8 @@ func (kp *KeyPair) LoadPrototypes() (map[uuid.UUID]*Prototype, error) {
 			CanPickUp:   prototypeData.CanPickUp,
 			Metadata:    prototypeData.Metadata,
 			Mutex:       sync.Mutex{},
+			LastEdited:  time.Now(),
+			LastSaved:   time.Now(),
 		}
 		prototypes[id] = prototype
 		Logger.Debug("Loaded prototype from database", "id", id, "name", prototype.Name)
@@ -162,6 +167,8 @@ func (k *KeyPair) WriteItem(obj *Item) error {
 		return fmt.Errorf("error writing item data: %w", err)
 	}
 
+	obj.LastSaved = time.Now()
+
 	Logger.Info("Successfully wrote item", "itemName", obj.Name, "itemID", obj.ID)
 	return nil
 }
@@ -229,10 +236,20 @@ func (s *Server) SaveActiveItems() error {
 			Logger.Warn("Attempting to save a nil item, skipping")
 			continue
 		}
+
+		// Check if LastEdited is after LastSaved, skip if it is not
+		if !item.LastEdited.After(item.LastSaved) {
+			Logger.Info("Item not edited since last save, skipping", "itemName", item.Name, "itemID", item.ID)
+			continue
+		}
+
+		// Attempt to write the item to the database
 		if err := s.Database.WriteItem(item); err != nil {
 			Logger.Error("Error saving item", "itemName", item.Name, "itemID", item.ID, "error", err)
 			// Continue saving other items even if one fails
 		} else {
+			// Update LastSaved after successful save
+			item.LastSaved = time.Now()
 			Logger.Info("Successfully saved item", "itemName", item.Name, "itemID", item.ID)
 		}
 	}
@@ -268,6 +285,7 @@ func (s *Server) CreateItemFromPrototype(prototypeID uuid.UUID) (*Item, error) {
 		CanPickUp:   prototype.CanPickUp,
 		Metadata:    make(map[string]string),
 		Mutex:       sync.Mutex{},
+		LastEdited:  time.Now(),
 	}
 
 	// Copy trait modifications and metadata
@@ -297,6 +315,8 @@ func (s *Server) CreateItemFromPrototype(prototypeID uuid.UUID) (*Item, error) {
 		Logger.Error("Failed to write new item to database", "itemName", newItem.Name, "itemID", newItem.ID, "error", err)
 		return nil, fmt.Errorf("failed to write new item to database: %w", err)
 	}
+
+	newItem.LastSaved = time.Now()
 
 	Logger.Info("Created new item from prototype", "itemName", newItem.Name, "itemID", newItem.ID, "prototypeID", prototypeID)
 	return newItem, nil
@@ -338,6 +358,8 @@ func (kp *KeyPair) itemFromData(itemData *ItemData) (*Item, error) {
 		CanPickUp:   itemData.CanPickUp,
 		Metadata:    itemData.Metadata,
 		Mutex:       sync.Mutex{},
+		LastEdited:  time.Now(),
+		LastSaved:   time.Now(),
 	}
 
 	// Handle Contents if the item is a container
@@ -357,7 +379,7 @@ func (kp *KeyPair) itemFromData(itemData *ItemData) (*Item, error) {
 }
 
 // getVisibleItems returns a list of item names in the room.
-func getVisibleItems(r *Room) []string {
+func (r *Room) getVisibleItems() []string {
 	if r == nil {
 		Logger.Error("Room is nil in getVisibleItems")
 		return []string{}
@@ -472,7 +494,10 @@ func (r *Room) AddItem(item *Item) {
 		r.Items = make(map[uuid.UUID]*Item)
 	}
 
+	item.LastEdited = time.Now()
+
 	r.Items[item.ID] = item
+
 	Logger.Info("Added item to room", "itemName", item.Name, "itemID", item.ID, "roomID", r.RoomID)
 }
 
@@ -486,6 +511,9 @@ func (r *Room) RemoveItem(item *Item) {
 		return
 	}
 
+	item.LastEdited = time.Now()
+
 	delete(r.Items, item.ID)
+
 	Logger.Info("Removed item from room", "itemName", item.Name, "itemID", item.ID, "roomID", r.RoomID)
 }
