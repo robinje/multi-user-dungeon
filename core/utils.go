@@ -1,8 +1,11 @@
 package core
 
 import (
+	"bufio"
+	"fmt"
 	"math"
 	"math/rand"
+	"os"
 	"strings"
 	"time"
 )
@@ -102,4 +105,46 @@ func wrapText(text string, width int) string {
 	}
 
 	return result.String()
+}
+
+func (i *Index) GetID() uint64 {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+
+	i.IndexID++
+	return i.IndexID
+}
+
+func (i *Index) SetID(id uint64) {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+
+	if id > i.IndexID {
+		i.IndexID = id
+	}
+}
+
+// loadNamesFromFile reads a file line by line and returns a slice of names.
+func loadNamesFromFile(filePath string) ([]string, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open %s: %w", filePath, err)
+	}
+	defer file.Close()
+
+	var names []string
+	scanner := bufio.NewScanner(file)
+	lineNumber := 1
+	for scanner.Scan() {
+		name := strings.TrimSpace(scanner.Text())
+		if name != "" {
+			names = append(names, strings.ToLower(name))
+		}
+		lineNumber++
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("error reading %s: %w", filePath, err)
+	}
+
+	return names, nil
 }

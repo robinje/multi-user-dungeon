@@ -394,23 +394,68 @@ func (kp *KeyPair) LoadCharacterNames() (map[string]bool, error) {
 	return names, nil
 }
 
-// InitializeBloomFilter initializes the bloom filter with existing character names.
+// InitializeBloomFilter initializes the bloom filter with existing character names,
+// as well as names from ../data/names.txt and ../data/obscenity.txt.
 func (server *Server) InitializeBloomFilter() error {
+	// Load character names from the database
 	characterNames, err := server.Database.LoadCharacterNames()
 	if err != nil {
 		return fmt.Errorf("failed to load character names: %w", err)
 	}
 
-	n := uint(max(len(characterNames), 100)) // Use at least 100 as the initial size
+	// Load additional names from names.txt
+	namesFilePath := "../data/names.txt"
+	namesFromFile, err := loadNamesFromFile(namesFilePath)
+	if err != nil {
+		return fmt.Errorf("failed to load names from %s: %w", namesFilePath, err)
+	}
+
+	// Load obscenity words from obscenity.txt
+	obscenityFilePath := "../data/obscenity.txt"
+	obscenities, err := loadNamesFromFile(obscenityFilePath)
+	if err != nil {
+		return fmt.Errorf("failed to load obscenities from %s: %w", obscenityFilePath, err)
+	}
+
+	// Calculate total number of items to add to the bloom filter
+	totalItems := len(characterNames)
+	for range characterNames { // Assuming characterNames is a map; adjust if it's a slice
+		// Counting items in characterNames
+	}
+	totalItems += len(namesFromFile)
+	totalItems += len(obscenities)
+
+	// Ensure a minimum size
+	if totalItems < 100 {
+		totalItems = 100
+	}
+
 	fpRate := FalsePositiveRate
 
-	server.CharacterBloomFilter = bloom.NewWithEstimates(n, fpRate)
+	// Initialize the bloom filter with the estimated number of items and false positive rate
+	server.CharacterBloomFilter = bloom.NewWithEstimates(uint(totalItems), fpRate)
 
+	// Add character names to the bloom filter
 	for name := range characterNames {
 		server.CharacterBloomFilter.AddString(strings.ToLower(name))
 	}
 
-	Logger.Info("Bloom filter initialized", "estimatedSize", n, "falsePositiveRate", fpRate)
+	// Add names from names.txt to the bloom filter
+	for _, name := range namesFromFile {
+		server.CharacterBloomFilter.AddString(name)
+	}
+
+	// Add obscenities to the bloom filter
+	for _, word := range obscenities {
+		server.CharacterBloomFilter.AddString(word)
+	}
+
+	Logger.Info("Bloom filter initialized",
+		"estimatedSize", totalItems,
+		"falsePositiveRate", fpRate,
+		"totalItemsAdded", totalItems,
+	)
+
 	return nil
 }
 
