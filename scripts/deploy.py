@@ -24,7 +24,7 @@ CLOUDWATCH_TEMPLATE_PATH = "../cloudformation/cloudwatch.yml"
 CONFIG_PATH = "../ssh_server/config.yml"
 
 
-def validate_s3_bucket(bucket_name, region="us-east-1"):
+def validate_s3_bucket(bucket_name, region="us-east-1") -> bool:
     s3_client = boto3.client("s3", region_name=region)
     try:
         s3_client.head_bucket(Bucket=bucket_name)
@@ -35,13 +35,13 @@ def validate_s3_bucket(bucket_name, region="us-east-1"):
         return False
 
 
-def load_template(template_path):
+def load_template(template_path) -> str:
     with open(template_path, "r", encoding="utf-8") as file:
         return file.read()
 
 
-def deploy_stack(client, stack_name, template_body, parameters):
-    cf_parameters = [{"ParameterKey": k, "ParameterValue": v} for k, v in parameters.items()]
+def deploy_stack(client, stack_name, template_body, parameters) -> bool:
+    cf_parameters: list = [{"ParameterKey": k, "ParameterValue": v} for k, v in parameters.items()]
     try:
         if stack_exists(client, stack_name):
             print(f"Updating existing stack: {stack_name}")
@@ -75,7 +75,7 @@ def deploy_stack(client, stack_name, template_body, parameters):
         return False
 
 
-def stack_exists(client, stack_name):
+def stack_exists(client, stack_name) -> bool:
     try:
         client.describe_stacks(StackName=stack_name)
         return True
@@ -83,20 +83,20 @@ def stack_exists(client, stack_name):
         return False
 
 
-def wait_for_stack_completion(client, stack_name):
+def wait_for_stack_completion(client, stack_name) -> None:
     print(f"Waiting for stack {stack_name} to complete...")
     waiter = client.get_waiter("stack_create_complete")
     waiter.wait(StackName=stack_name)
     print("Stack operation completed.")
 
 
-def get_stack_outputs(client, stack_name):
+def get_stack_outputs(client, stack_name) -> dict:
     stack = client.describe_stacks(StackName=stack_name)
     outputs = stack["Stacks"][0]["Outputs"]
     return {output["OutputKey"]: output["OutputValue"] for output in outputs}
 
 
-def update_configuration_file(config_updates):
+def update_configuration_file(config_updates) -> None:
     try:
         with open(CONFIG_PATH, "r", encoding="utf-8") as file:
             config = yaml.safe_load(file) or {}
@@ -155,8 +155,8 @@ def update_configuration_file(config_updates):
         print("Current config:", config)
 
 
-def gather_all_parameters():
-    parameters = {}
+def gather_all_parameters() -> dict:
+    parameters: dict = {}
 
     # Cognito parameters
     parameters["cognito"] = {
@@ -190,12 +190,13 @@ def gather_all_parameters():
     return parameters
 
 
-def main():
+
+def main() -> None:
     cloudformation_client = boto3.client("cloudformation")
 
     try:
         # Gather all parameters upfront
-        all_parameters = gather_all_parameters()
+        all_parameters: dict = gather_all_parameters()
 
         # Validate S3 bucket
         s3_bucket_name = all_parameters["codebuild"]["S3BucketName"]
@@ -204,44 +205,46 @@ def main():
             return
 
         # Deploy Cognito stack
-        cognito_template = load_template(COGNITO_TEMPLATE_PATH)
+        cognito_template: str = load_template(COGNITO_TEMPLATE_PATH)
         if not deploy_stack(cloudformation_client, COGNITO_STACK_NAME, cognito_template, all_parameters["cognito"]):
             print("Deployment failed at Cognito stack. Exiting...")
             return
 
-        cognito_outputs = get_stack_outputs(cloudformation_client, COGNITO_STACK_NAME)
+        cognito_outputs: dict = get_stack_outputs(cloudformation_client, COGNITO_STACK_NAME)
 
         # Deploy DynamoDB stack
-        dynamo_template = load_template(DYNAMO_TEMPLATE_PATH)
+        dynamo_template: str = load_template(DYNAMO_TEMPLATE_PATH)
         if not deploy_stack(cloudformation_client, DYNAMO_STACK_NAME, dynamo_template, all_parameters["dynamo"]):
             print("Deployment failed at DynamoDB stack. Exiting...")
             return
 
-        dynamo_outputs = get_stack_outputs(cloudformation_client, DYNAMO_STACK_NAME)
+        dynamo_outputs: dict = get_stack_outputs(cloudformation_client, DYNAMO_STACK_NAME)
 
         # Update CodeBuild parameters with Cognito outputs
-        all_parameters["codebuild"].update(
-            {"UserPoolId": cognito_outputs.get("UserPoolId", ""), "ClientId": cognito_outputs.get("UserPoolClientId", "")}
-        )
+        all_parameters["codebuild"].update({
+            "UserPoolId": cognito_outputs.get("UserPoolId", ""),
+            "ClientId": cognito_outputs.get("UserPoolClientId", ""),
+            "ClientSecret": cognito_outputs.get("UserPoolClientSecret", "")
+        })
 
         # Deploy CodeBuild stack
-        codebuild_template = load_template(CODEBUILD_TEMPLATE_PATH)
+        codebuild_template: str = load_template(CODEBUILD_TEMPLATE_PATH)
         if not deploy_stack(cloudformation_client, CODEBUILD_STACK_NAME, codebuild_template, all_parameters["codebuild"]):
             print("Deployment failed at CodeBuild stack. Exiting...")
             return
 
-        codebuild_outputs = get_stack_outputs(cloudformation_client, CODEBUILD_STACK_NAME)
+        codebuild_outputs: dict = get_stack_outputs(cloudformation_client, CODEBUILD_STACK_NAME)
 
         # Deploy CloudWatch stack
-        cloudwatch_template = load_template(CLOUDWATCH_TEMPLATE_PATH)
+        cloudwatch_template: str = load_template(CLOUDWATCH_TEMPLATE_PATH)
         if not deploy_stack(cloudformation_client, CLOUDWATCH_STACK_NAME, cloudwatch_template, all_parameters["cloudwatch"]):
             print("Deployment failed at CloudWatch stack. Exiting...")
             return
 
-        cloudwatch_outputs = get_stack_outputs(cloudformation_client, CLOUDWATCH_STACK_NAME)
+        cloudwatch_outputs: dict = get_stack_outputs(cloudformation_client, CLOUDWATCH_STACK_NAME)
 
         # Update configuration file with outputs from all stacks
-        config_updates = {
+        config_updates: dict = {
             "Cognito": cognito_outputs,
             "Dynamo": dynamo_outputs,
             "CodeBuild": codebuild_outputs,
@@ -253,7 +256,6 @@ def main():
     except Exception as e:
         print(f"An unexpected error occurred during deployment: {e}")
         traceback.print_exc()
-
 
 if __name__ == "__main__":
     main()
