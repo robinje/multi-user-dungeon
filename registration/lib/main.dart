@@ -35,14 +35,26 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
   final _emailController = TextEditingController();
   String _message = '';
 
-  final userPool = CognitoUserPool(
-    const String.fromEnvironment('USER_POOL_ID'),
-    const String.fromEnvironment('CLIENT_ID'),
-  );
+  late final CognitoUserPool userPool;
+
+  @override
+  void initState() {
+    super.initState();
+    final userPoolId = const String.fromEnvironment('USER_POOL_ID');
+    final clientId = const String.fromEnvironment('CLIENT_ID');
+    if (userPoolId.isEmpty || clientId.isEmpty) {
+      _message = 'Error: USER_POOL_ID or CLIENT_ID not set';
+    } else {
+      userPool = CognitoUserPool(userPoolId, clientId);
+    }
+  }
 
   String calculateSecretHash(String username) {
     final clientSecret = const String.fromEnvironment('CLIENT_SECRET');
     final clientId = const String.fromEnvironment('CLIENT_ID');
+    if (clientSecret.isEmpty) {
+      throw Exception('CLIENT_SECRET not set');
+    }
     final key = utf8.encode(clientSecret);
     final message = utf8.encode(username + clientId);
     final hmac = Hmac(sha256, key);
@@ -54,7 +66,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
     if (_formKey.currentState!.validate()) {
       try {
         final secretHash = calculateSecretHash(_emailController.text);
-        await userPool.signUp(
+        final signUpResult = await userPool.signUp(
           _emailController.text,
           'tempPassword123!', // This is a temporary password
           userAttributes: [
@@ -66,14 +78,18 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
         );
 
         setState(() {
-          _message = 'Verification email sent. Please check your inbox.';
+          if (signUpResult.userConfirmed ?? false) {
+            _message = 'User registered successfully.';
+          } else {
+            _message = 'Verification email sent. Please check your inbox.';
+          }
         });
       } catch (e) {
         setState(() {
           if (e is CognitoClientException) {
-            _message = 'Error: ${e.message}';
+            _message = 'Cognito Error: ${e.code} - ${e.message}';
           } else {
-            _message = 'An unexpected error occurred. Please try again.';
+            _message = 'An unexpected error occurred: ${e.toString()}';
           }
         });
       }
