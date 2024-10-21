@@ -190,7 +190,6 @@ def gather_all_parameters() -> dict:
     return parameters
 
 
-
 def main() -> None:
     cloudformation_client = boto3.client("cloudformation")
 
@@ -221,11 +220,13 @@ def main() -> None:
         dynamo_outputs: dict = get_stack_outputs(cloudformation_client, DYNAMO_STACK_NAME)
 
         # Update CodeBuild parameters with Cognito outputs
-        all_parameters["codebuild"].update({
-            "UserPoolId": cognito_outputs.get("UserPoolId", ""),
-            "ClientId": cognito_outputs.get("UserPoolClientId", ""),
-            "ClientSecret": cognito_outputs.get("UserPoolClientSecret", "")
-        })
+        all_parameters["codebuild"].update(
+            {
+                "UserPoolId": cognito_outputs.get("UserPoolId", ""),
+                "ClientId": cognito_outputs.get("UserPoolClientId", ""),
+                "ClientSecret": cognito_outputs.get("UserPoolClientSecret", ""),
+            }
+        )
 
         # Deploy CodeBuild stack
         codebuild_template: str = load_template(CODEBUILD_TEMPLATE_PATH)
@@ -256,6 +257,7 @@ def main() -> None:
     except Exception as e:
         print(f"An unexpected error occurred during deployment: {e}")
         traceback.print_exc()
+
 
 if __name__ == "__main__":
     main()
