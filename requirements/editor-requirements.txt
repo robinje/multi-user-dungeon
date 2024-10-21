@@ -5,7 +5,7 @@ notebook==7.2.2
 numpy==2.1.2
 matplotlib==3.9.2
 pyyaml==6.0.2
-voila==0.5.7
+voila==0.5.8
 
 #Dependancies
 anyio==4.6.2.post1
@@ -58,7 +58,7 @@ jupyterlab-pygments==0.3.0
 jupyterlab-server==2.27.3
 jupyterlab-widgets==3.0.13
 kiwisolver==1.4.7
-markupsafe==3.0.1
+markupsafe==3.0.2
 matplotlib-inline==0.1.7
 mistune==3.0.2
 nbclient==0.10.0
@@ -74,14 +74,14 @@ pillow==11.0.0
 platformdirs==4.3.6
 prometheus-client==0.21.0
 prompt-toolkit==3.0.48
-psutil==6.0.0
+psutil==6.1.0
 pure-eval==0.2.3
 pycparser==2.22
 pygments==2.18.0
 pyparsing==3.2.0
 python-dateutil==2.9.0.post0
 python-json-logger==2.0.7
-pywinpty==2.0.13
+pywinpty==2.0.14
 pyzmq==26.2.0
 referencing==0.35.1
 requests==2.32.3
