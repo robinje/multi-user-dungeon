@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:amazon_cognito_identity_dart_2/cognito.dart';
+import 'package:crypto/crypto.dart';
+import 'dart:convert';
 
 void main() {
   runApp(const MyApp());
@@ -38,14 +40,28 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
     const String.fromEnvironment('CLIENT_ID'),
   );
 
+  String calculateSecretHash(String username) {
+    final clientSecret = const String.fromEnvironment('CLIENT_SECRET');
+    final clientId = const String.fromEnvironment('CLIENT_ID');
+    final key = utf8.encode(clientSecret);
+    final message = utf8.encode(username + clientId);
+    final hmac = Hmac(sha256, key);
+    final digest = hmac.convert(message);
+    return base64.encode(digest.bytes);
+  }
+
   Future<void> _signUp() async {
     if (_formKey.currentState!.validate()) {
       try {
+        final secretHash = calculateSecretHash(_emailController.text);
         await userPool.signUp(
           _emailController.text,
           'tempPassword123!', // This is a temporary password
           userAttributes: [
             AttributeArg(name: 'email', value: _emailController.text),
+          ],
+          validationData: [
+            AttributeArg(name: 'SECRET_HASH', value: secretHash),
           ],
         );
 
@@ -54,7 +70,11 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
         });
       } catch (e) {
         setState(() {
-          _message = 'Error: ${e.toString()}';
+          if (e is CognitoClientException) {
+            _message = 'Error: ${e.message}';
+          } else {
+            _message = 'An unexpected error occurred. Please try again.';
+          }
         });
       }
     }
