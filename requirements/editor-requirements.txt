@@ -58,7 +58,7 @@ jupyterlab-pygments==0.3.0
 jupyterlab-server==2.27.3
 jupyterlab-widgets==3.0.13
 kiwisolver==1.4.7
-markupsafe==3.0.1
+markupsafe==3.0.2
 matplotlib-inline==0.1.7
 mistune==3.0.2
 nbclient==0.10.0
