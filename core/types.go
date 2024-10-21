@@ -116,6 +116,8 @@ type Room struct {
 	Characters  map[uuid.UUID]*Character
 	Items       map[uuid.UUID]*Item
 	Mutex       sync.Mutex
+	LastEdited  time.Time
+	LastSaved   time.Time
 }
 
 // RoomData represents the structure for storing room data in DynamoDB
@@ -134,6 +136,8 @@ type Exit struct {
 	Direction  string
 	TargetRoom *Room
 	Visible    bool
+	LastEdited time.Time
+	LastSaved  time.Time
 }
 
 // ExitData represents the structure for storing exit data in DynamoDB
@@ -158,6 +162,8 @@ type Character struct {
 	Mutex       sync.Mutex
 	Facing      *Character
 	CombatRange map[uuid.UUID]int // nil when not in combat
+	LastEdited  time.Time
+	LastSaved   time.Time
 }
 
 // CharacterData for unmarshalling character.
@@ -202,6 +208,8 @@ type Item struct {
 	CanPickUp   bool
 	Metadata    map[string]string
 	Mutex       sync.Mutex
+	LastEdited  time.Time
+	LastSaved   time.Time
 }
 
 type ItemData struct {
@@ -245,6 +253,8 @@ type Prototype struct {
 	CanPickUp   bool
 	Metadata    map[string]string
 	Mutex       sync.Mutex
+	LastEdited  time.Time
+	LastSaved   time.Time
 }
 
 type PrototypeData struct {

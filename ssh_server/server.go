@@ -455,7 +455,7 @@ func GracefulShutdown(ctx context.Context, server *core.Server) error {
 
 	// Perform final auto-save
 	core.Logger.Info("Performing final auto-save...")
-	if err := core.SaveActiveRooms(server); err != nil {
+	if err := server.SaveActiveRooms(); err != nil {
 		core.Logger.Error("Error saving rooms during shutdown", "error", err)
 	}
 	if err := server.SaveActiveItems(); err != nil {
