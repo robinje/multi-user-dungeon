@@ -10,6 +10,7 @@ dependencies:
   cupertino_icons: ^1.0.2
   amazon_cognito_identity_dart_2: ^3.6.5
   http: ^1.2.2
+  crypto: ^3.0.3
 
 dev_dependencies:
   flutter_test:
