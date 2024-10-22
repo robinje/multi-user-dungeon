@@ -150,7 +150,7 @@ func ExecuteGoCommand(character *Character, tokens []string) bool {
 	}
 
 	direction := tokens[1]
-	Move(character, direction)
+	character.Move(direction)
 
 	character.ExitCombat()
 
@@ -314,7 +314,7 @@ func ExecuteTakeCommand(character *Character, tokens []string) bool {
 		return false
 	}
 
-	if !CanCarryItem(character, itemToTake) {
+	if !character.CanCarryItem(itemToTake) {
 		character.Player.ToPlayer <- "\n\rYou can't carry any more items.\n\r"
 		return false
 	}
@@ -346,7 +346,7 @@ func ExecuteInventoryCommand(character *Character, tokens []string) bool {
 
 	Logger.Info("Player is checking their inventory", "playerName", character.Player.PlayerID)
 
-	inventoryList := ListInventory(character)
+	inventoryList := character.ListInventory()
 	character.Player.ToPlayer <- inventoryList
 	return false
 }
@@ -396,7 +396,7 @@ func ExecuteWearCommand(character *Character, tokens []string) bool {
 	}
 
 	itemName := strings.ToLower(strings.Join(tokens[1:], " "))
-	itemToWear := FindInInventory(character, itemName)
+	itemToWear := character.FindInInventory(itemName)
 
 	if itemToWear == nil {
 		character.Player.ToPlayer <- "\n\rYou don't have that item.\n\r"
@@ -413,7 +413,7 @@ func ExecuteWearCommand(character *Character, tokens []string) bool {
 		return false
 	}
 
-	if err := WearItem(character, itemToWear); err != nil {
+	if err := character.WearItem(itemToWear); err != nil {
 		character.Player.ToPlayer <- fmt.Sprintf("\n\r%s\n\r", err.Error())
 		return false
 	}
@@ -444,7 +444,7 @@ func ExecuteRemoveCommand(character *Character, tokens []string) bool {
 		return false
 	}
 
-	err := RemoveWornItem(character, itemToRemove)
+	err := character.RemoveWornItem(itemToRemove)
 	if err != nil {
 		character.Player.ToPlayer <- fmt.Sprintf("\n\r%s\n\r", err.Error())
 		return false
@@ -467,7 +467,7 @@ func ExecuteExamineCommand(character *Character, tokens []string) bool {
 	itemName := strings.ToLower(strings.Join(tokens[1:], " "))
 
 	// Check inventory first
-	item := FindInInventory(character, itemName)
+	item := character.FindInInventory(itemName)
 
 	// If not in inventory, check room
 	if item == nil {
