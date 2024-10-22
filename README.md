@@ -84,6 +84,7 @@ Key components:
 - [x] Allow starting room to be set by Archtype.
 - [x] Improve the input filters
 - [x] Handle unplanned disconnections.
+- [x] Limit Auto Save to updated objects.
 - [ ] Add look at item command.
 - [ ] Implement an obscenity filter.
 - [ ] Validate graph of loaded rooms and exits.
@@ -223,10 +224,13 @@ Deploying the server involves several steps:
 
 ## Development
 
-- The `core/` directory contains the main game logic and types.
-- The `ssh_server/` directory contains the main server implementation.
-- The `database/` directory contains Python scripts for database management.
-- The `scripts/` directory contains deployment and utility scripts.
+- `core/` directory contains the main game logic and types.
+- `data/` directory contains the data files for the game.
+- `database/` directory contains Python scripts for database management.
+- `editor/` directory contains the editor for creating and editing game content.
+- `registration/` directory contains the web registration page for new players.
+- `scripts/` directory contains deployment and utility scripts.
+- `ssh_server/` directory contains the main server implementation.
 
 ## License
 

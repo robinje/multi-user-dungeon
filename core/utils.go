@@ -33,17 +33,10 @@ func AutoSave(server *Server) {
 		Logger.Info("Starting auto-save process...")
 
 		// Save active characters
-		if err := SaveActiveCharacters(server); err != nil {
+		if err := server.SaveActiveCharacters(); err != nil {
 			Logger.Error("Failed to save characters", "error", err)
 		} else {
 			Logger.Info("Active characters saved successfully")
-		}
-
-		// Save active rooms
-		if err := SaveActiveRooms(server); err != nil {
-			Logger.Error("Failed to save rooms", "error", err)
-		} else {
-			Logger.Info("Active rooms saved successfully")
 		}
 
 		// Save active items
@@ -54,19 +47,14 @@ func AutoSave(server *Server) {
 		}
 
 		Logger.Info("Auto-save process completed")
-	}
-}
 
-// CleanupNilItems removes any nil items from the room's item list.
-func (r *Room) CleanupNilItems() {
-	r.Mutex.Lock()
-	defer r.Mutex.Unlock()
-
-	for id, item := range r.Items {
-		if item == nil {
-			delete(r.Items, id)
-			Logger.Info("Removed nil item from room", "itemID", id, "roomID", r.RoomID)
+		// Save active rooms
+		if err := server.SaveActiveRooms(); err != nil {
+			Logger.Error("Failed to save rooms", "error", err)
+		} else {
+			Logger.Info("Active rooms saved successfully")
 		}
+
 	}
 }
 
