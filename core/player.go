@@ -2,10 +2,9 @@ package core
 
 import (
 	"bufio"
-	"bytes"
+	"errors"
 	"fmt"
 	"io"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -90,18 +89,21 @@ func (k *KeyPair) ReadPlayer(playerName string) (string, map[string]uuid.UUID, [
 func PlayerInput(p *Player) {
 	Logger.Info("Player input goroutine started", "playerName", p.PlayerID)
 
-	var inputBuffer bytes.Buffer
-	const maxBufferSize = 1024 // Maximum input size in bytes
-
+	var inputBuffer []rune
 	reader := bufio.NewReader(p.Connection)
 
+	defer func() {
+		close(p.FromPlayer)
+		Logger.Info("Player input goroutine ended", "playerName", p.PlayerID)
+	}()
+
 	for {
-		char, _, err := reader.ReadRune()
+		r, _, err := reader.ReadRune()
 		if err != nil {
 			if err == io.EOF {
 				Logger.Info("Player disconnected", "playerName", p.PlayerID)
 				p.PlayerError <- err
-				break
+				return
 			} else {
 				Logger.Error("Error reading from player", "playerName", p.PlayerID, "error", err)
 				p.PlayerError <- err
@@ -109,33 +111,36 @@ func PlayerInput(p *Player) {
 			}
 		}
 
-		if p.Echo && char != '\n' && char != '\r' {
-			if _, err := p.Connection.Write([]byte(string(char))); err != nil {
-				Logger.Error("Failed to echo character to player", "playerName", p.PlayerID, "error", err)
+		switch r {
+		case '\n', '\r':
+			if len(inputBuffer) > 0 {
+				p.FromPlayer <- string(inputBuffer)
+				inputBuffer = inputBuffer[:0]
+			}
+			if p.Echo {
+				p.Connection.Write([]byte("\r\n"))
+			}
+		case '\b', 127: // Backspace and Delete
+			if len(inputBuffer) > 0 {
+				inputBuffer = inputBuffer[:len(inputBuffer)-1]
+				if p.Echo {
+					p.Connection.Write([]byte("\b \b"))
+				}
+			}
+		case '\x03': // Ctrl+C
+			Logger.Info("Player sent interrupt signal", "playerName", p.PlayerID)
+			p.PlayerError <- errors.New("player interrupt")
+			p.Connection.Close()
+			return
+		default:
+			if len(inputBuffer) < 1024 { // Max input size
+				inputBuffer = append(inputBuffer, r)
+				if p.Echo {
+					p.Connection.Write([]byte(string(r)))
+				}
 			}
 		}
-
-		if char == '\n' || char == '\r' {
-			if inputBuffer.Len() > 0 {
-				// Send the accumulated input to the FromPlayer channel
-				p.FromPlayer <- inputBuffer.String()
-				inputBuffer.Reset()
-			}
-			continue
-		}
-
-		if inputBuffer.Len() >= maxBufferSize {
-			Logger.Warn("Input buffer overflow, discarding input", "playerName", p.PlayerID)
-			p.ToPlayer <- "\n\rInput too long, discarded.\n\r"
-			inputBuffer.Reset()
-			continue
-		}
-
-		inputBuffer.WriteRune(char)
 	}
-
-	// Close the FromPlayer channel to signal that no more input will be sent
-	close(p.FromPlayer)
 }
 
 // PlayerOutput handles sending messages to the player in a separate goroutine.
@@ -143,16 +148,20 @@ func PlayerInput(p *Player) {
 func PlayerOutput(p *Player) {
 	Logger.Info("Player output goroutine started", "playerName", p.PlayerID)
 
+	defer func() {
+		close(p.FromPlayer)
+		Logger.Info("Player output goroutine ended", "playerName", p.PlayerID)
+	}()
+
 	for message := range p.ToPlayer {
-		// Write the message to the player's SSH connection
-		if _, err := p.Connection.Write([]byte(message)); err != nil {
+		wrappedMessage := wrapText(message, p.ConsoleWidth)
+		_, err := p.Connection.Write([]byte(wrappedMessage))
+		if err != nil {
 			Logger.Error("Failed to send message to player", "playerName", p.PlayerID, "error", err)
-			// Decide whether to continue or break based on your error handling policy
-			continue
+			return
 		}
 	}
 
-	// Optional cleanup after the channel is closed
 	Logger.Info("Message channel closed for player", "playerName", p.PlayerID)
 }
 
@@ -339,121 +348,4 @@ func SelectCharacter(player *Player, server *Server) (*Character, error) {
 
 		return character, nil
 	}
-}
-
-// CreateCharacter handles the character creation process for a player.
-// It prompts the player for a character name and archetype, and initializes the character.
-func (s *Server) CreateCharacter(player *Player) (*Character, error) {
-	Logger.Info("Player is creating a new character", "playerName", player.PlayerID)
-
-	player.ToPlayer <- "\n\rEnter your character name: "
-
-	charName, ok := <-player.FromPlayer
-	if !ok {
-		Logger.Error("Failed to receive character name input", "playerName", player.PlayerID)
-		return nil, fmt.Errorf("failed to receive character name input")
-	}
-
-	charName = strings.TrimSpace(charName)
-
-	// Validate character name
-	if len(charName) == 0 {
-		player.ToPlayer <- "Character name cannot be empty.\n\r"
-		return nil, fmt.Errorf("character name cannot be empty")
-	}
-
-	if len(charName) > 15 {
-		player.ToPlayer <- "Character name must be 15 characters or fewer.\n\r"
-		return nil, fmt.Errorf("character name must be 15 characters or fewer")
-	}
-
-	if s.CharacterNameExists(charName) {
-		player.ToPlayer <- "Character name already exists. Please choose another name.\n\r"
-		return nil, fmt.Errorf("character name already exists")
-	}
-
-	var selectedArchetype string
-
-	// If archetypes are available, prompt the player to select one
-	if s.Archetypes != nil && len(s.Archetypes.Archetypes) > 0 {
-		for {
-			selectionMsg := "\n\rSelect a character archetype.\n\r"
-			archetypeOptions := make([]string, 0, len(s.Archetypes.Archetypes))
-			for name, archetype := range s.Archetypes.Archetypes {
-				archetypeOptions = append(archetypeOptions, name+" - "+archetype.Description)
-			}
-			sort.Strings(archetypeOptions)
-
-			for i, option := range archetypeOptions {
-				selectionMsg += fmt.Sprintf("%d: %s\n\r", i+1, option)
-			}
-
-			selectionMsg += "Enter the number of your choice: "
-			player.ToPlayer <- selectionMsg
-
-			selection, ok := <-player.FromPlayer
-			if !ok {
-				Logger.Error("Failed to receive archetype selection", "playerName", player.PlayerID)
-				return nil, fmt.Errorf("failed to receive archetype selection")
-			}
-
-			selectionNum, err := strconv.Atoi(strings.TrimSpace(selection))
-			if err == nil && selectionNum >= 1 && selectionNum <= len(archetypeOptions) {
-				selectedOption := archetypeOptions[selectionNum-1]
-				selectedArchetype = strings.Split(selectedOption, " - ")[0]
-				break
-			} else {
-				player.ToPlayer <- "Invalid selection. Please select a valid archetype number.\n\r"
-			}
-		}
-	}
-
-	Logger.Info("Creating character", "characterName", charName)
-
-	// Attempt to find the starting room
-	room, ok := s.Rooms[1]
-	if !ok {
-		Logger.Warn("Starting room not found, using default room", "startingRoomID", 1)
-
-		// Attempt to find default room (room ID 0)
-		room, ok = s.Rooms[0]
-		if !ok {
-			Logger.Error("No default room found", "defaultRoomID", 0)
-			Logger.Info("Available rooms", "rooms", s.Rooms)
-			player.ToPlayer <- "No starting or default room found. Please contact the administrator.\n\r"
-			return nil, fmt.Errorf("no starting or default room found")
-		}
-	}
-
-	// Create the new character
-	character := s.NewCharacter(charName, player, room, selectedArchetype)
-
-	player.Mutex.Lock()
-	if player.CharacterList == nil {
-		player.CharacterList = make(map[string]uuid.UUID)
-	}
-	player.CharacterList[charName] = character.ID
-	player.Mutex.Unlock()
-
-	Logger.Info("Added character to player's character list", "characterName", charName, "characterID", character.ID, "playerName", player.PlayerID)
-
-	// Save the character to the database with error handling
-	err := s.Database.WriteCharacter(character)
-	if err != nil {
-		Logger.Error("Error saving character to database", "characterName", charName, "error", err)
-		player.ToPlayer <- "Error saving character to database. Please try again later.\n\r"
-		return nil, fmt.Errorf("failed to save character to database: %w", err)
-	}
-
-	// Save the updated player data with error handling
-	err = s.Database.WritePlayer(player)
-	if err != nil {
-		Logger.Error("Error saving player data", "playerName", player.PlayerID, "error", err)
-		player.ToPlayer <- "Error saving player data. Please try again later.\n\r"
-		return nil, fmt.Errorf("failed to save player data: %w", err)
-	}
-
-	Logger.Info("Successfully created and saved character for player", "characterName", charName, "characterID", character.ID, "playerName", player.PlayerID)
-
-	return character, nil
 }

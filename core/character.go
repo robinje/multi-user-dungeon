@@ -2,8 +2,11 @@ package core
 
 import (
 	"fmt"
+	"sort"
+	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
@@ -31,6 +34,63 @@ var WearLocations = map[string]bool{
 	"right_wrist":  true,
 }
 
+// NewCharacter creates a new character with the specified name and archetype.
+func (s *Server) NewCharacter(name string, player *Player, room *Room, archetypeName string) (*Character, error) {
+	// Check if the character name already exists
+	if s.CharacterBloomFilter.Test([]byte(name)) {
+		return nil, fmt.Errorf("character name '%s' already exists", name)
+	}
+
+	character := &Character{
+		ID:          uuid.New(),
+		Room:        room,
+		Name:        name,
+		Player:      player,
+		Health:      float64(s.Health),
+		Essence:     float64(s.Essence),
+		Attributes:  make(map[string]float64),
+		Abilities:   make(map[string]float64),
+		Inventory:   make(map[string]*Item),
+		Server:      s,
+		Mutex:       sync.Mutex{},
+		CombatRange: nil,
+		Facing:      nil,
+		LastSaved:   time.Now(),
+		LastEdited:  time.Now(),
+	}
+
+	s.Mutex.Lock()
+	defer s.Mutex.Unlock()
+
+	// Add character name to bloom filter
+	s.CharacterBloomFilter.Add([]byte(name))
+
+	// Apply archetype attributes and abilities
+	if archetypeName != "" {
+		if archetype, ok := s.ArcheTypes[archetypeName]; ok {
+			for attr, value := range archetype.Attributes {
+				character.Attributes[attr] = value
+			}
+			for ability, value := range archetype.Abilities {
+				character.Abilities[ability] = value
+			}
+			// Set the start room if it's defined in the archetype
+			if archetype.StartRoom != 0 {
+				if startRoom, ok := s.Rooms[archetype.StartRoom]; ok {
+					character.Room = startRoom
+				}
+			}
+		} else {
+			return nil, fmt.Errorf("archetype '%s' not found", archetypeName)
+		}
+	}
+
+	// Add the character to the server's Characters map
+	s.Characters[character.ID] = character
+
+	return character, nil
+}
+
 // ToData converts a Character object into a CharacterData struct for database storage.
 func (c *Character) ToData() *CharacterData {
 	inventoryIDs := make(map[string]string)
@@ -49,6 +109,132 @@ func (c *Character) ToData() *CharacterData {
 		RoomID:        c.Room.RoomID,
 		Inventory:     inventoryIDs,
 	}
+}
+
+// CreateCharacter handles the character creation process for a player.
+// It prompts the player for a character name and archetype, and initializes the character.
+func (s *Server) CreateCharacter(player *Player) (*Character, error) {
+
+	Logger.Info("Player is creating a new character", "playerName", player.PlayerID)
+
+	player.ToPlayer <- "\n\rEnter your character name: "
+
+	charName, ok := <-player.FromPlayer
+	if !ok {
+		Logger.Error("Failed to receive character name input", "playerName", player.PlayerID)
+		return nil, fmt.Errorf("failed to receive character name input")
+	}
+
+	charName = strings.TrimSpace(charName)
+
+	// Validate character name
+	if len(charName) == 0 {
+		player.ToPlayer <- "Character name cannot be empty.\n\r"
+		return nil, fmt.Errorf("character name cannot be empty")
+	}
+
+	if len(charName) > 15 {
+		player.ToPlayer <- "Character name must be 15 characters or fewer.\n\r"
+		return nil, fmt.Errorf("character name must be 15 characters or fewer")
+	}
+
+	if s.CharacterBloomFilter.Test([]byte(charName)) {
+		player.ToPlayer <- "Character name already exists. Please choose another name.\n\r"
+		return nil, fmt.Errorf("character name already exists")
+	}
+
+	var selectedArchetype string
+
+	// If archetypes are available, prompt the player to select one
+	if len(s.ArcheTypes) > 0 {
+		for {
+			selectionMsg := "\n\rSelect a character archetype.\n\r"
+			archetypeOptions := make([]string, 0, len(s.ArcheTypes))
+			for name, archetype := range s.ArcheTypes {
+				archetypeOptions = append(archetypeOptions, name+" - "+archetype.Description)
+			}
+			sort.Strings(archetypeOptions)
+
+			for i, option := range archetypeOptions {
+				selectionMsg += fmt.Sprintf("%d: %s\n\r", i+1, option)
+			}
+
+			selectionMsg += "Enter the number of your choice: "
+			player.ToPlayer <- selectionMsg
+
+			selection, ok := <-player.FromPlayer
+			if !ok {
+				Logger.Error("Failed to receive archetype selection", "playerName", player.PlayerID)
+				return nil, fmt.Errorf("failed to receive archetype selection")
+			}
+
+			selectionNum, err := strconv.Atoi(strings.TrimSpace(selection))
+			if err == nil && selectionNum >= 1 && selectionNum <= len(archetypeOptions) {
+				selectedOption := archetypeOptions[selectionNum-1]
+				selectedArchetype = strings.Split(selectedOption, " - ")[0]
+				break
+			} else {
+				player.ToPlayer <- "Invalid selection. Please select a valid archetype number.\n\r"
+			}
+		}
+	}
+
+	Logger.Info("Creating character", "characterName", charName)
+
+	// Attempt to find the starting room
+	room, ok := s.Rooms[1] // This should be pulled ftom the Archtype
+	if !ok {
+		Logger.Warn("Starting room not found, using default room", "startingRoomID", 1)
+
+		// Attempt to find default room (room ID 0)
+		room, ok = s.Rooms[0]
+		if !ok {
+			Logger.Error("No default room found", "defaultRoomID", 0)
+			Logger.Info("Available rooms", "rooms", s.Rooms)
+			player.ToPlayer <- "No starting or default room found. Please contact the administrator.\n\r"
+			return nil, fmt.Errorf("no starting or default room found")
+		}
+	}
+
+	s.Mutex.Lock()
+	defer s.Mutex.Unlock()
+
+	// Create the new character
+	character, err := s.NewCharacter(charName, player, room, selectedArchetype)
+	if err != nil {
+		Logger.Error("Error creating character", "characterName", charName, "error", err)
+		player.ToPlayer <- "Error creating character. Please try again later.\n\r"
+		return nil, fmt.Errorf("failed to create character: %w", err)
+	}
+
+	player.Mutex.Lock()
+	if player.CharacterList == nil {
+		player.CharacterList = make(map[string]uuid.UUID)
+	}
+	player.CharacterList[charName] = character.ID
+	player.Mutex.Unlock()
+
+	Logger.Info("Added character to player's character list", "characterName", charName, "characterID", character.ID, "playerName", player.PlayerID)
+
+	// Save the character to the database with error handling
+	err = s.Database.WriteCharacter(character)
+	if err != nil {
+		Logger.Error("Error saving character to database", "characterName", charName, "error", err)
+		player.ToPlayer <- "Error saving character to database. Please try again later.\n\r"
+		return nil, fmt.Errorf("failed to save character to database: %w", err)
+	}
+
+	// Save the updated player data with error handling
+	err = s.Database.WritePlayer(player)
+	if err != nil {
+		Logger.Error("Error saving player data", "playerName", player.PlayerID, "error", err)
+		player.ToPlayer <- "Error saving player data. Please try again later.\n\r"
+		return nil, fmt.Errorf("failed to save player data: %w", err)
+	}
+
+	Logger.Info("Successfully created and saved character for player", "characterName", charName, "characterID", character.ID, "playerName", player.PlayerID)
+
+	return character, nil
 }
 
 // FromData populates a Character object from a CharacterData struct retrieved from the database.
@@ -95,40 +281,6 @@ func (c *Character) FromData(cd *CharacterData, server *Server) error {
 	return nil
 }
 
-// NewCharacter creates a new character with the specified name and archetype.
-func (s *Server) NewCharacter(name string, player *Player, room *Room, archetypeName string) *Character {
-	character := &Character{
-		ID:         uuid.New(),
-		Room:       room,
-		Name:       name,
-		Player:     player,
-		Health:     float64(s.Health),
-		Essence:    float64(s.Essence),
-		Attributes: make(map[string]float64),
-		Abilities:  make(map[string]float64),
-		Inventory:  make(map[string]*Item),
-		Server:     s,
-		Mutex:      sync.Mutex{},
-	}
-
-	// Add character name to bloom filter to prevent duplicates
-	s.AddCharacterName(name)
-
-	// Apply archetype attributes and abilities
-	if archetypeName != "" {
-		if archetype, ok := s.Archetypes.Archetypes[archetypeName]; ok {
-			for attr, value := range archetype.Attributes {
-				character.Attributes[attr] = value
-			}
-			for ability, value := range archetype.Abilities {
-				character.Abilities[ability] = value
-			}
-		}
-	}
-
-	return character
-}
-
 // WriteCharacter saves the character to the DynamoDB database.
 func (kp *KeyPair) WriteCharacter(character *Character) error {
 
@@ -141,11 +293,15 @@ func (kp *KeyPair) WriteCharacter(character *Character) error {
 	}
 
 	Logger.Info("Successfully wrote character to database", "characterName", character.Name, "characterID", character.ID)
+
+	character.LastSaved = time.Now()
+
 	return nil
 }
 
 // LoadCharacter retrieves a character from the DynamoDB database and reconstructs the Character object.
 func (kp *KeyPair) LoadCharacter(characterID uuid.UUID, player *Player, server *Server) (*Character, error) {
+
 	key := map[string]*dynamodb.AttributeValue{
 		"CharacterID": {S: aws.String(characterID.String())},
 	}
@@ -182,6 +338,9 @@ func (kp *KeyPair) LoadCharacter(characterID uuid.UUID, player *Player, server *
 	}
 
 	Logger.Info("Loaded character", "characterName", character.Name, "characterID", character.ID)
+
+	character.LastSaved = time.Now()
+
 	return character, nil
 }
 
@@ -245,23 +404,68 @@ func (kp *KeyPair) LoadCharacterNames() (map[string]bool, error) {
 	return names, nil
 }
 
-// InitializeBloomFilter initializes the bloom filter with existing character names.
+// InitializeBloomFilter initializes the bloom filter with existing character names,
+// as well as names from ../data/names.txt and ../data/obscenity.txt.
 func (server *Server) InitializeBloomFilter() error {
+	// Load character names from the database
 	characterNames, err := server.Database.LoadCharacterNames()
 	if err != nil {
 		return fmt.Errorf("failed to load character names: %w", err)
 	}
 
-	n := uint(max(len(characterNames), 100)) // Use at least 100 as the initial size
+	// Load additional names from names.txt
+	namesFilePath := "../data/names.txt"
+	namesFromFile, err := loadNamesFromFile(namesFilePath)
+	if err != nil {
+		return fmt.Errorf("failed to load names from %s: %w", namesFilePath, err)
+	}
+
+	// Load obscenity words from obscenity.txt
+	obscenityFilePath := "../data/obscenity.txt"
+	obscenities, err := loadNamesFromFile(obscenityFilePath)
+	if err != nil {
+		return fmt.Errorf("failed to load obscenities from %s: %w", obscenityFilePath, err)
+	}
+
+	// Calculate total number of items to add to the bloom filter
+	totalItems := len(characterNames)
+	for range characterNames { // Assuming characterNames is a map; adjust if it's a slice
+		// Counting items in characterNames
+	}
+	totalItems += len(namesFromFile)
+	totalItems += len(obscenities)
+
+	// Ensure a minimum size
+	if totalItems < 100 {
+		totalItems = 100
+	}
+
 	fpRate := FalsePositiveRate
 
-	server.CharacterBloomFilter = bloom.NewWithEstimates(n, fpRate)
+	// Initialize the bloom filter with the estimated number of items and false positive rate
+	server.CharacterBloomFilter = bloom.NewWithEstimates(uint(totalItems), fpRate)
 
+	// Add character names to the bloom filter
 	for name := range characterNames {
 		server.CharacterBloomFilter.AddString(strings.ToLower(name))
 	}
 
-	Logger.Info("Bloom filter initialized", "estimatedSize", n, "falsePositiveRate", fpRate)
+	// Add names from names.txt to the bloom filter
+	for _, name := range namesFromFile {
+		server.CharacterBloomFilter.AddString(name)
+	}
+
+	// Add obscenities to the bloom filter
+	for _, word := range obscenities {
+		server.CharacterBloomFilter.AddString(word)
+	}
+
+	Logger.Info("Bloom filter initialized",
+		"estimatedSize", totalItems,
+		"falsePositiveRate", fpRate,
+		"totalItemsAdded", totalItems,
+	)
+
 	return nil
 }
 
@@ -283,19 +487,30 @@ func (server *Server) CharacterNameExists(name string) bool {
 	return exists
 }
 
-// SaveActiveCharacters saves all active characters to the database.
-func SaveActiveCharacters(s *Server) error {
-	s.Mutex.Lock()
-	defer s.Mutex.Unlock()
+// SaveActiveCharacters saves all active characters to the database if they have been edited since the last save.
+func (s *Server) SaveActiveCharacters() error {
 
 	Logger.Info("Saving active characters...")
 
 	for _, character := range s.Characters {
+		// Check if the character's LastEdited is before LastSaved
+		if !character.LastEdited.After(character.LastSaved) {
+			Logger.Info("Character not edited since last save, skipping", "characterName", character.Name)
+			continue // Skip writing this character
+		}
+
+		character.Mutex.Lock()
+		// Attempt to write the character to the database
 		err := s.Database.WriteCharacter(character)
 		if err != nil {
 			Logger.Error("Error saving character", "characterName", character.Name, "error", err)
-			continue // Continue saving other characters
+			continue // Continue saving other characters even if one fails
 		}
+
+		// Update LastSaved after a successful write
+		character.LastSaved = time.Now()
+		Logger.Info("Character saved successfully", "characterName", character.Name)
+		character.Mutex.Unlock()
 	}
 
 	Logger.Info("Active characters saved successfully.")
@@ -303,7 +518,7 @@ func SaveActiveCharacters(s *Server) error {
 }
 
 // WearItem allows a character to wear an item from their inventory.
-func WearItem(c *Character, item *Item) error {
+func (c *Character) WearItem(item *Item) error {
 	c.Mutex.Lock()
 	defer c.Mutex.Unlock()
 
@@ -343,11 +558,14 @@ func WearItem(c *Character, item *Item) error {
 	delete(c.Inventory, handSlot) // Remove from hand slot
 
 	Logger.Info("Item worn", "characterName", c.Name, "itemName", item.Name, "wornOn", item.WornOn)
+
+	c.LastEdited = time.Now()
+
 	return nil
 }
 
 // ListInventory lists the items in a character's inventory.
-func ListInventory(c *Character) string {
+func (c *Character) ListInventory() string {
 	Logger.Debug("Character is listing inventory", "characterName", c.Name)
 
 	c.Mutex.Lock()
@@ -384,7 +602,7 @@ func ListInventory(c *Character) string {
 }
 
 // AddToInventory adds an item to the character's inventory.
-func AddToInventory(c *Character, item *Item) {
+func (c *Character) AddToInventory(item *Item) {
 	Logger.Debug("Character is adding item to inventory", "characterName", c.Name, "itemName", item.Name)
 
 	c.Mutex.Lock()
@@ -407,11 +625,13 @@ func AddToInventory(c *Character, item *Item) {
 		}
 	}
 
+	c.LastEdited = time.Now()
+
 	Logger.Info("Item added to inventory", "characterName", c.Name, "itemName", item.Name)
 }
 
 // FindInInventory searches for an item in the character's inventory by name.
-func FindInInventory(c *Character, itemName string) *Item {
+func (c *Character) FindInInventory(itemName string) *Item {
 	Logger.Debug("Character is searching inventory for item", "characterName", c.Name, "itemName", itemName)
 
 	c.Mutex.Lock()
@@ -429,7 +649,7 @@ func FindInInventory(c *Character, itemName string) *Item {
 }
 
 // RemoveFromInventory removes an item from the character's inventory.
-func RemoveFromInventory(c *Character, item *Item) {
+func (c *Character) RemoveFromInventory(item *Item) {
 	Logger.Debug("Character is removing item from inventory", "characterName", c.Name, "itemName", item.Name)
 
 	c.Mutex.Lock()
@@ -450,12 +670,14 @@ func RemoveFromInventory(c *Character, item *Item) {
 		}
 	}
 
+	c.LastEdited = time.Now()
+
 	Logger.Info("Item removed from inventory", "characterName", c.Name, "itemName", item.Name)
 }
 
 // CanCarryItem checks if the character can carry the specified item.
 // This is a placeholder for future weight and capacity checks.
-func CanCarryItem(c *Character, item *Item) bool {
+func (c *Character) CanCarryItem(item *Item) bool {
 	Logger.Info("Character is checking if they can carry item", "characterName", c.Name, "itemName", item.Name)
 
 	// Placeholder implementation; always returns true for now
@@ -463,7 +685,7 @@ func CanCarryItem(c *Character, item *Item) bool {
 }
 
 // RemoveWornItem allows a character to remove a worn item.
-func RemoveWornItem(c *Character, item *Item) error {
+func (c *Character) RemoveWornItem(item *Item) error {
 	c.Mutex.Lock()
 	defer c.Mutex.Unlock()
 
@@ -505,6 +727,8 @@ func RemoveWornItem(c *Character, item *Item) error {
 	// Place item in hand slot
 	c.Inventory[handSlot] = item
 
+	c.LastEdited = time.Now()
+
 	Logger.Info("Item removed from worn location and placed in hand", "characterName", c.Name, "itemName", item.Name, "handSlot", handSlot)
 	return nil
 }
@@ -525,4 +749,62 @@ func getOtherCharacters(r *Room, currentCharacter *Character) []string {
 
 	Logger.Info("Found other characters in room", "count", len(otherCharacters), "room_id", r.RoomID)
 	return otherCharacters
+}
+
+// Move handles character movement from one room to another based on the direction.
+func (c *Character) Move(direction string) {
+	Logger.Info("Player is attempting to move", "player_name", c.Name, "direction", direction)
+
+	c.Mutex.Lock()
+	defer c.Mutex.Unlock()
+
+	if c.Room == nil {
+		c.Player.ToPlayer <- "\n\rYou are not in any room to move from.\n\r"
+		Logger.Warn("Character has no current room", "character_name", c.Name)
+		c.Player.ToPlayer <- c.Player.Prompt
+		return
+	}
+
+	selectedExit, exists := c.Room.Exits[direction]
+	if !exists {
+		c.Player.ToPlayer <- "\n\rYou cannot go that way.\n\r"
+		Logger.Warn("Invalid direction for movement", "character_name", c.Name, "direction", direction)
+		c.Player.ToPlayer <- c.Player.Prompt
+		return
+	}
+
+	if selectedExit.TargetRoom == nil {
+		c.Player.ToPlayer <- "\n\rThe path leads nowhere.\n\r"
+		Logger.Warn("Target room is nil", "character_name", c.Name, "direction", direction)
+		c.Player.ToPlayer <- c.Player.Prompt
+		return
+	}
+
+	newRoom := selectedExit.TargetRoom
+
+	// Safely remove the character from the old room
+	oldRoom := c.Room
+	oldRoom.Mutex.Lock()
+	delete(oldRoom.Characters, c.ID)
+	oldRoom.Mutex.Unlock()
+	SendRoomMessage(oldRoom, fmt.Sprintf("\n\r%s has left going %s.\n\r", c.Name, direction))
+
+	// Update character's room
+	c.Room = newRoom
+
+	// Safely add the character to the new room
+	newRoom.Mutex.Lock()
+	if newRoom.Characters == nil {
+		newRoom.Characters = make(map[uuid.UUID]*Character)
+	}
+	newRoom.Characters[c.ID] = c
+	newRoom.Mutex.Unlock()
+	SendRoomMessage(newRoom, fmt.Sprintf("\n\r%s has arrived.\n\r", c.Name))
+
+	// Let the character look around the new room
+	ExecuteLookCommand(c, []string{})
+
+	c.LastEdited = time.Now()
+
+	Logger.Info("Character moved successfully", "character_name", c.Name, "new_room_id", newRoom.RoomID)
 }

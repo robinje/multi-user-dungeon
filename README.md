@@ -9,8 +9,7 @@
 
 ![Go](https://img.shields.io/badge/go-%2300ADD8.svg?style=for-the-badge&logo=go&logoColor=white)
 ![Python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54)
-![JavaScript](https://img.shields.io/badge/javascript-%23323330.svg?style=for-the-badge&logo=javascript&logoColor=%23F7DF1E)
-![Webpack](https://img.shields.io/badge/webpack-%238DD6F9.svg?style=for-the-badge&logo=webpack&logoColor=black)
+![Flutter](https://img.shields.io/badge/Flutter-%2302569B.svg?style=for-the-badge&logo=Flutter&logoColor=white)
 
 ![Linux](https://img.shields.io/badge/Linux-FCC624?style=for-the-badge&logo=linux&logoColor=black)
 ![Windows](https://img.shields.io/badge/Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white)
@@ -20,6 +19,17 @@
 The goal of this project is to create a commercial-quality multi-user dungeon (MUD) engine that is flexible enough to be used as either a conventional MUD or an interactive fiction game.
 
 The current implementation includes an SSH server for secure authentication and communication between the player and the server. The engine is primarily written in Go. Additionally, there is a user management system stub written in JavaScript and various utility scripts written in Python.
+
+## Project Overview
+
+The engine is primarily written in Go (version 1.22) with an SSH server for secure authentication and communication between the player and the server. Additionally, there are database utility scripts written in Python (version 3.12) and various deployment scripts.
+
+Key components:
+
+- Go server (v1.22) for game logic and player interactions
+- Python (v3.12) scripts for database management and deployment
+- AWS services for database (DynamoDB) and Identity Provider (Cognito)
+- CloudFormation templates for AWS resource management
 
 ## Current Objectives
 
@@ -71,26 +81,124 @@ The current implementation includes an SSH server for secure authentication and 
 - [x] Add a Message of the Day (MOTD) command.
 - [x] Add Bloom Filter to check for existing characters names being used.
 - [x] Add the ability to delete characters.
+- [x] Allow starting room to be set by Archtype.
+- [x] Improve the input filters
+- [x] Handle unplanned disconnections.
+- [x] Limit Auto Save to updated objects.
 - [ ] Add look at item command.
 - [ ] Implement an obscenity filter.
 - [ ] Validate graph of loaded rooms and exits.
 - [ ] Improve the say command.
-- [ ] Improve the input filters
 - [ ] Create administrative interface.
 - [ ] Force Password Resets when needed.
-- [ ] Allow starting room to be set by Archtype.
 - [ ] Add the ability to delete accounts.
+- [ ] Add the ability to ban accounts.
+- [ ] Add the ability to mute accounts.
+- [ ] Improve error handling.
+- [ ] Perform data validation for base data.
+- [ ] Add rate limiting to the server.
+- [ ] Expand error handling.
+- [ ] Add Session Timeout.
 
-## Project Overview
+## Commands
 
-The engine is primarily written in Go (version 1.22) with an SSH server for secure authentication and communication between the player and the server. Additionally, there are database utility scripts written in Python (version 3.12) and various deployment scripts.
+Game Information:
 
-Key components:
+- [x] HELP: Display a list of commands.
+- [ ] MAP: Display a map of the current area.
+- [ ] TIME: Display the current time.
+- [ ] MOTD: Display the message of the day.
+- [ ] REPORT: Report a bug or issue.
+- [ ] BUG: Report a bug or issue.
+- [x] WHO: Display a list of players.
 
-- Go server (v1.22) for game logic and player interactions
-- Python (v3.12) scripts for database management and deployment
-- AWS services for database (DynamoDB) and Identity Provider (Cognito)
-- CloudFormation templates for AWS resource management
+Basic Movement:
+
+- [x] GO: Move to a new room.
+- [x] LOOK: Look at the current room.
+- [ ] CLIMB: Climb an object like a tree or ladder.
+- [ ] SWIM: Swim through water.
+- [ ] JUMP: Jump over an object.
+- [ ] SNEAK: Move quietly.
+
+Objects and Inventory:
+
+- [ ] GET: Pick up an object.
+- [ ] DROP: Drop an object.
+- [ ] PUT: Put an object in a container.
+- [ ] TAKE: Take an object from a container.
+- [ ] INVENTORY: Display the contents of your inventory.
+- [ ] WEAR: Wear an object.
+- [ ] REMOVE: Remove an object.
+- [ ] EXAMINE: Examine an object.
+- [ ] EAT: Eat an object.
+- [ ] DRINK: Drink an object.
+
+Communication:
+
+- [ ] SAY: Speak to other players.
+- [ ] WHISPER: Speak privately to another player.
+- [ ] SHOUT: Shout to the adjacent rooms.
+- [ ] EMOTE: Perform an action.
+
+Combat:
+
+- [x] FACE: Face another player or NPC.
+- [ ] ADVACE: Move towards another player or NPC.
+- [ ] RETREAT: Move away from another player or NPC.
+- [x] ASSESS: Assess the situation.
+- [ ] ATTACK: Attack another player or NPC.
+- [ ] PARRY: Defend against an attack.
+- [ ] DODGE: Avoid an attack.
+- [ ] LOAD: Load a weapon.
+- [ ] FIRE: Fire a weapon.
+
+Character Manegment:
+
+- [ ] SKILLS: Display your skills.
+- [ ] STATUS: Display the character status.
+
+Group:
+
+- [ ] GROUP: Create a group.
+- [ ] JOIN: Join a group.
+- [ ] FOPLLOW: Follow a group member.
+- [ ] LEAVE: Leave a group.
+- [ ] DISBAND: Disband a group.
+- [ ] FRIEND: Add a friend.
+
+Commerce:
+
+- [ ] SHOP: Brows items available from a merchant
+- [ ] BUY: Purchase an item from a merchant.
+- [ ] SELL: Sell an item to a merchant.
+- [ ] TRADE: Trade an item with another player.
+
+Magic:
+
+- [ ] PREPARE: Prepare a spell or ritual
+- [ ] CAST: Cast a spell or ritual.
+- [ ] DISPEL: Dispel a spell.
+
+Crafting:
+
+- [ ] FORAGE: Gather materials from the environment.
+- [ ] CRAFT: Create an item from materials.
+- [ ] SKIN: Remove materials from a creature.
+
+Session Management:
+
+- [ ] PASSWORD: Change your password.
+- [ ] QUIT: Exit the game.
+- [ ] LOGOUT: Exit the game. (return to character managment)
+- [ ] SETTINGS: Change your settings.
+
+OTHER:
+
+- [ ] HIDE: Hide from other players.
+- [ ] SEARCH: Search for hidden objects.
+- [ ] UNHIDE: Reveal yourself.
+- [ ] USE: Use an object.
 
 ## Deployment
 
@@ -116,10 +224,13 @@ Deploying the server involves several steps:
 
 ## Development
 
-- The `core/` directory contains the main game logic and types.
-- The `ssh_server/` directory contains the main server implementation.
-- The `database/` directory contains Python scripts for database management.
-- The `scripts/` directory contains deployment and utility scripts.
+- `core/` directory contains the main game logic and types.
+- `data/` directory contains the data files for the game.
+- `database/` directory contains Python scripts for database management.
+- `editor/` directory contains the editor for creating and editing game content.
+- `registration/` directory contains the web registration page for new players.
+- `scripts/` directory contains deployment and utility scripts.
+- `ssh_server/` directory contains the main server implementation.
 
 ## License
 

@@ -15,16 +15,7 @@ updates:
     schedule:
       interval: "weekly"
 
-  - package-ecosystem: "npm"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-    allow:
-      - dependency-type: production
-
-  - package-ecosystem: "npm"
+  - package-ecosystem: "pub"
     directory: "/registration"
     schedule:
       interval: "weekly"
-    allow:
-      - dependency-type: production

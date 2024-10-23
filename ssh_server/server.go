@@ -60,7 +60,7 @@ func NewServer(config core.Configuration) (*core.Server, error) {
 
 	// Load archetypes from the database
 	core.Logger.Info("Loading archetypes from database...")
-	server.Archetypes, err = server.Database.LoadArchetypes()
+	err = server.LoadArchetypes()
 	if err != nil {
 		core.Logger.Error("Error loading archetypes from database", "error", err)
 		// If archetypes are critical, consider exiting
@@ -455,7 +455,7 @@ func GracefulShutdown(ctx context.Context, server *core.Server) error {
 
 	// Perform final auto-save
 	core.Logger.Info("Performing final auto-save...")
-	if err := core.SaveActiveRooms(server); err != nil {
+	if err := server.SaveActiveRooms(); err != nil {
 		core.Logger.Error("Error saving rooms during shutdown", "error", err)
 	}
 	if err := server.SaveActiveItems(); err != nil {

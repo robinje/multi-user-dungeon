@@ -69,7 +69,7 @@ type Server struct {
 	Characters           map[uuid.UUID]*Character
 	Balance              float64
 	AutoSave             uint16
-	Archetypes           *ArchetypesData
+	ArcheTypes           map[string]*Archetype
 	Health               uint16
 	Essence              uint16
 	Items                map[uuid.UUID]*Item
@@ -116,6 +116,8 @@ type Room struct {
 	Characters  map[uuid.UUID]*Character
 	Items       map[uuid.UUID]*Item
 	Mutex       sync.Mutex
+	LastEdited  time.Time
+	LastSaved   time.Time
 }
 
 // RoomData represents the structure for storing room data in DynamoDB
@@ -134,6 +136,8 @@ type Exit struct {
 	Direction  string
 	TargetRoom *Room
 	Visible    bool
+	LastEdited time.Time
+	LastSaved  time.Time
 }
 
 // ExitData represents the structure for storing exit data in DynamoDB
@@ -145,17 +149,21 @@ type ExitData struct {
 }
 
 type Character struct {
-	ID         uuid.UUID
-	Player     *Player
-	Name       string
-	Attributes map[string]float64
-	Abilities  map[string]float64
-	Essence    float64
-	Health     float64
-	Room       *Room
-	Inventory  map[string]*Item
-	Server     *Server
-	Mutex      sync.Mutex
+	ID          uuid.UUID
+	Player      *Player
+	Name        string
+	Attributes  map[string]float64
+	Abilities   map[string]float64
+	Essence     float64
+	Health      float64
+	Room        *Room
+	Inventory   map[string]*Item
+	Server      *Server
+	Mutex       sync.Mutex
+	Facing      *Character
+	CombatRange map[uuid.UUID]int // nil when not in combat
+	LastEdited  time.Time
+	LastSaved   time.Time
 }
 
 // CharacterData for unmarshalling character.
@@ -176,10 +184,7 @@ type Archetype struct {
 	Description   string             `json:"Description" dynamodbav:"Description"`
 	Attributes    map[string]float64 `json:"Attributes" dynamodbav:"Attributes"`
 	Abilities     map[string]float64 `json:"Abilities" dynamodbav:"Abilities"`
-}
-
-type ArchetypesData struct {
-	Archetypes map[string]Archetype `json:"archetypes"`
+	StartRoom     int64              `json:"StartRoom" dynamodbav:"StartRoom"`
 }
 
 type Item struct {
@@ -203,6 +208,8 @@ type Item struct {
 	CanPickUp   bool
 	Metadata    map[string]string
 	Mutex       sync.Mutex
+	LastEdited  time.Time
+	LastSaved   time.Time
 }
 
 type ItemData struct {
@@ -246,6 +253,8 @@ type Prototype struct {
 	CanPickUp   bool
 	Metadata    map[string]string
 	Mutex       sync.Mutex
+	LastEdited  time.Time
+	LastSaved   time.Time
 }
 
 type PrototypeData struct {

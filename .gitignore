@@ -24,6 +24,8 @@
 
 **/*.sum
 
+**/*.lock
+
 # Don't import keys.
 
 *.key
@@ -49,3 +51,14 @@
 **/node_modules/
 
 **/dist/
+
+
+## Jupyter
+
+**/*.ipynb_checkpoints/
+
+# Flutter / Dart
+
+**/.dart_tool/
+
+**/*.metadata

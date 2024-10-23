@@ -116,6 +116,7 @@ def store_archetypes(dynamodb, archetypes_data):
                     "Description": archetype.get("Description", ""),
                     "Attributes": archetype.get("Attributes", {}),
                     "Abilities": archetype.get("Abilities", {}),
+                    "StartRoom": archetype.get("StartRoom", 0),
                 }
                 batch.put_item(Item=convert_to_dynamodb_format(archetype_item))
         print("Archetype data stored in DynamoDB successfully")
@@ -325,10 +326,10 @@ def main():
     - Loads data back from DynamoDB and displays it.
     """
     parser = argparse.ArgumentParser(description="Load and store game data in DynamoDB.")
-    parser.add_argument("-r", "--rooms", default="test_rooms.json", help="Path to the Rooms JSON file.")
-    parser.add_argument("-e", "--exits", default="test_exits.json", help="Path to the Exits JSON file.")
-    parser.add_argument("-a", "--archetypes", default="test_archetypes.json", help="Path to the Archetypes JSON file.")
-    parser.add_argument("-p", "--prototypes", default="test_prototypes.json", help="Path to the Prototypes JSON file.")
+    parser.add_argument("-r", "--rooms", default="../data/test_rooms.json", help="Path to the Rooms JSON file.")
+    parser.add_argument("-e", "--exits", default="../data/test_exits.json", help="Path to the Exits JSON file.")
+    parser.add_argument("-a", "--archetypes", default="../data/test_archetypes.json", help="Path to the Archetypes JSON file.")
+    parser.add_argument("-p", "--prototypes", default="../data/test_prototypes.json", help="Path to the Prototypes JSON file.")
     parser.add_argument("-region", default="us-east-1", help="AWS region for DynamoDB.")
     args = parser.parse_args()
 
